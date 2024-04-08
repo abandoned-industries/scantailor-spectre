@@ -5,6 +5,7 @@
 #define SCANTAILOR_CORE_UTILS_H_
 
 #include <QString>
+#include <QObject>
 #include <map>
 #include <unordered_map>
 
