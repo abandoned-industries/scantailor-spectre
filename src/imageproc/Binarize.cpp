@@ -277,7 +277,12 @@ BinaryImage binarizeBradley(const QImage& src, const QSize windowSize, const dou
   return bwImg;
 }  // binarizeBradley
 
-BinaryImage binarizeGrad(const QImage& src, const QSize windowSize, const double k, const double delta) {
+BinaryImage binarizeGrad(const QImage& src,
+                         const QSize windowSize,
+                         const unsigned char lowerBound,
+                         const unsigned char upperBound,
+                         const double k,
+                         const double delta) {
   if (windowSize.isEmpty()) {
     throw std::invalid_argument("binarizeGrad: invalid windowSize");
   }
@@ -376,7 +381,7 @@ BinaryImage binarizeGrad(const QImage& src, const QSize windowSize, const double
       const double threshold = meanGrad + mean * k;
       const uint32_t msb = uint32_t(1) << 31;
       const uint32_t mask = msb >> (x & 31);
-      if (origin < (threshold + delta)) {
+      if ((grayLine[x] < lowerBound) || ((grayLine[x] <= upperBound) && (origin < (threshold + delta)))) {
         // black
         bwLine[x >> 5] |= mask;
       } else {

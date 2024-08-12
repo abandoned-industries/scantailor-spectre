@@ -2330,9 +2330,11 @@ BinaryImage OutputGenerator::Processor::binarize(const QImage& image) const {
     case T_GRAD: {
       const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
       const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
-      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+      const auto lowerBound = (unsigned char) blackWhiteOptions.getWolfLowerBound();
+      const auto upperBound = (unsigned char) blackWhiteOptions.getWolfUpperBound();
+      const double thresholdCoef = blackWhiteOptions.getWolfCoef();
 
-      binarized = binarizeGrad(image, windowsSize, thresholdCoef, thresholdDelta);
+      binarized = binarizeGrad(image, windowsSize, lowerBound, upperBound, thresholdCoef, thresholdDelta);
       break;
     }
     case T_EDGEPLUS: {

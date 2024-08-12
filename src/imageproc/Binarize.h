@@ -74,7 +74,12 @@ BinaryImage binarizeBradley(const QImage& src, QSize windowSize, double k = 0.34
  *
  * Grad (aka "Gradient snip"), zvezdochiot 2024. "Adaptive/global document image binarization".
  */
-BinaryImage binarizeGrad(const QImage& src, QSize windowSize, double k = 0.34, double delta = 0.0);
+BinaryImage binarizeGrad(const QImage& src,
+                         QSize windowSize,
+                         unsigned char lowerBound = 1,
+                         unsigned char upperBound = 254,
+                         double k = 0.3,
+                         double delta = 0.0);
 
 /**
  * \brief Image binarization using EdgeDiv (EdgePlus & BlurDiv) local/global thresholding method.

@@ -667,10 +667,10 @@ std::unique_ptr<DefaultParams> DefaultParamsDialog::buildParams() const {
   blackWhiteOptions.setBinarizationMethod(binarizationMethod);
   blackWhiteOptions.setThresholdAdjustment(thresholdSlider->value());
   blackWhiteOptions.setSauvolaCoef(sauvolaCoef->value());
-  if (binarizationMethod == T_SAUVOLA || binarizationMethod == T_BRADLEY || binarizationMethod == T_GRAD
-      || binarizationMethod == T_EDGEPLUS || binarizationMethod == T_BLURDIV || binarizationMethod == T_EDGEDIV) {
+  if (binarizationMethod == T_SAUVOLA || binarizationMethod == T_BRADLEY || binarizationMethod == T_EDGEPLUS
+      || binarizationMethod == T_BLURDIV || binarizationMethod == T_EDGEDIV) {
     blackWhiteOptions.setWindowSize(sauvolaWindowSize->value());
-  } else if (binarizationMethod == T_WOLF) {
+  } else if (binarizationMethod == T_WOLF || binarizationMethod == T_GRAD) {
     blackWhiteOptions.setWindowSize(wolfWindowSize->value());
   }
   blackWhiteOptions.setWolfCoef(wolfCoef->value());

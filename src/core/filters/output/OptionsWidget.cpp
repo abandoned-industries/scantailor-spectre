@@ -58,7 +58,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   QPointer<BinarizationOptionsWidget> wolfBinarizationOptionsWidget = new WolfBinarizationOptionsWidget(m_settings);
   QPointer<BinarizationOptionsWidget> bradleyBinarizationOptionsWidget
       = new SauvolaBinarizationOptionsWidget(m_settings);
-  QPointer<BinarizationOptionsWidget> gradBinarizationOptionsWidget = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> gradBinarizationOptionsWidget = new WolfBinarizationOptionsWidget(m_settings);
   QPointer<BinarizationOptionsWidget> edgeplusBinarizationOptionsWidget
       = new SauvolaBinarizationOptionsWidget(m_settings);
   QPointer<BinarizationOptionsWidget> blurdivBinarizationOptionsWidget
