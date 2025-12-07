@@ -7,8 +7,8 @@
 #include <imageproc/DebugImages.h>
 
 #include <QString>
-#include <functional>
 #include <deque>
+#include <functional>
 #include <memory>
 
 #include "AutoRemovingFile.h"
