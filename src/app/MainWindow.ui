@@ -1471,7 +1471,7 @@ QToolButton:pressed {
     <string>Remove selected pages from project</string>
    </property>
    <property name="shortcut">
-    <string notr="true">Del</string>
+    <string notr="true">Backspace</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>
