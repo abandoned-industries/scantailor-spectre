@@ -212,6 +212,7 @@ MainWindow::MainWindow()
   addAction(actionMagnifyThumbnails);
   addAction(actionDiminishThumbnails);
   addAction(actionReloadPage);
+  addAction(actionRemovePages);
 
   addAction(actionSwitchFilter1);
   addAction(actionSwitchFilter2);
@@ -258,6 +259,11 @@ MainWindow::MainWindow()
   connect(actionMagnifyThumbnails, &QAction::triggered, magnifyThumbnails);
   connect(actionDiminishThumbnails, &QAction::triggered, diminishThumbnails);
   connect(actionReloadPage, SIGNAL(triggered(bool)), SLOT(reloadCurrentPage()));
+  connect(actionRemovePages, &QAction::triggered, [this]() {
+    if (isProjectLoaded() && !m_thumbSequence->selectedItems().empty()) {
+      showRemovePagesDialog(m_thumbSequence->selectedItems());
+    }
+  });
 
   connect(actionSwitchFilter1, SIGNAL(triggered(bool)), SLOT(switchFilter1()));
   connect(actionSwitchFilter2, SIGNAL(triggered(bool)), SLOT(switchFilter2()));
