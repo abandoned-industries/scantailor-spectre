@@ -6,9 +6,7 @@
 #include <QDebug>
 #include <QImage>
 #include <QPainter>
-#if QT_VERSION_MAJOR > 5 || QT_VERSION_MINOR > 9
 #include <QRandomGenerator>
-#endif
 #include <boost/foreach.hpp>
 
 #include "CylindricalSurfaceDewarper.h"
@@ -159,20 +157,11 @@ DistortionModel DistortionModelBuilder::tryBuildModel(DebugImages* dbg, const QI
     }
   }
   // Continue by throwing in some random pairs of lines.
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR <= 9
-  qsrand(0);  // Repeatablity is important.
-#else
-  QRandomGenerator prng(0);  // Repeatablity is important.
-#endif
+  QRandomGenerator prng(0);  // Repeatability is important.
   int randomPairsRemaining = 10;
   while (randomPairsRemaining-- > 0) {
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR <= 9
-    int i = qrand() % numCurves;
-    int j = qrand() % numCurves;
-#else
     int i = prng.generate() % numCurves;
     int j = prng.generate() % numCurves;
-#endif
     if (i > j) {
       std::swap(i, j);
     }

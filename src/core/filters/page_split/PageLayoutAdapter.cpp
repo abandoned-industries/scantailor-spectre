@@ -13,11 +13,7 @@ QLineF PageLayoutAdapter::adaptCutter(const QLineF& cutterLine, const QRectF& ne
   QLineF upperBorder(newRect.topLeft(), newRect.topRight());
   QPointF upperIntersection;
   {
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-    auto is = upperBorder.intersect(cutterLine, &upperIntersection);
-#else
     auto is = upperBorder.intersects(cutterLine, &upperIntersection);
-#endif
     if (is == QLineF::NoIntersection) {
       return cutterLine;
     }
@@ -32,11 +28,7 @@ QLineF PageLayoutAdapter::adaptCutter(const QLineF& cutterLine, const QRectF& ne
   QLineF lowerBorder(newRect.bottomLeft(), newRect.bottomRight());
   QPointF lowerIntersection;
   {
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-    auto is = lowerBorder.intersect(cutterLine, &lowerIntersection);
-#else
     auto is = lowerBorder.intersects(cutterLine, &lowerIntersection);
-#endif
     if (is == QLineF::NoIntersection) {
       return cutterLine;
     }
@@ -68,11 +60,7 @@ QVector<QLineF> PageLayoutAdapter::adaptCutters(const QVector<QLineF>& cuttersLi
     QPointF intersection;
     QLineF cutterLeft = adaptedCutters.at(i - 1);
     QLineF cutterRight = adaptedCutters.at(i);
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-    auto is = cutterLeft.intersect(cutterRight, &intersection);
-#else
     auto is = cutterLeft.intersects(cutterRight, &intersection);
-#endif
     if (is == QLineF::NoIntersection) {
       continue;
     }
@@ -111,11 +99,7 @@ void PageLayoutAdapter::correctPageLayoutType(PageLayout* layout) {
 
     // if cutter lines match or intersect inside outline (not valid)
     QPointF intersection;
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-    QLineF::IntersectType intersectType = cutterLine1.intersect(cutterLine2, &intersection);
-#else
     QLineF::IntersectType intersectType = cutterLine1.intersects(cutterLine2, &intersection);
-#endif
     if (((intersectType != QLineF::NoIntersection)
          && (((intersection.y() > outline.top()) && (intersection.y() < outline.bottom()))))
         || ((intersectType == QLineF::NoIntersection) && (cutterLine1.pointAt(0) == cutterLine2.pointAt(0)))) {

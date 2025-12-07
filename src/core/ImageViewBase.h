@@ -240,11 +240,7 @@ class ImageViewBase : public QAbstractScrollArea {
 
   void resizeEvent(QResizeEvent* event) override;
 
-#if QT_VERSION_MAJOR == 5
-  void enterEvent(QEvent* event) override;
-#else
   void enterEvent(QEnterEvent* event) override;
-#endif
   void leaveEvent(QEvent* event) override;
 
   void showEvent(QShowEvent* event) override;

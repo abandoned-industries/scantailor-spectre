@@ -16,10 +16,7 @@
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
-#if QT_VERSION_MAJOR == 5
-  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
+  // Qt6 enables high DPI scaling by default
   Application app(argc, argv);
 
 #ifdef _WIN32
