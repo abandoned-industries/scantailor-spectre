@@ -125,23 +125,8 @@ if(APPLE)
     # Fix missing transitive dependencies (brotli libraries)
     # macdeployqt sometimes misses these
     add_custom_command(TARGET scantailor POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E echo "Fixing missing library dependencies..."
-      COMMAND /bin/bash -c "
-        FRAMEWORKS_DIR=\"$<TARGET_BUNDLE_DIR:scantailor>/Contents/Frameworks\"
-        # Find and copy libbrotlicommon if it's missing but libbrotlidec exists
-        if [ -f \"$$FRAMEWORKS_DIR/libbrotlidec.1.dylib\" ] && [ ! -f \"$$FRAMEWORKS_DIR/libbrotlicommon.1.dylib\" ]; then
-          BROTLI_COMMON=$$(otool -L \"$$FRAMEWORKS_DIR/libbrotlidec.1.dylib\" | grep brotlicommon | awk '{print $$1}' | head -1)
-          if [ -n \"$$BROTLI_COMMON\" ] && [ -f \"$$BROTLI_COMMON\" ]; then
-            cp \"$$BROTLI_COMMON\" \"$$FRAMEWORKS_DIR/\"
-            chmod 755 \"$$FRAMEWORKS_DIR/libbrotlicommon.1.dylib\"
-            # Fix the reference in libbrotlidec
-            install_name_tool -change \"$$BROTLI_COMMON\" \"@rpath/libbrotlicommon.1.dylib\" \"$$FRAMEWORKS_DIR/libbrotlidec.1.dylib\"
-            # Set the id of the copied library
-            install_name_tool -id \"@rpath/libbrotlicommon.1.dylib\" \"$$FRAMEWORKS_DIR/libbrotlicommon.1.dylib\"
-          fi
-        fi
-      "
-      COMMENT "Copying missing brotli libraries..."
+      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/packaging/macos/fix-bundle-libs.sh" "$<TARGET_BUNDLE_DIR:scantailor>"
+      COMMENT "Fixing missing library dependencies..."
     )
 
     # Ad-hoc code signing for local development
