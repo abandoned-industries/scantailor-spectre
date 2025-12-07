@@ -6,7 +6,7 @@
 
 #include <QPointF>
 #include <QPolygonF>
-#include <boost/function.hpp>
+#include <functional>
 
 #include "DraggableObject.h"
 
@@ -14,9 +14,9 @@ class ObjectDragHandler;
 
 class DraggablePolygon : public DraggableObject {
  public:
-  using PositionCallback = boost::function<QPolygonF()>;
+  using PositionCallback = std::function<QPolygonF()>;
 
-  using MoveRequestCallback = boost::function<void(const QPolygonF& polygon)>;
+  using MoveRequestCallback = std::function<void(const QPolygonF& polygon)>;
 
   DraggablePolygon();
 

@@ -6,7 +6,7 @@
 
 #include <QLineF>
 #include <QPointF>
-#include <boost/function.hpp>
+#include <functional>
 
 #include "DraggableObject.h"
 
@@ -14,9 +14,9 @@ class ObjectDragHandler;
 
 class DraggableLineSegment : public DraggableObject {
  public:
-  using PositionCallback = boost::function<QLineF()>;
+  using PositionCallback = std::function<QLineF()>;
 
-  using MoveRequestCallback = boost::function<void(const QLineF& line, Qt::KeyboardModifiers mask)>;
+  using MoveRequestCallback = std::function<void(const QLineF& line, Qt::KeyboardModifiers mask)>;
 
   DraggableLineSegment();
 

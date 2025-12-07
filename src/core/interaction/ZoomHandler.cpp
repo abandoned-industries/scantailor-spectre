@@ -13,7 +13,7 @@ ZoomHandler::ZoomHandler(ImageViewBase& imageView)
     : ZoomHandler(imageView, &InteractionHandler::defaultInteractionPermitter) {}
 
 ZoomHandler::ZoomHandler(ImageViewBase& imageView,
-                         const boost::function<bool(const InteractionState&)>& explicitInteractionPermitter)
+                         const std::function<bool(const InteractionState&)>& explicitInteractionPermitter)
     : m_imageView(imageView), m_interactionPermitter(explicitInteractionPermitter), m_focus(CURSOR) {
   m_magnifyShortcut = std::make_unique<QShortcut>(Qt::Key_Plus, &m_imageView);
   m_diminishShortcut = std::make_unique<QShortcut>(Qt::Key_Minus, &m_imageView);
