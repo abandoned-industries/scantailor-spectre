@@ -67,8 +67,14 @@ if (WIN32)
   endif()
 endif()
 
+# Determine if we're building a macOS bundle
+set(MACOS_BUNDLE_FLAG "")
+if(APPLE)
+  set(MACOS_BUNDLE_FLAG MACOSX_BUNDLE)
+endif()
+
 add_executable(
-    scantailor WIN32 ${gui_only_sources} ${gui_only_ui_files}
+    scantailor WIN32 ${MACOS_BUNDLE_FLAG} ${gui_only_sources} ${gui_only_ui_files}
     ${resource_files} ${win32_resource_file})
 target_link_libraries(
     scantailor
@@ -77,7 +83,59 @@ target_include_directories(
     scantailor
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
     "$<TARGET_PROPERTY:TIFF::TIFF,INTERFACE_INCLUDE_DIRECTORIES>")
-install(TARGETS scantailor RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+# macOS bundle configuration
+if(APPLE)
+  set_target_properties(scantailor PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "ScanTailor Advanced"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.scantailor.advanced"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${VERSION}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${VERSION}"
+    MACOSX_BUNDLE_ICON_FILE "scantailor.icns"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in"
+    OUTPUT_NAME "ScanTailor Advanced"
+  )
+
+  # Copy icon file into bundle Resources
+  set(MACOS_ICON_FILE "${CMAKE_SOURCE_DIR}/packaging/macos/scantailor.icns")
+  if(EXISTS "${MACOS_ICON_FILE}")
+    set_source_files_properties("${MACOS_ICON_FILE}" PROPERTIES
+      MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(scantailor PRIVATE "${MACOS_ICON_FILE}")
+  endif()
+
+  # Find macdeployqt
+  if(Qt6_FOUND)
+    get_target_property(QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+  else()
+    get_target_property(QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+  endif()
+  get_filename_component(QT_BIN_DIR "${QMAKE_EXECUTABLE}" DIRECTORY)
+  find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
+
+  if(MACDEPLOYQT_EXECUTABLE)
+    # Run macdeployqt to bundle Qt frameworks
+    add_custom_command(TARGET scantailor POST_BUILD
+      COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+        "$<TARGET_BUNDLE_DIR:scantailor>"
+        -always-overwrite
+      COMMENT "Running macdeployqt to bundle Qt frameworks..."
+    )
+
+    # Ad-hoc code signing for local development
+    add_custom_command(TARGET scantailor POST_BUILD
+      COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:scantailor>"
+      COMMENT "Ad-hoc signing the app bundle..."
+    )
+  else()
+    message(WARNING "macdeployqt not found. The app bundle will not be self-contained.")
+  endif()
+
+  # Install the bundle
+  install(TARGETS scantailor BUNDLE DESTINATION ".")
+else()
+  install(TARGETS scantailor RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
 
 if (Qt6_FOUND AND WIN32)
   #manage plugins with windeployqt.
