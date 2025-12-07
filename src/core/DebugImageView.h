@@ -6,8 +6,8 @@
 
 #include <QStackedWidget>
 #include <QWidget>
-#include <functional>
 #include <boost/intrusive/list.hpp>
+#include <functional>
 
 #include "AutoRemovingFile.h"
 

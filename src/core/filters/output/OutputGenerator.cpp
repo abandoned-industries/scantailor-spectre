@@ -48,8 +48,8 @@
 #include <QSize>
 #include <QTransform>
 #include <boost/bind/bind.hpp>
-#include <functional>
 #include <cmath>
+#include <functional>
 #include <stdexcept>
 
 #include "ColorParams.h"
@@ -775,7 +775,7 @@ const int MultiplyDeBruijnBitPosition2[32] = {0, 9,  1,  10, 13, 21, 2,  29, 11,
  * https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightMultLookup
  */
 inline int countConsecutiveZeroBitsTrailing(uint32_t v) {
-  return MultiplyDeBruijnBitPosition[((uint32_t)((v & -signed(v)) * 0x077CB531U)) >> 27];
+  return MultiplyDeBruijnBitPosition[((uint32_t) ((v & -signed(v)) * 0x077CB531U)) >> 27];
 }
 
 /**
@@ -790,7 +790,7 @@ inline int findPositionOfTheHighestBitSet(uint32_t v) {
   v |= v >> 4;
   v |= v >> 8;
   v |= v >> 16;
-  return MultiplyDeBruijnBitPosition2[(uint32_t)(v * 0x07C4ACDDU) >> 27];
+  return MultiplyDeBruijnBitPosition2[(uint32_t) (v * 0x07C4ACDDU) >> 27];
 }
 
 std::vector<QRect> findRectAreas(const BinaryImage& mask, BWColor contentColor, int sensitivity) {
