@@ -1,0 +1,169 @@
+name: macOS Build
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [master, main]
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (Release/Debug)'
+        required: false
+        default: 'Release'
+
+env:
+  BUILD_TYPE: ${{ github.event.inputs.build_type || 'Release' }}
+
+jobs:
+  build-macos:
+    runs-on: macos-14  # Apple Silicon runner (M1)
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew install qt6 boost libtiff libpng jpeg zlib librsvg
+
+    - name: Generate app icon
+      run: |
+        cd packaging/macos
+        # Generate icon using librsvg (installed above)
+        ./generate-icns.sh
+        ls -la scantailor.icns
+
+    - name: Configure CMake (Xcode generator)
+      run: |
+        mkdir build
+        cd build
+        cmake -G Xcode \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+          ..
+
+    - name: Build with Xcode
+      run: |
+        cd build
+        xcodebuild \
+          -project "ScanTailor Advanced.xcodeproj" \
+          -scheme scantailor \
+          -configuration ${{ env.BUILD_TYPE }} \
+          -derivedDataPath DerivedData \
+          build
+
+    - name: Locate app bundle
+      id: locate_app
+      run: |
+        # Find the built app bundle
+        APP_PATH=$(find build -name "ScanTailor Advanced.app" -type d | head -1)
+        echo "App found at: $APP_PATH"
+        echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+
+        # Get version from Info.plist
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
+        echo "Version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create DMG
+      run: |
+        cd packaging/macos
+        ./create-dmg.sh "../../${{ steps.locate_app.outputs.app_path }}/.."
+        ls -la *.dmg
+
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ScanTailor-Advanced-${{ steps.locate_app.outputs.version }}-macOS-arm64
+        path: packaging/macos/*.dmg
+        if-no-files-found: error
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: packaging/macos/*.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Build for Intel Macs as well
+  build-macos-intel:
+    runs-on: macos-13  # Intel runner
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew install qt6 boost libtiff libpng jpeg zlib librsvg
+
+    - name: Generate app icon
+      run: |
+        cd packaging/macos
+        ./generate-icns.sh
+        ls -la scantailor.icns
+
+    - name: Configure CMake (Xcode generator)
+      run: |
+        mkdir build
+        cd build
+        cmake -G Xcode \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
+          ..
+
+    - name: Build with Xcode
+      run: |
+        cd build
+        xcodebuild \
+          -project "ScanTailor Advanced.xcodeproj" \
+          -scheme scantailor \
+          -configuration ${{ env.BUILD_TYPE }} \
+          -derivedDataPath DerivedData \
+          build
+
+    - name: Locate app bundle
+      id: locate_app
+      run: |
+        APP_PATH=$(find build -name "ScanTailor Advanced.app" -type d | head -1)
+        echo "App found at: $APP_PATH"
+        echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
+        echo "Version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create DMG
+      run: |
+        cd packaging/macos
+        ./create-dmg.sh "../../${{ steps.locate_app.outputs.app_path }}/.."
+        # Rename to indicate Intel architecture
+        for f in *.dmg; do
+          mv "$f" "${f%.dmg}-x86_64.dmg"
+        done
+        ls -la *.dmg
+
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ScanTailor-Advanced-${{ steps.locate_app.outputs.version }}-macOS-x86_64
+        path: packaging/macos/*.dmg
+        if-no-files-found: error
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: packaging/macos/*.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
