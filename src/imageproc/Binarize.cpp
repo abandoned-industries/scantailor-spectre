@@ -27,10 +27,7 @@ BinaryImage binarizeMokji(const QImage& src, const unsigned maxEdgeWidth, const 
  * modification by zvezdochiot:
  * sauvola = mean * (1.0 + k * ((stderr + delta) / 128.0 - 1.0)), k = 0.34, delta = 0
  */
-BinaryImage binarizeSauvola(const QImage& src,
-                            const QSize windowSize,
-                            const double k,
-                            const double delta) {
+BinaryImage binarizeSauvola(const QImage& src, const QSize windowSize, const double k, const double delta) {
   if (windowSize.isEmpty()) {
     throw std::invalid_argument("binarizeSauvola: invalid windowSize");
   }
