@@ -75,6 +75,7 @@
     </widget>
     <addaction name="actionFixDpi"/>
     <addaction name="actionRelinking"/>
+    <addaction name="actionRemovePages"/>
     <addaction name="separator"/>
     <addaction name="actionDebug"/>
     <addaction name="separator"/>
@@ -1457,6 +1458,20 @@ QToolButton:pressed {
    </property>
    <property name="shortcut">
     <string notr="true">F5</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRemovePages">
+   <property name="text">
+    <string>Remove Selected Pages</string>
+   </property>
+   <property name="toolTip">
+    <string>Remove selected pages from project</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Del</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>
