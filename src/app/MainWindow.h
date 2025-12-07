@@ -10,7 +10,7 @@
 #include <QSizeF>
 #include <QString>
 #include <QTimer>
-#include <boost/function.hpp>
+#include <functional>
 #include <memory>
 #include <set>
 #include <vector>
@@ -317,7 +317,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   std::unique_ptr<PageOrientationPropagator> m_pageOrientationPropagator;
   std::unique_ptr<QWidget> m_batchProcessingWidget;
   std::unique_ptr<ProcessingIndicationWidget> m_processingIndicationWidget;
-  boost::function<bool()> m_checkBeepWhenFinished;
+  std::function<bool()> m_checkBeepWhenFinished;
   SelectedPage m_selectedPage;
   QObjectCleanupHandler m_optionsWidgetCleanup;
   QObjectCleanupHandler m_imageWidgetCleanup;

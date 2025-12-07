@@ -8,7 +8,7 @@
 #include <QColor>
 #include <QPoint>
 #include <QPointF>
-#include <boost/function.hpp>
+#include <functional>
 #include <memory>
 
 #include "ColorPickupInteraction.h"
@@ -33,8 +33,8 @@ class FillZoneEditor : public ZoneEditorBase {
  public:
   FillZoneEditor(const QImage& image,
                  const ImagePixmapUnion& downscaledVersion,
-                 const boost::function<QPointF(const QPointF&)>& origToImage,
-                 const boost::function<QPointF(const QPointF&)>& imageToOrig,
+                 const std::function<QPointF(const QPointF&)>& origToImage,
+                 const std::function<QPointF(const QPointF&)>& imageToOrig,
                  const PageId& pageId,
                  std::shared_ptr<Settings> settings);
 
@@ -76,8 +76,8 @@ class FillZoneEditor : public ZoneEditorBase {
   ColorAdapter m_colorAdapter;
   ColorPickupInteraction m_colorPickupInteraction;
 
-  boost::function<QPointF(const QPointF&)> m_origToImage;
-  boost::function<QPointF(const QPointF&)> m_imageToOrig;
+  std::function<QPointF(const QPointF&)> m_origToImage;
+  std::function<QPointF(const QPointF&)> m_imageToOrig;
   PageId m_pageId;
   std::shared_ptr<Settings> m_settings;
 };

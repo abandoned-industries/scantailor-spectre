@@ -7,7 +7,7 @@
 #include <QColor>
 #include <QObject>
 #include <QtGlobal>
-#include <boost/function.hpp>
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
@@ -35,7 +35,7 @@ class ZoneContextMenuInteraction : public QObject, public InteractionHandler {
   };
 
   using MenuCustomizer
-      = boost::function<std::vector<ZoneContextMenuItem>(const EditableZoneSet::Zone&, const StandardMenuItems&)>;
+      = std::function<std::vector<ZoneContextMenuItem>(const EditableZoneSet::Zone&, const StandardMenuItems&)>;
 
   /**
    * \note This factory method will return null if there are no zones

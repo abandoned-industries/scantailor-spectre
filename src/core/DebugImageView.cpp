@@ -45,7 +45,7 @@ class DebugImageView::ImageLoader : public AbstractCommand<BackgroundExecutor::T
 
 
 DebugImageView::DebugImageView(AutoRemovingFile file,
-                               const boost::function<QWidget*(const QImage&)>& imageViewFactory,
+                               const std::function<QWidget*(const QImage&)>& imageViewFactory,
                                QWidget* parent)
     : QStackedWidget(parent),
       m_file(file),

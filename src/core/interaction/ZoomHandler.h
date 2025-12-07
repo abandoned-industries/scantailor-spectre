@@ -6,7 +6,7 @@
 
 #include <QCoreApplication>
 #include <QPoint>
-#include <boost/function.hpp>
+#include <functional>
 
 #include "InteractionHandler.h"
 #include "InteractionState.h"
@@ -22,7 +22,7 @@ class ZoomHandler : public InteractionHandler {
   explicit ZoomHandler(ImageViewBase& imageView);
 
   ZoomHandler(ImageViewBase& imageView,
-              const boost::function<bool(const InteractionState&)>& explicitInteractionPermitter);
+              const std::function<bool(const InteractionState&)>& explicitInteractionPermitter);
 
   ~ZoomHandler() override;
 
@@ -39,7 +39,7 @@ class ZoomHandler : public InteractionHandler {
   void zoom(double factor);
 
   ImageViewBase& m_imageView;
-  boost::function<bool(const InteractionState&)> m_interactionPermitter;
+  std::function<bool(const InteractionState&)> m_interactionPermitter;
   InteractionState::Captor m_interaction;
   Focus m_focus;
   QPointF m_virtualMousePos;
