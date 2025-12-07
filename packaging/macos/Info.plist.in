@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>scantailor</string>
+    <string>ScanTailor Advanced</string>
     <key>CFBundleIconFile</key>
     <string>scantailor.icns</string>
     <key>CFBundleIdentifier</key>
