@@ -23,11 +23,11 @@ class FileNameDisambiguator::Impl {
  public:
   Impl();
 
-  Impl(const QDomElement& disambiguatorEl, const boost::function<QString(const QString&)>& filePathUnpacker);
+  Impl(const QDomElement& disambiguatorEl, const std::function<QString(const QString&)>& filePathUnpacker);
 
   QDomElement toXml(QDomDocument& doc,
                     const QString& name,
-                    const boost::function<QString(const QString&)>& filePathPacker) const;
+                    const std::function<QString(const QString&)>& filePathPacker) const;
 
   int getLabel(const QString& filePath) const;
 
@@ -79,7 +79,7 @@ FileNameDisambiguator::FileNameDisambiguator(const QDomElement& disambiguatorEl)
     : m_impl(std::make_unique<Impl>(disambiguatorEl, boost::lambda::_1)) {}
 
 FileNameDisambiguator::FileNameDisambiguator(const QDomElement& disambiguatorEl,
-                                             const boost::function<QString(const QString&)>& filePathUnpacker)
+                                             const std::function<QString(const QString&)>& filePathUnpacker)
     : m_impl(std::make_unique<Impl>(disambiguatorEl, filePathUnpacker)) {}
 
 FileNameDisambiguator::~FileNameDisambiguator() = default;
@@ -90,7 +90,7 @@ QDomElement FileNameDisambiguator::toXml(QDomDocument& doc, const QString& name)
 
 QDomElement FileNameDisambiguator::toXml(QDomDocument& doc,
                                          const QString& name,
-                                         const boost::function<QString(const QString&)>& filePathPacker) const {
+                                         const std::function<QString(const QString&)>& filePathPacker) const {
   return m_impl->toXml(doc, name, filePathPacker);
 }
 
@@ -115,7 +115,7 @@ FileNameDisambiguator::Impl::Impl()
       m_unorderedItems(m_items.get<UnorderedItemsTag>()) {}
 
 FileNameDisambiguator::Impl::Impl(const QDomElement& disambiguatorEl,
-                                  const boost::function<QString(const QString&)>& filePathUnpacker)
+                                  const std::function<QString(const QString&)>& filePathUnpacker)
     : m_items(),
       m_itemsByFilePath(m_items.get<ItemsByFilePathTag>()),
       m_itemsByFileNameLabel(m_items.get<ItemsByFileNameLabelTag>()),
@@ -144,7 +144,7 @@ FileNameDisambiguator::Impl::Impl(const QDomElement& disambiguatorEl,
 
 QDomElement FileNameDisambiguator::Impl::toXml(QDomDocument& doc,
                                                const QString& name,
-                                               const boost::function<QString(const QString&)>& filePathPacker) const {
+                                               const std::function<QString(const QString&)>& filePathPacker) const {
   const QMutexLocker locker(&m_mutex);
 
   QDomElement el(doc.createElement(name));

@@ -5,15 +5,15 @@
 #define SCANTAILOR_INTERACTION_DRAGGABLEPOINT_H_
 
 #include <QPointF>
-#include <boost/function.hpp>
+#include <functional>
 
 #include "DraggableObject.h"
 
 class DraggablePoint : public DraggableObject {
  public:
-  using PositionCallback = boost::function<QPointF()>;
+  using PositionCallback = std::function<QPointF()>;
 
-  using MoveRequestCallback = boost::function<void(const QPointF& mousePos, Qt::KeyboardModifiers mask)>;
+  using MoveRequestCallback = std::function<void(const QPointF& mousePos, Qt::KeyboardModifiers mask)>;
 
   DraggablePoint();
 

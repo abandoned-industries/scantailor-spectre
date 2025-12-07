@@ -33,8 +33,8 @@ class FillZoneEditor::MenuCustomizer {
 
 FillZoneEditor::FillZoneEditor(const QImage& image,
                                const ImagePixmapUnion& downscaledVersion,
-                               const boost::function<QPointF(const QPointF&)>& origToImage,
-                               const boost::function<QPointF(const QPointF&)>& imageToOrig,
+                               const std::function<QPointF(const QPointF&)>& origToImage,
+                               const std::function<QPointF(const QPointF&)>& imageToOrig,
                                const PageId& pageId,
                                std::shared_ptr<Settings> settings)
     : ZoneEditorBase(image, downscaledVersion, ImagePresentation(QTransform(), QRectF(image.rect())), OutputMargins()),

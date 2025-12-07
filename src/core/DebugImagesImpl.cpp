@@ -12,7 +12,7 @@
 
 void DebugImagesImpl::add(const QImage& image,
                           const QString& label,
-                          const boost::function<QWidget*(const QImage&)>& imageViewFactory) {
+                          const std::function<QWidget*(const QImage&)>& imageViewFactory) {
   QTemporaryFile file(QDir::tempPath() + "/scantailor-dbg-XXXXXX.png");
   if (!file.open()) {
     return;
@@ -32,12 +32,12 @@ void DebugImagesImpl::add(const QImage& image,
 
 void DebugImagesImpl::add(const imageproc::BinaryImage& image,
                           const QString& label,
-                          const boost::function<QWidget*(const QImage&)>& imageViewFactory) {
+                          const std::function<QWidget*(const QImage&)>& imageViewFactory) {
   add(image.toQImage(), label, imageViewFactory);
 }
 
 AutoRemovingFile DebugImagesImpl::retrieveNext(QString* label,
-                                               boost::function<QWidget*(const QImage&)>* imageViewFactory) {
+                                               std::function<QWidget*(const QImage&)>* imageViewFactory) {
   if (m_sequence.empty()) {
     return AutoRemovingFile();
   }

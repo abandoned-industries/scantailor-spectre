@@ -7,7 +7,7 @@
 #include <imageproc/DebugImages.h>
 
 #include <QString>
-#include <boost/function.hpp>
+#include <functional>
 #include <deque>
 #include <memory>
 
@@ -20,13 +20,13 @@ class DebugImagesImpl : public DebugImages {
  public:
   void add(const QImage& image,
            const QString& label,
-           const boost::function<QWidget*(const QImage&)>& imageViewFactory
-           = boost::function<QWidget*(const QImage&)>()) override;
+           const std::function<QWidget*(const QImage&)>& imageViewFactory
+           = std::function<QWidget*(const QImage&)>()) override;
 
   void add(const imageproc::BinaryImage& image,
            const QString& label,
-           const boost::function<QWidget*(const QImage&)>& imageViewFactory
-           = boost::function<QWidget*(const QImage&)>()) override;
+           const std::function<QWidget*(const QImage&)>& imageViewFactory
+           = std::function<QWidget*(const QImage&)>()) override;
 
   bool empty() const override { return m_sequence.empty(); }
 
@@ -38,15 +38,15 @@ class DebugImagesImpl : public DebugImages {
    * Returns a null AutoRemovingFile if image sequence is empty.
    */
   AutoRemovingFile retrieveNext(QString* label = nullptr,
-                                boost::function<QWidget*(const QImage&)>* imageViewFactory = nullptr) override;
+                                std::function<QWidget*(const QImage&)>* imageViewFactory = nullptr) override;
 
  private:
   struct Item {
     AutoRemovingFile file;
     QString label;
-    boost::function<QWidget*(const QImage&)> imageViewFactory;
+    std::function<QWidget*(const QImage&)> imageViewFactory;
 
-    Item(AutoRemovingFile f, const QString& l, const boost::function<QWidget*(const QImage&)>& imf)
+    Item(AutoRemovingFile f, const QString& l, const std::function<QWidget*(const QImage&)>& imf)
         : file(f), label(l), imageViewFactory(imf) {}
 
     virtual ~Item() = default;
