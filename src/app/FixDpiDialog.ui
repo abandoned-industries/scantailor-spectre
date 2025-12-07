@@ -6,14 +6,27 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>339</width>
-    <height>339</height>
+    <width>450</width>
+    <height>400</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Fix DPI</string>
   </property>
   <layout class="QVBoxLayout">
+   <item>
+    <widget class="QLabel" name="explanationLabel">
+     <property name="text">
+      <string>Some images don't have DPI (resolution) information embedded. ScanTailor needs this to calculate physical page sizes. Select images below and set their scanning resolution (typically 300, 400, or 600 DPI for most scanners).</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="margin">
+      <number>5</number>
+     </property>
+    </widget>
+   </item>
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
@@ -44,7 +57,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>DPI</string>
+      <string>Set DPI for Selected Images</string>
      </property>
      <layout class="QHBoxLayout">
       <item>
