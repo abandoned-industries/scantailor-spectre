@@ -7,13 +7,13 @@
 #include <Transform.h>
 
 #include <QApplication>
-#include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QMouseEvent>
 #include <QPaintEngine>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPointer>
 #include <QScrollBar>
+#include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QStatusBar>
 

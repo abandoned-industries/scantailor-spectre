@@ -23,8 +23,8 @@ class ZoneInteractionContext {
   using ZoneCreationInteractionCreator = std::function<InteractionHandler*(InteractionState& interaction)>;
 
   using VertexDragInteractionCreator = std::function<InteractionHandler*(InteractionState& interaction,
-                                                                           const EditableSpline::Ptr& spline,
-                                                                           const SplineVertex::Ptr& vertex)>;
+                                                                         const EditableSpline::Ptr& spline,
+                                                                         const SplineVertex::Ptr& vertex)>;
 
   using ZoneDragInteractionCreator
       = std::function<InteractionHandler*(InteractionState& interaction, const EditableSpline::Ptr& spline)>;

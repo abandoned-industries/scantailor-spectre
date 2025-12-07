@@ -5,8 +5,8 @@
 #define SCANTAILOR_IMAGEPROC_DEBUGIMAGES_H_
 
 #include <QString>
-#include <functional>
 #include <deque>
+#include <functional>
 
 #include "AutoRemovingFile.h"
 

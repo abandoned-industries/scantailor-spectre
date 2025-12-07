@@ -6,9 +6,9 @@
 
 #include <QCoreApplication>
 #include <QPointF>
-#include <functional>
 #include <boost/scoped_array.hpp>
 #include <cstddef>
+#include <functional>
 
 #include "DraggablePoint.h"
 #include "InteractionState.h"
