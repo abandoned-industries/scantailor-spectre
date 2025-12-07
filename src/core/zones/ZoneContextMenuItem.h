@@ -5,7 +5,7 @@
 #define SCANTAILOR_ZONES_ZONECONTEXTMENUITEM_H_
 
 #include <QString>
-#include <boost/function.hpp>
+#include <functional>
 
 class InteractionState;
 class InteractionHandler;
@@ -22,7 +22,7 @@ class ZoneContextMenuItem {
    * you will need to make sure it's disconnected from ZoneInteractionContext
    * before ZoneInteractionContext destroys.
    */
-  using Callback = boost::function<InteractionHandler*(InteractionState&)>;
+  using Callback = std::function<InteractionHandler*(InteractionState&)>;
 
   ZoneContextMenuItem(const QString& label, const Callback& callback) : m_label(label), m_callback(callback) {}
 

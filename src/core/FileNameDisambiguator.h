@@ -4,7 +4,7 @@
 #ifndef SCANTAILOR_CORE_FILENAMEDISAMBIGUATOR_H_
 #define SCANTAILOR_CORE_FILENAMEDISAMBIGUATOR_H_
 
-#include <boost/function.hpp>
+#include <functional>
 #include <memory>
 #include <set>
 
@@ -42,7 +42,7 @@ class FileNameDisambiguator {
    * the record will be skipped.
    */
   FileNameDisambiguator(const QDomElement& disambiguatorEl,
-                        const boost::function<QString(const QString&)>& filePathUnpacker);
+                        const std::function<QString(const QString&)>& filePathUnpacker);
 
   virtual ~FileNameDisambiguator();
 
@@ -61,7 +61,7 @@ class FileNameDisambiguator {
    */
   QDomElement toXml(QDomDocument& doc,
                     const QString& name,
-                    const boost::function<QString(const QString&)>& filePathPacker) const;
+                    const std::function<QString(const QString&)>& filePathPacker) const;
 
   int getLabel(const QString& filePath) const;
 

@@ -4,7 +4,7 @@
 #ifndef SCANTAILOR_ZONES_ZONEINTERACTIONCONTEXT_H_
 #define SCANTAILOR_ZONES_ZONEINTERACTIONCONTEXT_H_
 
-#include <boost/function.hpp>
+#include <functional>
 
 #include "EditableSpline.h"
 #include "EditableZoneSet.h"
@@ -18,20 +18,20 @@ class EditableZoneSet;
 
 class ZoneInteractionContext {
  public:
-  using DefaultInteractionCreator = boost::function<InteractionHandler*()>;
+  using DefaultInteractionCreator = std::function<InteractionHandler*()>;
 
-  using ZoneCreationInteractionCreator = boost::function<InteractionHandler*(InteractionState& interaction)>;
+  using ZoneCreationInteractionCreator = std::function<InteractionHandler*(InteractionState& interaction)>;
 
-  using VertexDragInteractionCreator = boost::function<InteractionHandler*(InteractionState& interaction,
+  using VertexDragInteractionCreator = std::function<InteractionHandler*(InteractionState& interaction,
                                                                            const EditableSpline::Ptr& spline,
                                                                            const SplineVertex::Ptr& vertex)>;
 
   using ZoneDragInteractionCreator
-      = boost::function<InteractionHandler*(InteractionState& interaction, const EditableSpline::Ptr& spline)>;
+      = std::function<InteractionHandler*(InteractionState& interaction, const EditableSpline::Ptr& spline)>;
 
-  using ContextMenuInteractionCreator = boost::function<InteractionHandler*(InteractionState& interaction)>;
+  using ContextMenuInteractionCreator = std::function<InteractionHandler*(InteractionState& interaction)>;
 
-  using ShowPropertiesCommand = boost::function<void(const EditableZoneSet::Zone& zone)>;
+  using ShowPropertiesCommand = std::function<void(const EditableZoneSet::Zone& zone)>;
 
   ZoneInteractionContext(ImageViewBase& imageView, EditableZoneSet& zones);
 

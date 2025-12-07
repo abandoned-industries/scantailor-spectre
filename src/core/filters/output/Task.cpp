@@ -537,8 +537,8 @@ void Task::UiUpdater::updateUI(FilterUiInterface* ui) {
   // In OptionsWidget::dewarpingChanged() we make sure to reload
   // if we are on the "Fill Zones" tab, and if not, it will be reloaded
   // anyway when another tab is selected.
-  boost::function<QPointF(const QPointF&)> origToOutput;
-  boost::function<QPointF(const QPointF&)> outputToOrig;
+  std::function<QPointF(const QPointF&)> origToOutput;
+  std::function<QPointF(const QPointF&)> outputToOrig;
   if ((m_params.dewarpingOptions().dewarpingMode() != OFF) && m_params.distortionModel().isValid()) {
     const QTransform rotateXform
         = Utils::rotate(m_params.dewarpingOptions().getPostDeskewAngle(), m_xform.resultingRect().toRect());

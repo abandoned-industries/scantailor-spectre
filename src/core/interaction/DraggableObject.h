@@ -4,7 +4,7 @@
 #ifndef SCANTAILOR_INTERACTION_DRAGGABLEOBJECT_H_
 #define SCANTAILOR_INTERACTION_DRAGGABLEOBJECT_H_
 
-#include <boost/function.hpp>
+#include <functional>
 
 #include "InteractionState.h"
 #include "Proximity.h"
@@ -16,19 +16,19 @@ class QPainter;
 
 class DraggableObject {
  public:
-  using PaintCallback = boost::function<void(QPainter& painter, const InteractionState& interaction)>;
+  using PaintCallback = std::function<void(QPainter& painter, const InteractionState& interaction)>;
 
-  using ProximityThresholdCallback = boost::function<Proximity(const InteractionState& interaction)>;
+  using ProximityThresholdCallback = std::function<Proximity(const InteractionState& interaction)>;
 
-  using ProximityPriorityCallback = boost::function<int()>;
+  using ProximityPriorityCallback = std::function<int()>;
 
-  using ProximityCallback = boost::function<Proximity(const QPointF& mousePos)>;
+  using ProximityCallback = std::function<Proximity(const QPointF& mousePos)>;
 
-  using DragInitiatedCallback = boost::function<void(const QPointF& mousePos)>;
+  using DragInitiatedCallback = std::function<void(const QPointF& mousePos)>;
 
-  using DragContinuationCallback = boost::function<void(const QPointF& mousePos, Qt::KeyboardModifiers mask)>;
+  using DragContinuationCallback = std::function<void(const QPointF& mousePos, Qt::KeyboardModifiers mask)>;
 
-  using DragFinishedCallback = boost::function<void(const QPointF& mousePos)>;
+  using DragFinishedCallback = std::function<void(const QPointF& mousePos)>;
 
   DraggableObject()
       : m_paintCallback(&DraggableObject::defaultPaint),

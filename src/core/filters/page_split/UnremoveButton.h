@@ -7,7 +7,7 @@
 #include <QCoreApplication>
 #include <QPixmap>
 #include <QPointF>
-#include <boost/function.hpp>
+#include <functional>
 
 #include "InteractionHandler.h"
 #include "InteractionState.h"
@@ -17,8 +17,8 @@ namespace page_split {
 class UnremoveButton : public InteractionHandler {
   Q_DECLARE_TR_FUNCTIONS(page_split::UnremoveButton)
  public:
-  using PositionGetter = boost::function<QPointF()>;
-  using ClickCallback = boost::function<void()>;
+  using PositionGetter = std::function<QPointF()>;
+  using ClickCallback = std::function<void()>;
 
   explicit UnremoveButton(const PositionGetter& positionGetter);
 
