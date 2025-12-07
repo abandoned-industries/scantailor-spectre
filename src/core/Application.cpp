@@ -58,11 +58,7 @@ std::list<QString> Application::getLanguagesList() const {
 }
 
 void Application::initTranslations() {
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-  auto opt = QString::SkipEmptyParts;
-#else
   auto opt = Qt::SkipEmptyParts;
-#endif
   const QStringList translationDirs(QString::fromUtf8(TRANSLATION_DIRS).split(QChar(':'), opt));
 
   const QStringList languageFileFilter("scantailor_*.qm");
