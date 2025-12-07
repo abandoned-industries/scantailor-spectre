@@ -1,15 +1,10 @@
-cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
 # Disable in-source builds.
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
   message(FATAL_ERROR
       "FATAL: In-source builds are not allowed."
       " You should create a separate directory for build files.")
-endif()
-
-# Set cmake policies.
-if (POLICY CMP0071)
-  cmake_policy(SET CMP0071 NEW)
 endif()
 
 project("ScanTailor Advanced")
@@ -19,13 +14,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 if (NOT DEFAULT_COMPILER_FLAGS_IS_SET)
   if (MSVC)
-    option(WIN_XP "Whether to build for Windows XP." OFF)
-    if (WIN_XP)
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D_USING_V110_SDK71_")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_USING_V110_SDK71_")
-      set(CMAKE_EXE_LINKER_FLAGS "/SUBSYSTEM:CONSOLE,5.01 /SUBSYSTEM:WINDOWS,5.01 ${CMAKE_EXE_LINKER_FLAGS}")
-    endif()
-
     # Disable checked iterators for extra performance.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D_SECURE_SCL=0")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SECURE_SCL=0")
@@ -34,15 +22,17 @@ if (NOT DEFAULT_COMPILER_FLAGS_IS_SET)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /DDEBUG_CLI")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DDEBUG_CLI")
     endif()
-  elseif (WIN_XP)
-    unset(WIN_XP CACHE)
-    message(WARNING "Only MSVC toolchain is supported to build for Windows XP.")
   endif()
 
   if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Werror=return-type -Wno-unused")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror=return-type -Wno-unused")
-    add_compile_options("$<$<CONFIG:RELEASE>:-march=native;-mtune=native>")
+  endif()
+
+  # Apple Silicon / macOS optimizations
+  if (APPLE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Werror=return-type -Wno-unused")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror=return-type -Wno-unused")
   endif()
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}"
@@ -167,21 +157,6 @@ endif()
 #set(Boost_NO_WARN_NEW_VERSIONS ON)
 
 if (WIN32)
-  if (MINGW)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-      set(_boost_architecture "-x64")
-    else()
-      set(_boost_architecture "-x32")
-    endif()
-    set(Boost_ARCHITECTURE ${_boost_architecture} CACHE STRING "")
-
-    #set(Boost_DEBUG ON)
-    string(REGEX MATCHALL "[0-9]+" _boost_compiler_version ${CMAKE_CXX_COMPILER_VERSION})
-    list(GET _boost_compiler_version 0 _boost_compiler_version_major)
-    list(GET _boost_compiler_version 1 _boost_compiler_version_minor)
-    set(Boost_COMPILER "-mgw${_boost_compiler_version_major}" CACHE STRING "")
-  endif()
-
   real_path_find_glob(boost_include_dir_hints "${BOOST_ROOT}/include/boost-[_0-9]*/boost")
   list(APPEND boost_include_dir_hints "${BOOST_ROOT}/include/boost" "${BOOST_ROOT}/boost")
   find_path(
@@ -206,39 +181,21 @@ endif()
 
 #=================================== Qt ===================================#
 
-set(qt_min_version 5.9)
-
 find_package(
-    Qt6
+    Qt6 6.2 REQUIRED
     COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets
     CONFIG)
-if (Qt6_FOUND)
-    set(QT_BINDIR "${QT6_INSTALL_PREFIX}/bin")
-else()
-  find_package(Qt5 ${qt_min_version}
-    COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg
-    CONFIG REQUIRED)
-    set(QT_BINDIR "${QT5_INSTALL_PREFIX}/bin")
-endif()
+set(QT_BINDIR "${QT6_INSTALL_PREFIX}/bin")
 
-if(Qt6_FOUND)
-  set(Qt_Core_lib Qt::Core)
-  set(Qt_Gui_lib Qt::Gui)
-  set(Qt_Network_lib Qt::Network)
-  set(Qt_OpenGL_lib Qt::OpenGL)
-  set(Qt_Svg_lib Qt::Svg)
-  set(Qt_Widgets_lib Qt::Widgets)
-  set(Qt_Xml_lib Qt::Xml)
-  set(Qt_OpenGLWidgets_lib Qt::OpenGLWidgets)
-else()
-  set(Qt_Core_lib Qt5::Core)
-  set(Qt_Gui_lib Qt5::Gui)
-  set(Qt_Network_lib Qt5::Network)
-  set(Qt_OpenGL_lib Qt5::OpenGL)
-  set(Qt_Svg_lib Qt5::Svg)
-  set(Qt_Widgets_lib Qt5::Widgets)
-  set(Qt_Xml_lib Qt5::Xml)
-endif()
+# Use modern Qt:: namespace targets
+set(Qt_Core_lib Qt::Core)
+set(Qt_Gui_lib Qt::Gui)
+set(Qt_Network_lib Qt::Network)
+set(Qt_OpenGL_lib Qt::OpenGL)
+set(Qt_Svg_lib Qt::Svg)
+set(Qt_Widgets_lib Qt::Widgets)
+set(Qt_Xml_lib Qt::Xml)
+set(Qt_OpenGLWidgets_lib Qt::OpenGLWidgets)
 
 
 #=================================== Threads ===================================#
@@ -326,11 +283,7 @@ finalize_translations(scantailor ${translation_files})
 update_translations_target(update_translations scantailor)
 
 list(FILTER translation_files EXCLUDE REGEX ".*untranslated.ts")
-if(Qt6_FOUND)
-  Qt_add_translation(qm_files ${translation_files})
-else()
-  Qt5_add_translation(qm_files ${translation_files})
-endif()
+qt_add_translation(qm_files ${translation_files})
 add_custom_target(compile_translations ALL DEPENDS ${qm_files})
 if (WIN32)
   install(FILES ${qm_files} DESTINATION "${CMAKE_INSTALL_BINDIR}/translations")
@@ -361,17 +314,10 @@ if (WIN32)
   endmacro()
 
   # Install the DLLs of the dependencies.
-  if(Qt6_FOUND)
-    set(dep_libs
-        JPEG::JPEG PNG::PNG ZLIB::ZLIB TIFF::TIFF
-        Qt::Core Qt::Gui Qt::Widgets Qt::Xml
-        Qt::Network Qt::OpenGL Qt::Svg Qt6::OpenGLWidgets)
-  else()
-    set(dep_libs
-        JPEG::JPEG PNG::PNG ZLIB::ZLIB TIFF::TIFF
-        Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Xml
-        Qt5::Network Qt5::OpenGL Qt5::Svg)
-  endif()
+  set(dep_libs
+      JPEG::JPEG PNG::PNG ZLIB::ZLIB TIFF::TIFF
+      Qt::Core Qt::Gui Qt::Widgets Qt::Xml
+      Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets)
 
   foreach (_target ${dep_libs})
     get_target_property(target_type ${_target} TYPE)
@@ -389,46 +335,6 @@ if (WIN32)
     add_runtime_libs_to_install(RELEASE "${release_loc}")
     add_runtime_libs_to_install(DEBUG "${debug_loc}")
   endforeach()
-
-  #with Qt6, winqtdeploy is used to deploy plugins; the method below does not work anymore.
-  if (NOT Qt6_FOUND)
-    # Install Qt plugins.
-    macro (install_qt_plugin SubDir Target)
-      if (TARGET ${Target})
-        get_target_property(target_type ${Target} TYPE)
-        if (target_type STREQUAL "MODULE_LIBRARY")
-          get_target_property(release_loc ${Target} LOCATION_RELEASE)
-          get_target_property(debug_loc ${Target} LOCATION_DEBUG)
-          set_if_undefined(debug_loc "${release_loc}")
-
-          copy_to_build_dir("${release_loc}" SUBDIR ${SubDir} CONFIGURATIONS Release MinSizeRel RelWithDebInfo)
-          install(PROGRAMS "${release_loc}"
-            CONFIGURATIONS Release MinSizeRel RelWithDebInfo
-            DESTINATION "${CMAKE_INSTALL_BINDIR}/${SubDir}")
-          copy_to_build_dir("${debug_loc}" SUBDIR ${SubDir} CONFIGURATIONS Debug)
-          install(PROGRAMS "${debug_loc}"
-            CONFIGURATIONS Debug
-            DESTINATION "${CMAKE_INSTALL_BINDIR}/${SubDir}")
-        endif()
-      endif()
-    endmacro()
-
-    install_qt_plugin("platforms" Qt::QWindowsIntegrationPlugin)
-    install_qt_plugin("styles" Qt::QWindowsVistaStylePlugin)
-    install_qt_plugin("imageformats" Qt::QJpegPlugin)
-    install_qt_plugin("accessible"  Qt::QAccessiblePlugin)
-    install_qt_plugin("iconengines" Qt::QSvgIconPlugin)
-    install_qt_plugin("imageformats" Qt::QSvgPlugin)
-  endif()
-
-  # Install MinGW runtime components.
-  if (MINGW)
-    get_filename_component(_mingw_path ${CMAKE_CXX_COMPILER} PATH)
-    file(GLOB libgcc_s "${_mingw_path}/libgcc_s_*.dll")
-    file(GLOB libstdcpp "${_mingw_path}/libstdc++*.dll")
-    file(GLOB libwinpthread "${_mingw_path}/libwinpthread*.dll")
-    add_runtime_libs_to_install(ALL "${libgcc_s};${libstdcpp};${libwinpthread}")
-  endif()
 
   copy_to_build_dir(${ADDITIONAL_RUNTIME_LIBS_RELEASE} CONFIGURATIONS Release MinSizeRel RelWithDebInfo)
   copy_to_build_dir(${ADDITIONAL_RUNTIME_LIBS_DEBUG} CONFIGURATIONS Debug)
