@@ -1400,7 +1400,7 @@ void MainWindow::exportToPdf() {
   qualityCombo->setCurrentIndex(1);  // Default to Medium
   layout->addRow(tr("Quality:"), qualityCombo);
 
-  auto* qualityNote = new QLabel(tr("Quality affects color and mixed-mode pages."));
+  auto* qualityNote = new QLabel(tr("Quality affects color pages and grayscale (when compressed)."));
   qualityNote->setStyleSheet("color: gray; font-size: 11px;");
   layout->addRow(qualityNote);
 
