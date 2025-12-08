@@ -143,6 +143,8 @@ class ThumbnailSequence::Impl {
 
   void setSelectionModeEnabled(bool enabled);
 
+  void selectAll();
+
  private:
   class ItemsByIdTag;
   class ItemsInOrderTag;
@@ -429,6 +431,10 @@ void ThumbnailSequence::setViewMode(ThumbnailSequence::ViewMode mode) {
 
 void ThumbnailSequence::setSelectionModeEnabled(bool enabled) {
   m_impl->setSelectionModeEnabled(enabled);
+}
+
+void ThumbnailSequence::selectAll() {
+  m_impl->selectAll();
 }
 
 /*======================== ThumbnailSequence::Impl ==========================*/
@@ -1391,6 +1397,26 @@ void ThumbnailSequence::Impl::setViewMode(ThumbnailSequence::ViewMode mode) {
 
 void ThumbnailSequence::Impl::setSelectionModeEnabled(bool enabled) {
   m_selectionMode = enabled;
+}
+
+void ThumbnailSequence::Impl::selectAll() {
+  if (m_itemsInOrder.empty()) {
+    return;
+  }
+
+  // Select all items
+  for (const Item& item : m_itemsInOrder) {
+    if (!item.isSelected()) {
+      item.setSelected(true);
+      moveToSelected(&item);
+    }
+  }
+
+  // Set the first item as selection leader if none exists
+  if (!m_selectionLeader) {
+    m_selectionLeader = &m_itemsInOrder.front();
+    m_owner.emitNewSelectionLeader(m_selectionLeader->pageInfo, m_selectionLeader->composite, SELECTED_BY_USER);
+  }
 }
 
 /*==================== ThumbnailSequence::Item ======================*/
