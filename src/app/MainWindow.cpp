@@ -7,10 +7,15 @@
 #include <core/IconProvider.h>
 
 #include <QActionGroup>
+#include <QComboBox>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileSystemModel>
+#include <QFormLayout>
+#include <QLabel>
 #include <QMessageBox>
+#include <QProgressDialog>
 #include <QResource>
 #include <QScrollBar>
 #include <QSortFilterProxyModel>
@@ -1377,6 +1382,38 @@ void MainWindow::exportToPdf() {
     return;
   }
 
+  // Create options dialog
+  QDialog optionsDialog(this);
+  optionsDialog.setWindowTitle(tr("Export to PDF"));
+  optionsDialog.setModal(true);
+
+  auto* layout = new QFormLayout(&optionsDialog);
+
+  auto* infoLabel = new QLabel(tr("%1 pages will be exported.").arg(outputFiles.size()));
+  layout->addRow(infoLabel);
+
+  auto* qualityCombo = new QComboBox();
+  qualityCombo->addItem(tr("High Quality (larger files)"), static_cast<int>(PdfExporter::Quality::High));
+  qualityCombo->addItem(tr("Medium Quality (balanced)"), static_cast<int>(PdfExporter::Quality::Medium));
+  qualityCombo->addItem(tr("Lower Quality (smaller files)"), static_cast<int>(PdfExporter::Quality::Low));
+  qualityCombo->setCurrentIndex(1);  // Default to Medium
+  layout->addRow(tr("Quality:"), qualityCombo);
+
+  auto* qualityNote = new QLabel(tr("Note: Quality only affects color/mixed pages.\nB&W and grayscale pages use lossless compression."));
+  qualityNote->setStyleSheet("color: gray; font-size: 11px;");
+  layout->addRow(qualityNote);
+
+  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+  connect(buttons, &QDialogButtonBox::accepted, &optionsDialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &optionsDialog, &QDialog::reject);
+  layout->addRow(buttons);
+
+  if (optionsDialog.exec() != QDialog::Accepted) {
+    return;
+  }
+
+  const auto quality = static_cast<PdfExporter::Quality>(qualityCombo->currentData().toInt());
+
   // Ask user where to save
   QString pdfPath = QFileDialog::getSaveFileName(
       this, tr("Export to PDF"), m_outFileNameGen.outDir() + "/output.pdf", tr("PDF Files (*.pdf)"));
@@ -1389,10 +1426,47 @@ void MainWindow::exportToPdf() {
     pdfPath += ".pdf";
   }
 
+  // Create progress dialog
+  QProgressDialog progressDialog(tr("Exporting to PDF..."), tr("Cancel"), 0, outputFiles.size(), this);
+  progressDialog.setWindowModality(Qt::WindowModal);
+  progressDialog.setMinimumDuration(0);
+  progressDialog.setValue(0);
+
+  bool wasCancelled = false;
+
+  // Progress callback
+  auto progressCallback = [&progressDialog, &wasCancelled](int current, int total) -> bool {
+    progressDialog.setMaximum(total);
+    progressDialog.setValue(current);
+    progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
+    QCoreApplication::processEvents();
+
+    if (progressDialog.wasCanceled()) {
+      wasCancelled = true;
+      return false;
+    }
+    return true;
+  };
+
   // Export
-  if (PdfExporter::exportToPdf(outputFiles, pdfPath)) {
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, progressCallback);
+  progressDialog.close();
+
+  if (wasCancelled) {
+    // Remove partial file
+    QFile::remove(pdfPath);
+    QMessageBox::information(this, tr("Export to PDF"), tr("Export cancelled."));
+  } else if (success) {
+    QFileInfo fileInfo(pdfPath);
+    const qint64 sizeBytes = fileInfo.size();
+    QString sizeStr;
+    if (sizeBytes >= 1024 * 1024) {
+      sizeStr = QString::number(sizeBytes / (1024.0 * 1024.0), 'f', 1) + " MB";
+    } else {
+      sizeStr = QString::number(sizeBytes / 1024.0, 'f', 1) + " KB";
+    }
     QMessageBox::information(this, tr("Export to PDF"),
-                             tr("Successfully exported %1 pages to PDF.").arg(outputFiles.size()));
+                             tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(outputFiles.size()).arg(sizeStr));
   } else {
     QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
   }
