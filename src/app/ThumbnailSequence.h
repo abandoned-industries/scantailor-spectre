@@ -231,6 +231,8 @@ class ThumbnailSequence : public QObject {
  public slots:
   void setSelectionModeEnabled(bool enabled);
 
+  void selectAll();
+
  signals:
 
   void newSelectionLeader(const PageInfo& pageInfo, const QRectF& thumbRect, ThumbnailSequence::SelectionFlags flags);
