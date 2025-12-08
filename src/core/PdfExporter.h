@@ -34,6 +34,7 @@ class PdfExporter {
    * \param title Optional PDF title metadata.
    * \param quality Compression quality preset.
    * \param compressGrayscale If true, use JPEG for grayscale images too (smaller but lossy).
+   * \param maxDpi Maximum resolution (0 = keep original). Images higher than this will be downsampled.
    * \param progressCallback Optional callback for progress updates.
    * \return true if successful, false otherwise.
    */
@@ -42,6 +43,7 @@ class PdfExporter {
                           const QString& title = QString(),
                           Quality quality = Quality::High,
                           bool compressGrayscale = false,
+                          int maxDpi = 0,
                           ProgressCallback progressCallback = nullptr);
 };
 
