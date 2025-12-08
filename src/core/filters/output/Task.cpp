@@ -112,14 +112,15 @@ Task::~Task() = default;
 FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, const QPolygonF& contentRectPhys) {
   status.throwIfCancelled();
 
-  Params params = m_settings->getParams(m_pageId);
+  const QFileInfo sourceFileInfo(m_pageId.imageId().filePath());
+
+  // Use getParamsOrDetect to auto-detect color mode for pages without stored params
+  Params params = m_settings->getParamsOrDetect(m_pageId, sourceFileInfo.absoluteFilePath());
 
   RenderParams renderParams(params.colorParams(), params.splittingOptions());
 
   ImageTransformation newXform(data.xform());
   newXform.postScaleToDpi(params.outputDpi());
-
-  const QFileInfo sourceFileInfo(m_pageId.imageId().filePath());
   const QString outFilePath(m_outFileNameGen.filePathFor(m_pageId));
   const QFileInfo outFileInfo(outFilePath);
   const QString foregroundDir(Utils::foregroundDir(m_outFileNameGen.outDir()));

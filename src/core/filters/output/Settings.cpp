@@ -3,9 +3,13 @@
 
 #include "Settings.h"
 
+#include <QDebug>
+#include <QString>
+
 #include "../../Utils.h"
 #include "AbstractRelinker.h"
 #include "FillColorProperty.h"
+#include "ImageTypeDetector.h"
 #include "PictureLayerProperty.h"
 #include "RelinkablePath.h"
 
@@ -89,6 +93,41 @@ Params Settings::getParams(const PageId& pageId) const {
   } else {
     return Params();
   }
+}
+
+Params Settings::getParamsOrDetect(const PageId& pageId, const QString& sourceImagePath) {
+  const QMutexLocker locker(&m_mutex);
+
+  const auto it(m_perPageParams.find(pageId));
+  if (it != m_perPageParams.end()) {
+    return it->second;
+  }
+
+  // No existing params - detect color mode from source image
+  Params params;
+  const ImageTypeDetector::Type imageType = ImageTypeDetector::detectFromFile(sourceImagePath);
+
+  ColorParams colorParams;
+  switch (imageType) {
+    case ImageTypeDetector::Type::Mono:
+      colorParams.setColorMode(BLACK_AND_WHITE);
+      qDebug() << "Auto-detected B&W mode for:" << sourceImagePath;
+      break;
+    case ImageTypeDetector::Type::Grayscale:
+      colorParams.setColorMode(COLOR_GRAYSCALE);
+      qDebug() << "Auto-detected Grayscale mode for:" << sourceImagePath;
+      break;
+    case ImageTypeDetector::Type::Color:
+      colorParams.setColorMode(COLOR_GRAYSCALE);
+      qDebug() << "Auto-detected Color mode for:" << sourceImagePath;
+      break;
+  }
+  params.setColorParams(colorParams);
+
+  // Store the detected params so they persist
+  m_perPageParams.insert(PerPageParams::value_type(pageId, params));
+
+  return params;
 }
 
 void Settings::setParams(const PageId& pageId, const Params& params) {
