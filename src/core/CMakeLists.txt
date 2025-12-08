@@ -47,6 +47,7 @@ set(common_sources
     TiffReader.cpp TiffReader.h
     TiffWriter.cpp TiffWriter.h
     PdfReader.cpp PdfReader.h
+    PdfExporter.cpp PdfExporter.h
     PngMetadataLoader.cpp PngMetadataLoader.h
     TiffMetadataLoader.cpp TiffMetadataLoader.h
     JpegMetadataLoader.cpp JpegMetadataLoader.h
