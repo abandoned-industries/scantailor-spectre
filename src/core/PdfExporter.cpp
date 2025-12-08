@@ -107,6 +107,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
                        const QString& outputPdfPath,
                        const QString& title,
                        int jpegQuality,
+                       bool compressGrayscale,
                        const PdfExporter::ProgressCallback& progressCallback) {
   HPDF_Doc pdf = HPDF_New(haruErrorHandler, nullptr);
   if (!pdf) {
@@ -156,9 +157,27 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     HPDF_Image pdfImage = nullptr;
     ImageType type = detectImageType(image);
 
-    if (type == ImageType::Mono || type == ImageType::Grayscale) {
-      qDebug() << "PdfExporter: Using Flate for" << (type == ImageType::Mono ? "B&W" : "grayscale")
-               << "image:" << imagePath;
+    // Use JPEG for grayscale if compressGrayscale is enabled, otherwise use Flate (lossless)
+    const bool useJpegForGray = compressGrayscale && (type == ImageType::Grayscale);
+
+    if (type == ImageType::Mono) {
+      // Always use Flate for pure B&W - it's very efficient and lossless
+      qDebug() << "PdfExporter: Using Flate for B&W image:" << imagePath;
+      QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
+
+      QByteArray rawData;
+      rawData.reserve(grayImage.width() * grayImage.height());
+
+      for (int y = 0; y < grayImage.height(); ++y) {
+        const uchar* line = grayImage.constScanLine(y);
+        rawData.append(reinterpret_cast<const char*>(line), grayImage.width());
+      }
+
+      pdfImage = HPDF_LoadRawImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
+                                          grayImage.width(), grayImage.height(), HPDF_CS_DEVICE_GRAY, 8);
+    } else if (type == ImageType::Grayscale && !useJpegForGray) {
+      // Lossless Flate for grayscale
+      qDebug() << "PdfExporter: Using Flate for grayscale image:" << imagePath;
       QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
 
       QByteArray rawData;
@@ -172,13 +191,23 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       pdfImage = HPDF_LoadRawImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
                                           grayImage.width(), grayImage.height(), HPDF_CS_DEVICE_GRAY, 8);
     } else {
-      qDebug() << "PdfExporter: Using JPEG Q" << jpegQuality << "for color image:" << imagePath;
+      // JPEG for color images, or grayscale if compressGrayscale is enabled
+      const char* typeStr = (type == ImageType::Grayscale) ? "grayscale" : "color";
+      qDebug() << "PdfExporter: Using JPEG Q" << jpegQuality << "for" << typeStr << "image:" << imagePath;
 
-      QImage rgbImage = image.convertToFormat(QImage::Format_RGB888);
+      QImage outImage;
+      if (type == ImageType::Grayscale) {
+        // Grayscale JPEG
+        outImage = image.convertToFormat(QImage::Format_Grayscale8);
+      } else {
+        // Color JPEG
+        outImage = image.convertToFormat(QImage::Format_RGB888);
+      }
+
       QByteArray jpegData;
       QBuffer buffer(&jpegData);
       buffer.open(QIODevice::WriteOnly);
-      rgbImage.save(&buffer, "JPEG", jpegQuality);
+      outImage.save(&buffer, "JPEG", jpegQuality);
       buffer.close();
 
       pdfImage = HPDF_LoadJpegImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(jpegData.constData()),
@@ -288,6 +317,7 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
                               const QString& outputPdfPath,
                               const QString& title,
                               Quality quality,
+                              bool compressGrayscale,
                               ProgressCallback progressCallback) {
   if (imagePaths.isEmpty()) {
     qDebug() << "PdfExporter: No images to export";
@@ -297,9 +327,10 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
   const int jpegQuality = qualityToJpegPercent(quality);
 
 #ifdef HAVE_LIBHARU
-  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, progressCallback);
+  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, progressCallback);
 #else
   Q_UNUSED(jpegQuality);
+  Q_UNUSED(compressGrayscale);
   qDebug() << "PdfExporter: Using Qt fallback (libharu not available)";
   return exportWithQt(imagePaths, outputPdfPath, title, progressCallback);
 #endif

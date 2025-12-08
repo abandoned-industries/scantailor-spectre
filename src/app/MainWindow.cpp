@@ -7,6 +7,7 @@
 #include <core/IconProvider.h>
 
 #include <QActionGroup>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -1399,9 +1400,13 @@ void MainWindow::exportToPdf() {
   qualityCombo->setCurrentIndex(1);  // Default to Medium
   layout->addRow(tr("Quality:"), qualityCombo);
 
-  auto* qualityNote = new QLabel(tr("Note: Quality only affects color/mixed pages.\nB&W and grayscale pages use lossless compression."));
+  auto* qualityNote = new QLabel(tr("Quality affects color and mixed-mode pages."));
   qualityNote->setStyleSheet("color: gray; font-size: 11px;");
   layout->addRow(qualityNote);
+
+  auto* compressGrayCheck = new QCheckBox(tr("Compress grayscale pages (smaller, slight quality loss)"));
+  compressGrayCheck->setChecked(false);
+  layout->addRow(compressGrayCheck);
 
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
   connect(buttons, &QDialogButtonBox::accepted, &optionsDialog, &QDialog::accept);
@@ -1413,6 +1418,7 @@ void MainWindow::exportToPdf() {
   }
 
   const auto quality = static_cast<PdfExporter::Quality>(qualityCombo->currentData().toInt());
+  const bool compressGrayscale = compressGrayCheck->isChecked();
 
   // Ask user where to save
   QString pdfPath = QFileDialog::getSaveFileName(
@@ -1449,7 +1455,7 @@ void MainWindow::exportToPdf() {
   };
 
   // Export
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, progressCallback);
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
