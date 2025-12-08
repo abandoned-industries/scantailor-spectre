@@ -57,9 +57,10 @@ bool isEffectivelyMono(const QImage& image) {
 }
 
 /**
- * Sample pixels to determine if image is grayscale (R=G=B for all pixels).
+ * Sample pixels to determine if image is grayscale.
+ * Tolerates slight color variations (e.g., yellowed paper) up to threshold.
  */
-bool isEffectivelyGrayscale(const QImage& image) {
+bool isEffectivelyGrayscale(const QImage& image, int tolerance = 8) {
   const int totalPixels = image.width() * image.height();
   const int sampleSize = qMin(10000, totalPixels);
   const int step = qMax(1, totalPixels / sampleSize);
@@ -68,7 +69,12 @@ bool isEffectivelyGrayscale(const QImage& image) {
     const int x = i % image.width();
     const int y = i / image.width();
     const QRgb pixel = image.pixel(x, y);
-    if (qRed(pixel) != qGreen(pixel) || qGreen(pixel) != qBlue(pixel)) {
+    const int r = qRed(pixel);
+    const int g = qGreen(pixel);
+    const int b = qBlue(pixel);
+    // Check if RGB values are within tolerance of each other
+    const int maxDiff = qMax(qMax(qAbs(r - g), qAbs(g - b)), qAbs(r - b));
+    if (maxDiff > tolerance) {
       return false;
     }
   }
@@ -125,6 +131,8 @@ bool exportWithLibHaru(const QStringList& imagePaths,
   const int totalPages = imagePaths.size();
   int pagesWritten = 0;
   int currentPage = 0;
+  int monoCount = 0, grayCount = 0, colorCount = 0;
+  qint64 totalDataSize = 0;
 
   for (const QString& imagePath : imagePaths) {
     ++currentPage;
@@ -161,23 +169,26 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     const bool useJpegForGray = compressGrayscale && (type == ImageType::Grayscale);
 
     if (type == ImageType::Mono) {
-      // Always use Flate for pure B&W - it's very efficient and lossless
-      qDebug() << "PdfExporter: Using Flate for B&W image:" << imagePath;
-      QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
+      // Use 1-bit encoding for pure B&W - very efficient
+      ++monoCount;
+      QImage monoImage = image.convertToFormat(QImage::Format_Mono);
 
+      // Pack bits into bytes (8 pixels per byte)
+      const int bytesPerLine = (monoImage.width() + 7) / 8;
       QByteArray rawData;
-      rawData.reserve(grayImage.width() * grayImage.height());
+      rawData.reserve(bytesPerLine * monoImage.height());
 
-      for (int y = 0; y < grayImage.height(); ++y) {
-        const uchar* line = grayImage.constScanLine(y);
-        rawData.append(reinterpret_cast<const char*>(line), grayImage.width());
+      for (int y = 0; y < monoImage.height(); ++y) {
+        const uchar* line = monoImage.constScanLine(y);
+        rawData.append(reinterpret_cast<const char*>(line), bytesPerLine);
       }
 
+      totalDataSize += rawData.size();
       pdfImage = HPDF_LoadRawImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
-                                          grayImage.width(), grayImage.height(), HPDF_CS_DEVICE_GRAY, 8);
+                                          monoImage.width(), monoImage.height(), HPDF_CS_DEVICE_GRAY, 1);
     } else if (type == ImageType::Grayscale && !useJpegForGray) {
       // Lossless Flate for grayscale
-      qDebug() << "PdfExporter: Using Flate for grayscale image:" << imagePath;
+      ++grayCount;
       QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
 
       QByteArray rawData;
@@ -188,12 +199,16 @@ bool exportWithLibHaru(const QStringList& imagePaths,
         rawData.append(reinterpret_cast<const char*>(line), grayImage.width());
       }
 
+      totalDataSize += rawData.size();
       pdfImage = HPDF_LoadRawImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
                                           grayImage.width(), grayImage.height(), HPDF_CS_DEVICE_GRAY, 8);
     } else {
       // JPEG for color images, or grayscale if compressGrayscale is enabled
-      const char* typeStr = (type == ImageType::Grayscale) ? "grayscale" : "color";
-      qDebug() << "PdfExporter: Using JPEG Q" << jpegQuality << "for" << typeStr << "image:" << imagePath;
+      if (type == ImageType::Grayscale) {
+        ++grayCount;
+      } else {
+        ++colorCount;
+      }
 
       QImage outImage;
       if (type == ImageType::Grayscale) {
@@ -210,6 +225,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       outImage.save(&buffer, "JPEG", jpegQuality);
       buffer.close();
 
+      totalDataSize += jpegData.size();
       pdfImage = HPDF_LoadJpegImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(jpegData.constData()),
                                            jpegData.size());
     }
@@ -236,7 +252,9 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     return false;
   }
 
-  qDebug() << "PdfExporter: Exported" << pagesWritten << "pages";
+  qDebug() << "PdfExporter: Exported" << pagesWritten << "pages"
+           << "(B&W:" << monoCount << "Gray:" << grayCount << "Color:" << colorCount << ")"
+           << "Data before PDF compression:" << (totalDataSize / 1024 / 1024) << "MB";
   return true;
 }
 
