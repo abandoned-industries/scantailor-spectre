@@ -9,6 +9,7 @@
 
 #include "ImageMetadata.h"
 #include "JpegMetadataLoader.h"
+#include "PdfMetadataLoader.h"
 #include "PngMetadataLoader.h"
 #include "TiffMetadataLoader.h"
 
@@ -22,6 +23,7 @@ ImageMetadataLoader::StaticInit::StaticInit() {
   registerLoader(std::make_shared<JpegMetadataLoader>());
   registerLoader(std::make_shared<PngMetadataLoader>());
   registerLoader(std::make_shared<TiffMetadataLoader>());
+  registerLoader(std::make_shared<PdfMetadataLoader>());
 }
 
 ImageMetadataLoader::StaticInit ImageMetadataLoader::m_staticInit;
