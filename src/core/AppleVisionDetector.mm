@@ -3,6 +3,8 @@
 
 #include "AppleVisionDetector.h"
 
+#include <QtGlobal>  // Must include before checking Q_OS_MACOS
+
 #ifdef Q_OS_MACOS
 
 #import <Foundation/Foundation.h>
