@@ -12,7 +12,7 @@ class PdfExporter {
  public:
   /**
    * Quality presets for PDF export.
-   * Affects JPEG compression for color/mixed images.
+   * Affects JPEG compression for color/mixed images (and grayscale if enabled).
    */
   enum class Quality {
     High,    // JPEG 95% - visually lossless, larger files
@@ -33,6 +33,7 @@ class PdfExporter {
    * \param outputPdfPath Path where the PDF will be saved.
    * \param title Optional PDF title metadata.
    * \param quality Compression quality preset.
+   * \param compressGrayscale If true, use JPEG for grayscale images too (smaller but lossy).
    * \param progressCallback Optional callback for progress updates.
    * \return true if successful, false otherwise.
    */
@@ -40,6 +41,7 @@ class PdfExporter {
                           const QString& outputPdfPath,
                           const QString& title = QString(),
                           Quality quality = Quality::High,
+                          bool compressGrayscale = false,
                           ProgressCallback progressCallback = nullptr);
 };
 
