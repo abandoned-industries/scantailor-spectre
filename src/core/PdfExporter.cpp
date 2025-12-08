@@ -157,14 +157,20 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     int dpiY = image.dotsPerMeterY() > 0 ? qRound(image.dotsPerMeterY() * 0.0254) : 300;
     const int originalDpi = qMax(dpiX, dpiY);
 
+    // Detect image type BEFORE downsampling (need to know if color to skip downsampling)
+    ImageType type = detectImageType(image);
+
     // Log first page dimensions to help debug file size issues
     if (currentPage == 1) {
       qDebug() << "PdfExporter: First image dimensions:" << image.width() << "x" << image.height()
                << "at" << dpiX << "DPI" << (maxDpi > 0 ? QString("(max: %1)").arg(maxDpi) : QString());
     }
 
-    // Downsample if image DPI exceeds maxDpi
-    if (maxDpi > 0 && originalDpi > maxDpi) {
+    // Skip downsampling for color pages - they often have fine details (covers, illustrations)
+    // and there are typically only 1-2 of them, so the size impact is minimal
+    const bool shouldDownsample = (maxDpi > 0 && originalDpi > maxDpi && type != ImageType::Color);
+
+    if (shouldDownsample) {
       const double scale = static_cast<double>(maxDpi) / originalDpi;
       const int newWidth = qRound(image.width() * scale);
       const int newHeight = qRound(image.height() * scale);
@@ -184,7 +190,6 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     HPDF_Page_SetHeight(page, pageHeight);
 
     HPDF_Image pdfImage = nullptr;
-    ImageType type = detectImageType(image);
 
     // Use JPEG for grayscale if compressGrayscale is enabled, otherwise use Flate (lossless)
     const bool useJpegForGray = compressGrayscale && (type == ImageType::Grayscale);
@@ -243,7 +248,9 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       QByteArray jpegData;
       QBuffer buffer(&jpegData);
       buffer.open(QIODevice::WriteOnly);
-      outImage.save(&buffer, "JPEG", jpegQuality);
+      // Use higher quality for color pages (covers often have fine line art)
+      const int effectiveQuality = (type == ImageType::Color) ? qMax(jpegQuality, 95) : jpegQuality;
+      outImage.save(&buffer, "JPEG", effectiveQuality);
       buffer.close();
 
       // Log first few JPEG sizes to help debug
