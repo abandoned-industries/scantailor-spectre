@@ -163,6 +163,7 @@ Params Settings::getParamsOrDetect(const PageId& pageId, const QString& sourceIm
 
 void Settings::setParams(const PageId& pageId, const Params& params) {
   const QMutexLocker locker(&m_mutex);
+  qDebug() << "setParams called for page - params being stored externally";
   Utils::mapSetValue(m_perPageParams, pageId, params);
 }
 
@@ -171,10 +172,12 @@ void Settings::setColorParams(const PageId& pageId, const ColorParams& prms) {
 
   const auto it(m_perPageParams.find(pageId));
   if (it == m_perPageParams.end()) {
+    qDebug() << "setColorParams creating NEW params for page";
     Params params;
     params.setColorParams(prms);
     m_perPageParams.insert(it, PerPageParams::value_type(pageId, params));
   } else {
+    qDebug() << "setColorParams updating existing params";
     it->second.setColorParams(prms);
   }
 }
