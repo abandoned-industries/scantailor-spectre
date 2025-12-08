@@ -53,6 +53,7 @@ set(common_sources
     JpegMetadataLoader.cpp JpegMetadataLoader.h
     PdfMetadataLoader.cpp PdfMetadataLoader.h
     ImageLoader.cpp ImageLoader.h
+    ImageTypeDetector.cpp ImageTypeDetector.h
     ErrorWidget.cpp ErrorWidget.h
     OrthogonalRotation.cpp OrthogonalRotation.h
     WorkerThreadPool.cpp WorkerThreadPool.h

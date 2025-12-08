@@ -23,6 +23,7 @@
 #include "ZoneSet.h"
 
 class AbstractRelinker;
+class QString;
 
 namespace output {
 class Params;
@@ -40,6 +41,18 @@ class Settings {
   void performRelinking(const AbstractRelinker& relinker);
 
   Params getParams(const PageId& pageId) const;
+
+  /**
+   * Get params for a page, auto-detecting color mode if no params exist.
+   * When params don't exist for a page, this method analyzes the source image
+   * to detect if it's B&W, grayscale, or color, and sets an appropriate default
+   * color mode instead of always defaulting to BLACK_AND_WHITE.
+   *
+   * @param pageId The page to get params for
+   * @param sourceImagePath Path to the original source image for color detection
+   * @return Params with auto-detected color mode if new, or existing params
+   */
+  Params getParamsOrDetect(const PageId& pageId, const QString& sourceImagePath);
 
   void setParams(const PageId& pageId, const Params& params);
 

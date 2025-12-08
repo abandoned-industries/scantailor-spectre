@@ -97,7 +97,8 @@ OptionsWidget::~OptionsWidget() = default;
 void OptionsWidget::preUpdateUI(const PageId& pageId) {
   auto block = m_connectionManager.getScopedBlock();
 
-  const Params params = m_settings->getParams(pageId);
+  // Use getParamsOrDetect to auto-detect color mode for pages without stored params
+  const Params params = m_settings->getParamsOrDetect(pageId, pageId.imageId().filePath());
   m_pageId = pageId;
   m_outputDpi = params.outputDpi();
   m_colorParams = params.colorParams();
