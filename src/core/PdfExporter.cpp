@@ -144,36 +144,10 @@ bool exportWithLibHaru(const QStringList& imagePaths, const QString& outputPdfPa
     HPDF_Image pdfImage = nullptr;
     ImageType type = detectImageType(image);
 
-    if (type == ImageType::Mono) {
-      // Convert to 1-bit and use CCITT Group 4 compression
-      qDebug() << "PdfExporter: Using CCITT G4 for B&W image:" << imagePath;
-      QImage monoImage = image.convertToFormat(QImage::Format_Mono);
-
-      // libharu expects raw 1-bit data, MSB first
-      // Create raw bitmap data
-      int bytesPerLine = (monoImage.width() + 7) / 8;
-      QByteArray rawData;
-      rawData.reserve(bytesPerLine * monoImage.height());
-
-      for (int y = 0; y < monoImage.height(); ++y) {
-        const uchar* line = monoImage.constScanLine(y);
-        rawData.append(reinterpret_cast<const char*>(line), bytesPerLine);
-      }
-
-      pdfImage = HPDF_LoadRawImageFromMem(
-          pdf,
-          reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
-          monoImage.width(),
-          monoImage.height(),
-          HPDF_CS_DEVICE_GRAY,
-          1);  // 1 bit per component
-
-      if (pdfImage) {
-        HPDF_Image_SetFilter(pdfImage, HPDF_STREAM_FILTER_CCITT_DECODE);
-      }
-    } else if (type == ImageType::Grayscale) {
-      // Use Flate compression for grayscale (lossless)
-      qDebug() << "PdfExporter: Using Flate for grayscale image:" << imagePath;
+    if (type == ImageType::Mono || type == ImageType::Grayscale) {
+      // Use Flate compression for B&W and grayscale (lossless)
+      // Note: libharu applies Flate automatically via HPDF_SetCompressionMode
+      qDebug() << "PdfExporter: Using Flate for" << (type == ImageType::Mono ? "B&W" : "grayscale") << "image:" << imagePath;
       QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
 
       QByteArray rawData;
@@ -191,10 +165,6 @@ bool exportWithLibHaru(const QStringList& imagePaths, const QString& outputPdfPa
           grayImage.height(),
           HPDF_CS_DEVICE_GRAY,
           8);  // 8 bits per component
-
-      if (pdfImage) {
-        HPDF_Image_SetFilter(pdfImage, HPDF_STREAM_FILTER_FLATE_DECODE);
-      }
     } else {
       // Use JPEG for color images (high quality, visually lossless)
       qDebug() << "PdfExporter: Using JPEG Q" << JPEG_QUALITY << "for color image:" << imagePath;
