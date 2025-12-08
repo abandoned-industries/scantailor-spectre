@@ -21,8 +21,10 @@ If you don't have Homebrew installed:
 ### Install Dependencies
 
 ```bash
-brew install cmake qt6 boost libtiff libpng jpeg zlib
+brew install cmake qt6 boost libtiff libpng jpeg zlib libharu
 ```
+
+**Note:** `libharu` is optional but highly recommended - it enables optimized PDF compression that can reduce file sizes by 10-20x compared to the fallback Qt-based export.
 
 ## Building
 

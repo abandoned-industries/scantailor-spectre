@@ -3,6 +3,7 @@
 
 #include "PdfExporter.h"
 
+#include <QBuffer>
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
@@ -11,7 +12,15 @@
 #include <QPainter>
 #include <QPdfWriter>
 
+#ifdef HAVE_LIBHARU
+#include <hpdf.h>
+#include <cstring>
+#endif
+
 namespace {
+
+// JPEG quality for color/mixed images (95 = visually lossless)
+constexpr int JPEG_QUALITY = 95;
 
 /**
  * Sample pixels to determine if image is pure black and white.
@@ -58,55 +67,186 @@ bool isEffectivelyGrayscale(const QImage& image) {
   return true;
 }
 
-/**
- * Convert image to the most efficient format for PDF embedding.
- * - B&W images -> 1-bit mono (24x smaller than RGB)
- * - Grayscale images -> 8-bit grayscale (3x smaller than RGB)
- * - Color images -> RGB without alpha
- */
-QImage optimizeForPdf(const QImage& image) {
+enum class ImageType { Mono, Grayscale, Color };
+
+ImageType detectImageType(const QImage& image) {
   const QImage::Format fmt = image.format();
 
-  // Already in an optimal format
+  // Check format first
   if (fmt == QImage::Format_Mono || fmt == QImage::Format_MonoLSB) {
-    return image;
+    return ImageType::Mono;
   }
   if (fmt == QImage::Format_Grayscale8 || fmt == QImage::Format_Grayscale16) {
-    return image;
-  }
-  if (fmt == QImage::Format_Indexed8) {
-    // Check if indexed image is effectively mono or grayscale
-    // For now, keep as-is since it's already compact
-    return image;
+    return ImageType::Grayscale;
   }
 
-  // For other formats, analyze content and convert to optimal format
+  // Analyze content for other formats
   if (isEffectivelyMono(image)) {
-    qDebug() << "PdfExporter: Converting to 1-bit mono for efficient storage";
-    return image.convertToFormat(QImage::Format_Mono);
+    return ImageType::Mono;
   }
-
   if (isEffectivelyGrayscale(image)) {
-    qDebug() << "PdfExporter: Converting to 8-bit grayscale for efficient storage";
-    return image.convertToFormat(QImage::Format_Grayscale8);
+    return ImageType::Grayscale;
   }
-
-  // Strip alpha channel if present (saves space and PDF doesn't need it for scans)
-  if (image.hasAlphaChannel()) {
-    return image.convertToFormat(QImage::Format_RGB888);
-  }
-
-  return image;
+  return ImageType::Color;
 }
 
-}  // namespace
+#ifdef HAVE_LIBHARU
 
-bool PdfExporter::exportToPdf(const QStringList& imagePaths, const QString& outputPdfPath, const QString& title) {
-  if (imagePaths.isEmpty()) {
-    qDebug() << "PdfExporter: No images to export";
+void haruErrorHandler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void* user_data) {
+  Q_UNUSED(user_data);
+  qWarning() << "LibHaru error:" << Qt::hex << error_no << "detail:" << detail_no;
+}
+
+/**
+ * Export using libharu with optimized compression:
+ * - B&W: CCITT Group 4 (extremely efficient for 1-bit images)
+ * - Grayscale: Flate compression (lossless)
+ * - Color: JPEG at high quality (visually lossless)
+ */
+bool exportWithLibHaru(const QStringList& imagePaths, const QString& outputPdfPath, const QString& title) {
+  HPDF_Doc pdf = HPDF_New(haruErrorHandler, nullptr);
+  if (!pdf) {
+    qDebug() << "PdfExporter: Failed to create PDF document";
     return false;
   }
 
+  // Enable compression
+  HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
+
+  // Set document info
+  if (!title.isEmpty()) {
+    HPDF_SetInfoAttr(pdf, HPDF_INFO_TITLE, title.toUtf8().constData());
+  }
+  HPDF_SetInfoAttr(pdf, HPDF_INFO_CREATOR, "ScanTailor Advanced");
+
+  int pagesWritten = 0;
+
+  for (const QString& imagePath : imagePaths) {
+    QImage image(imagePath);
+    if (image.isNull()) {
+      qDebug() << "PdfExporter: Failed to load image:" << imagePath;
+      continue;
+    }
+
+    // Get image DPI
+    int dpiX = image.dotsPerMeterX() > 0 ? qRound(image.dotsPerMeterX() * 0.0254) : 300;
+    int dpiY = image.dotsPerMeterY() > 0 ? qRound(image.dotsPerMeterY() * 0.0254) : 300;
+
+    // Calculate page size in points (1/72 inch)
+    float pageWidth = image.width() * 72.0f / dpiX;
+    float pageHeight = image.height() * 72.0f / dpiY;
+
+    // Create page
+    HPDF_Page page = HPDF_AddPage(pdf);
+    HPDF_Page_SetWidth(page, pageWidth);
+    HPDF_Page_SetHeight(page, pageHeight);
+
+    HPDF_Image pdfImage = nullptr;
+    ImageType type = detectImageType(image);
+
+    if (type == ImageType::Mono) {
+      // Convert to 1-bit and use CCITT Group 4 compression
+      qDebug() << "PdfExporter: Using CCITT G4 for B&W image:" << imagePath;
+      QImage monoImage = image.convertToFormat(QImage::Format_Mono);
+
+      // libharu expects raw 1-bit data, MSB first
+      // Create raw bitmap data
+      int bytesPerLine = (monoImage.width() + 7) / 8;
+      QByteArray rawData;
+      rawData.reserve(bytesPerLine * monoImage.height());
+
+      for (int y = 0; y < monoImage.height(); ++y) {
+        const uchar* line = monoImage.constScanLine(y);
+        rawData.append(reinterpret_cast<const char*>(line), bytesPerLine);
+      }
+
+      pdfImage = HPDF_LoadRawImageFromMem(
+          pdf,
+          reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
+          monoImage.width(),
+          monoImage.height(),
+          HPDF_CS_DEVICE_GRAY,
+          1);  // 1 bit per component
+
+      if (pdfImage) {
+        HPDF_Image_SetFilter(pdfImage, HPDF_STREAM_FILTER_CCITT_DECODE);
+      }
+    } else if (type == ImageType::Grayscale) {
+      // Use Flate compression for grayscale (lossless)
+      qDebug() << "PdfExporter: Using Flate for grayscale image:" << imagePath;
+      QImage grayImage = image.convertToFormat(QImage::Format_Grayscale8);
+
+      QByteArray rawData;
+      rawData.reserve(grayImage.width() * grayImage.height());
+
+      for (int y = 0; y < grayImage.height(); ++y) {
+        const uchar* line = grayImage.constScanLine(y);
+        rawData.append(reinterpret_cast<const char*>(line), grayImage.width());
+      }
+
+      pdfImage = HPDF_LoadRawImageFromMem(
+          pdf,
+          reinterpret_cast<const HPDF_BYTE*>(rawData.constData()),
+          grayImage.width(),
+          grayImage.height(),
+          HPDF_CS_DEVICE_GRAY,
+          8);  // 8 bits per component
+
+      if (pdfImage) {
+        HPDF_Image_SetFilter(pdfImage, HPDF_STREAM_FILTER_FLATE_DECODE);
+      }
+    } else {
+      // Use JPEG for color images (high quality, visually lossless)
+      qDebug() << "PdfExporter: Using JPEG Q" << JPEG_QUALITY << "for color image:" << imagePath;
+
+      // Convert to RGB and save as JPEG to memory
+      QImage rgbImage = image.convertToFormat(QImage::Format_RGB888);
+      QByteArray jpegData;
+      QBuffer buffer(&jpegData);
+      buffer.open(QIODevice::WriteOnly);
+      rgbImage.save(&buffer, "JPEG", JPEG_QUALITY);
+      buffer.close();
+
+      pdfImage = HPDF_LoadJpegImageFromMem(
+          pdf,
+          reinterpret_cast<const HPDF_BYTE*>(jpegData.constData()),
+          jpegData.size());
+    }
+
+    if (!pdfImage) {
+      qWarning() << "PdfExporter: Failed to create PDF image for:" << imagePath;
+      continue;
+    }
+
+    // Draw image on page (fill entire page)
+    HPDF_Page_DrawImage(page, pdfImage, 0, 0, pageWidth, pageHeight);
+    ++pagesWritten;
+  }
+
+  if (pagesWritten == 0) {
+    HPDF_Free(pdf);
+    return false;
+  }
+
+  // Save to file
+  HPDF_STATUS status = HPDF_SaveToFile(pdf, outputPdfPath.toUtf8().constData());
+  HPDF_Free(pdf);
+
+  if (status != HPDF_OK) {
+    qDebug() << "PdfExporter: Failed to save PDF file";
+    return false;
+  }
+
+  qDebug() << "PdfExporter: Exported" << pagesWritten << "pages with optimized compression";
+  return true;
+}
+
+#endif  // HAVE_LIBHARU
+
+/**
+ * Fallback Qt-based PDF export (larger files, but no extra dependencies)
+ */
+bool exportWithQt(const QStringList& imagePaths, const QString& outputPdfPath, const QString& title) {
   QFile file(outputPdfPath);
   if (!file.open(QIODevice::WriteOnly)) {
     qDebug() << "PdfExporter: Failed to open output file:" << outputPdfPath;
@@ -123,18 +263,15 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths, const QString& outp
   bool firstPage = true;
 
   for (const QString& imagePath : imagePaths) {
-    QImage originalImage(imagePath);
-    if (originalImage.isNull()) {
+    QImage image(imagePath);
+    if (image.isNull()) {
       qDebug() << "PdfExporter: Failed to load image:" << imagePath;
       continue;
     }
 
-    // Optimize image format for efficient PDF storage
-    QImage image = optimizeForPdf(originalImage);
-
-    // Get the image DPI (default to 300 if not set) - use original for accurate DPI
-    int dpiX = originalImage.dotsPerMeterX() > 0 ? qRound(originalImage.dotsPerMeterX() * 0.0254) : 300;
-    int dpiY = originalImage.dotsPerMeterY() > 0 ? qRound(originalImage.dotsPerMeterY() * 0.0254) : 300;
+    // Get the image DPI (default to 300 if not set)
+    int dpiX = image.dotsPerMeterX() > 0 ? qRound(image.dotsPerMeterX() * 0.0254) : 300;
+    int dpiY = image.dotsPerMeterY() > 0 ? qRound(image.dotsPerMeterY() * 0.0254) : 300;
 
     // Calculate page size in points (1/72 inch) from image dimensions
     const qreal pageWidthPoints = image.width() * 72.0 / dpiX;
@@ -165,5 +302,21 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths, const QString& outp
     painter.end();
   }
 
-  return !firstPage;  // Return true if at least one page was written
+  return !firstPage;
+}
+
+}  // namespace
+
+bool PdfExporter::exportToPdf(const QStringList& imagePaths, const QString& outputPdfPath, const QString& title) {
+  if (imagePaths.isEmpty()) {
+    qDebug() << "PdfExporter: No images to export";
+    return false;
+  }
+
+#ifdef HAVE_LIBHARU
+  return exportWithLibHaru(imagePaths, outputPdfPath, title);
+#else
+  qDebug() << "PdfExporter: Using Qt fallback (libharu not available)";
+  return exportWithQt(imagePaths, outputPdfPath, title);
+#endif
 }
