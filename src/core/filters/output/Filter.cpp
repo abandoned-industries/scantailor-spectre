@@ -149,10 +149,10 @@ std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(const OutputFileN
 }
 
 void Filter::loadDefaultSettings(const PageInfo& pageInfo) {
-  if (!m_settings->isParamsNull(pageInfo.id()))
-    return;
-
-  m_settings->setParams(pageInfo.id(), Utils::buildDefaultParams());
+  // Don't create output params here - let getParamsOrDetect handle it
+  // when the Output filter actually runs. This allows Vision-based
+  // detection to determine optimal color mode based on image content.
+  // The params will be created on-demand in Settings::getParamsOrDetect().
 }
 
 OptionsWidget* Filter::optionsWidget() {
