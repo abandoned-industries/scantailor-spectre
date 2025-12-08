@@ -8,6 +8,7 @@
 
 #include "../../Utils.h"
 #include "AbstractRelinker.h"
+#include "AppleVisionDetector.h"
 #include "FillColorProperty.h"
 #include "ImageTypeDetector.h"
 #include "PictureLayerProperty.h"
@@ -105,22 +106,46 @@ Params Settings::getParamsOrDetect(const PageId& pageId, const QString& sourceIm
 
   // No existing params - detect color mode from source image
   Params params;
-  const ImageTypeDetector::Type imageType = ImageTypeDetector::detectFromFile(sourceImagePath);
-
   ColorParams colorParams;
-  switch (imageType) {
-    case ImageTypeDetector::Type::Mono:
+
+  // Try Apple Vision first for intelligent content-aware detection
+  if (AppleVisionDetector::isAvailable()) {
+    const AppleVisionDetector::AnalysisResult analysis = AppleVisionDetector::analyzeFromFile(sourceImagePath);
+    const QString suggestedMode = AppleVisionDetector::suggestColorMode(analysis);
+
+    if (suggestedMode == QLatin1String("bw")) {
       colorParams.setColorMode(BLACK_AND_WHITE);
-      qDebug() << "Auto-detected B&W mode for:" << sourceImagePath;
-      break;
-    case ImageTypeDetector::Type::Grayscale:
+      qDebug() << "Vision detected B&W document:" << sourceImagePath
+               << "content:" << static_cast<int>(analysis.contentType)
+               << "text coverage:" << analysis.textCoverage;
+    } else if (suggestedMode == QLatin1String("color")) {
+      colorParams.setColorMode(COLOR_GRAYSCALE);  // Preserves color
+      qDebug() << "Vision detected photo/color:" << sourceImagePath
+               << "content:" << static_cast<int>(analysis.contentType);
+    } else {
       colorParams.setColorMode(COLOR_GRAYSCALE);
-      qDebug() << "Auto-detected Grayscale mode for:" << sourceImagePath;
-      break;
-    case ImageTypeDetector::Type::Color:
-      colorParams.setColorMode(COLOR_GRAYSCALE);
-      qDebug() << "Auto-detected Color mode for:" << sourceImagePath;
-      break;
+      qDebug() << "Vision detected grayscale:" << sourceImagePath
+               << "content:" << static_cast<int>(analysis.contentType)
+               << "text coverage:" << analysis.textCoverage;
+    }
+  } else {
+    // Fall back to basic pixel-based detection
+    const ImageTypeDetector::Type imageType = ImageTypeDetector::detectFromFile(sourceImagePath);
+
+    switch (imageType) {
+      case ImageTypeDetector::Type::Mono:
+        colorParams.setColorMode(BLACK_AND_WHITE);
+        qDebug() << "Auto-detected B&W mode for:" << sourceImagePath;
+        break;
+      case ImageTypeDetector::Type::Grayscale:
+        colorParams.setColorMode(COLOR_GRAYSCALE);
+        qDebug() << "Auto-detected Grayscale mode for:" << sourceImagePath;
+        break;
+      case ImageTypeDetector::Type::Color:
+        colorParams.setColorMode(COLOR_GRAYSCALE);
+        qDebug() << "Auto-detected Color mode for:" << sourceImagePath;
+        break;
+    }
   }
   params.setColorParams(colorParams);
 
