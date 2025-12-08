@@ -45,7 +45,8 @@ void CacheDrivenTask::process(const PageInfo& pageInfo,
     const QString originalBackgroundFilePath(QDir(originalBackgroundDir).absoluteFilePath(outFileInfo.fileName()));
     const QFileInfo originalBackgroundFileInfo(originalBackgroundFilePath);
 
-    const Params params(m_settings->getParams(pageInfo.id()));
+    // Use getParamsOrDetect to auto-detect color mode for pages without stored params
+    const Params params(m_settings->getParamsOrDetect(pageInfo.id(), sourceFileInfo.absoluteFilePath()));
     RenderParams renderParams(params.colorParams(), params.splittingOptions());
 
     ImageTransformation newXform(xform);
