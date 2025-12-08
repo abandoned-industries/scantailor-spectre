@@ -7,6 +7,7 @@
 #include "ImageMetadataLoader.h"
 #include "VirtualFunction.h"
 
+class QByteArray;
 class QIODevice;
 class QImage;
 class ImageMetadata;
