@@ -200,13 +200,23 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       QImage monoImage = image.convertToFormat(QImage::Format_Mono);
 
       // Pack bits into bytes (8 pixels per byte)
+      // Note: libharu expects 0=black, 1=white, but Qt's Format_Mono may have inverted polarity
+      // We need to invert the bits if Qt's color table has white at index 0
+      const bool needsInvert = (monoImage.color(0) == 0xFFFFFFFF);  // white at index 0?
+
       const int bytesPerLine = (monoImage.width() + 7) / 8;
       QByteArray rawData;
       rawData.reserve(bytesPerLine * monoImage.height());
 
       for (int y = 0; y < monoImage.height(); ++y) {
         const uchar* line = monoImage.constScanLine(y);
-        rawData.append(reinterpret_cast<const char*>(line), bytesPerLine);
+        if (needsInvert) {
+          for (int x = 0; x < bytesPerLine; ++x) {
+            rawData.append(static_cast<char>(~line[x]));  // invert bits
+          }
+        } else {
+          rawData.append(reinterpret_cast<const char*>(line), bytesPerLine);
+        }
       }
 
       totalDataSize += rawData.size();
