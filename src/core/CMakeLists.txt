@@ -129,6 +129,10 @@ if(APPLE)
   set_source_files_properties(AppleVisionDetector.mm PROPERTIES
     COMPILE_FLAGS "-x objective-c++"
     SKIP_PRECOMPILE_HEADERS ON)
+  # Find Apple frameworks
+  find_library(VISION_FRAMEWORK Vision REQUIRED)
+  find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+  find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
 endif()
 
 add_library(core STATIC ${common_sources} ${common_ui_files})
@@ -137,9 +141,9 @@ target_link_libraries(
   core
   PRIVATE TIFF::TIFF PNG::PNG ZLIB::ZLIB JPEG::JPEG
     $<$<BOOL:${LibHaru_FOUND}>:LibHaru::LibHaru>
-    $<$<PLATFORM_ID:Darwin>:"-framework Vision">
-    $<$<PLATFORM_ID:Darwin>:"-framework Foundation">
-    $<$<PLATFORM_ID:Darwin>:"-framework AppKit">
+    $<$<BOOL:${VISION_FRAMEWORK}>:${VISION_FRAMEWORK}>
+    $<$<BOOL:${FOUNDATION_FRAMEWORK}>:${FOUNDATION_FRAMEWORK}>
+    $<$<BOOL:${APPKIT_FRAMEWORK}>:${APPKIT_FRAMEWORK}>
   PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets Qt::Pdf
   imageproc zones
   fix_orientation page_split deskew select_content page_layout output)
