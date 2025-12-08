@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QIODevice>
 #include <QImage>
+#include <QPainter>
 #include <QPdfDocument>
 #include <QSizeF>
 
@@ -107,13 +108,22 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   const QSize renderSize(static_cast<int>(pageSizePoints.width() * dpi / 72.0 + 0.5),
                          static_cast<int>(pageSizePoints.height() * dpi / 72.0 + 0.5));
 
-  // Render the page
-  QImage image = doc.render(pageNum, renderSize);
+  // Render the page (returns ARGB32 with transparency)
+  QImage pdfImage = doc.render(pageNum, renderSize);
 
-  if (image.isNull()) {
+  if (pdfImage.isNull()) {
     qDebug() << "PdfReader: Failed to render page" << pageNum << "of" << filePath;
     return QImage();
   }
+
+  // Create a white background image and composite the PDF page onto it
+  // This handles PDFs with transparent backgrounds correctly
+  QImage image(renderSize, QImage::Format_RGB32);
+  image.fill(Qt::white);
+
+  QPainter painter(&image);
+  painter.drawImage(0, 0, pdfImage);
+  painter.end();
 
   // Set the DPI in the image metadata
   const int dotsPerMeter = static_cast<int>(dpi / 0.0254 + 0.5);
