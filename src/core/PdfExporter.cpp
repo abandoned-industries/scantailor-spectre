@@ -114,6 +114,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
                        const QString& title,
                        int jpegQuality,
                        bool compressGrayscale,
+                       int maxDpi,
                        const PdfExporter::ProgressCallback& progressCallback) {
   HPDF_Doc pdf = HPDF_New(haruErrorHandler, nullptr);
   if (!pdf) {
@@ -154,6 +155,26 @@ bool exportWithLibHaru(const QStringList& imagePaths,
 
     int dpiX = image.dotsPerMeterX() > 0 ? qRound(image.dotsPerMeterX() * 0.0254) : 300;
     int dpiY = image.dotsPerMeterY() > 0 ? qRound(image.dotsPerMeterY() * 0.0254) : 300;
+    const int originalDpi = qMax(dpiX, dpiY);
+
+    // Log first page dimensions to help debug file size issues
+    if (currentPage == 1) {
+      qDebug() << "PdfExporter: First image dimensions:" << image.width() << "x" << image.height()
+               << "at" << dpiX << "DPI" << (maxDpi > 0 ? QString("(max: %1)").arg(maxDpi) : QString());
+    }
+
+    // Downsample if image DPI exceeds maxDpi
+    if (maxDpi > 0 && originalDpi > maxDpi) {
+      const double scale = static_cast<double>(maxDpi) / originalDpi;
+      const int newWidth = qRound(image.width() * scale);
+      const int newHeight = qRound(image.height() * scale);
+      image = image.scaled(newWidth, newHeight, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+      dpiX = maxDpi;
+      dpiY = maxDpi;
+      // Update DPI in image metadata
+      image.setDotsPerMeterX(qRound(maxDpi / 0.0254));
+      image.setDotsPerMeterY(qRound(maxDpi / 0.0254));
+    }
 
     float pageWidth = image.width() * 72.0f / dpiX;
     float pageHeight = image.height() * 72.0f / dpiY;
@@ -224,6 +245,11 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       buffer.open(QIODevice::WriteOnly);
       outImage.save(&buffer, "JPEG", jpegQuality);
       buffer.close();
+
+      // Log first few JPEG sizes to help debug
+      if (currentPage <= 3) {
+        qDebug() << "PdfExporter: Page" << currentPage << "JPEG size:" << (jpegData.size() / 1024) << "KB";
+      }
 
       totalDataSize += jpegData.size();
       pdfImage = HPDF_LoadJpegImageFromMem(pdf, reinterpret_cast<const HPDF_BYTE*>(jpegData.constData()),
@@ -336,6 +362,7 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
                               const QString& title,
                               Quality quality,
                               bool compressGrayscale,
+                              int maxDpi,
                               ProgressCallback progressCallback) {
   if (imagePaths.isEmpty()) {
     qDebug() << "PdfExporter: No images to export";
@@ -345,10 +372,11 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
   const int jpegQuality = qualityToJpegPercent(quality);
 
 #ifdef HAVE_LIBHARU
-  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, progressCallback);
+  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, maxDpi, progressCallback);
 #else
   Q_UNUSED(jpegQuality);
   Q_UNUSED(compressGrayscale);
+  Q_UNUSED(maxDpi);
   qDebug() << "PdfExporter: Using Qt fallback (libharu not available)";
   return exportWithQt(imagePaths, outputPdfPath, title, progressCallback);
 #endif

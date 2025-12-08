@@ -1408,6 +1408,19 @@ void MainWindow::exportToPdf() {
   compressGrayCheck->setChecked(false);
   layout->addRow(compressGrayCheck);
 
+  // Max DPI dropdown for downsampling high-res images
+  auto* maxDpiCombo = new QComboBox;
+  maxDpiCombo->addItem(tr("Original (no limit)"), 0);
+  maxDpiCombo->addItem(tr("600 DPI"), 600);
+  maxDpiCombo->addItem(tr("300 DPI (recommended)"), 300);
+  maxDpiCombo->addItem(tr("150 DPI (small file)"), 150);
+  maxDpiCombo->setCurrentIndex(2);  // Default to 300 DPI
+  layout->addRow(tr("Max resolution:"), maxDpiCombo);
+
+  auto* dpiNote = new QLabel(tr("Lower resolution = smaller file. 300 DPI is good for most uses."));
+  dpiNote->setStyleSheet("color: gray; font-size: 11px;");
+  layout->addRow(dpiNote);
+
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
   connect(buttons, &QDialogButtonBox::accepted, &optionsDialog, &QDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, &optionsDialog, &QDialog::reject);
@@ -1419,6 +1432,7 @@ void MainWindow::exportToPdf() {
 
   const auto quality = static_cast<PdfExporter::Quality>(qualityCombo->currentData().toInt());
   const bool compressGrayscale = compressGrayCheck->isChecked();
+  const int maxDpi = maxDpiCombo->currentData().toInt();
 
   // Ask user where to save
   QString pdfPath = QFileDialog::getSaveFileName(
@@ -1455,7 +1469,7 @@ void MainWindow::exportToPdf() {
   };
 
   // Export
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, progressCallback);
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
