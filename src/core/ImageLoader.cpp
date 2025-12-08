@@ -8,6 +8,7 @@
 #include <QtGui/QImageReader>
 
 #include "ImageId.h"
+#include "PdfReader.h"
 #include "TiffReader.h"
 
 QImage ImageLoader::load(const ImageId& imageId) {
@@ -15,6 +16,11 @@ QImage ImageLoader::load(const ImageId& imageId) {
 }
 
 QImage ImageLoader::load(const QString& filePath, const int pageNum) {
+  // Check for PDF first (requires file path, not QIODevice)
+  if (PdfReader::canRead(filePath)) {
+    return PdfReader::readImage(filePath, pageNum);
+  }
+
   QFile file(filePath);
   if (!file.open(QIODevice::ReadOnly)) {
     return QImage();
