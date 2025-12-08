@@ -164,6 +164,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void saveProjectAsTriggered();
 
+  void exportToPdf();
+
   void newProject();
 
   void newProjectCreated(ProjectCreationContext* context);

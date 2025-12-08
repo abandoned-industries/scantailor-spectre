@@ -45,6 +45,7 @@
 #include "ProjectCreationContext.h"
 #include "ProjectOpeningContext.h"
 #include "ProjectPages.h"
+#include "PdfExporter.h"
 #include "ProjectReader.h"
 #include "ProjectWriter.h"
 #include "RecentProjects.h"
@@ -319,6 +320,7 @@ MainWindow::MainWindow()
   connect(actionOpenProject, SIGNAL(triggered(bool)), this, SLOT(openProject()));
   connect(actionSaveProject, SIGNAL(triggered(bool)), this, SLOT(saveProjectTriggered()));
   connect(actionSaveProjectAs, SIGNAL(triggered(bool)), this, SLOT(saveProjectAsTriggered()));
+  connect(actionExportPdf, &QAction::triggered, this, &MainWindow::exportToPdf);
   connect(actionCloseProject, SIGNAL(triggered(bool)), this, SLOT(closeProject()));
   connect(actionQuit, SIGNAL(triggered(bool)), this, SLOT(close()));
 
@@ -1344,6 +1346,55 @@ void MainWindow::saveProjectAsTriggered() {
     rp.write();
   }
 }  // MainWindow::saveProjectAsTriggered
+
+void MainWindow::exportToPdf() {
+  if (!isProjectLoaded()) {
+    QMessageBox::warning(this, tr("Export to PDF"), tr("No project is loaded."));
+    return;
+  }
+
+  // Get all pages in order
+  const PageSequence pages = m_thumbSequence->toPageSequence();
+  if (pages.numPages() == 0) {
+    QMessageBox::warning(this, tr("Export to PDF"), tr("No pages in project."));
+    return;
+  }
+
+  // Collect output file paths
+  QStringList outputFiles;
+  for (const PageInfo& pageInfo : pages) {
+    const QString filePath = m_outFileNameGen.filePathFor(pageInfo.id());
+    if (QFile::exists(filePath)) {
+      outputFiles.append(filePath);
+    }
+  }
+
+  if (outputFiles.isEmpty()) {
+    QMessageBox::warning(this, tr("Export to PDF"),
+                         tr("No output files found. Please process the pages first."));
+    return;
+  }
+
+  // Ask user where to save
+  QString pdfPath = QFileDialog::getSaveFileName(
+      this, tr("Export to PDF"), m_outFileNameGen.outDir() + "/output.pdf", tr("PDF Files (*.pdf)"));
+
+  if (pdfPath.isEmpty()) {
+    return;
+  }
+
+  if (!pdfPath.endsWith(".pdf", Qt::CaseInsensitive)) {
+    pdfPath += ".pdf";
+  }
+
+  // Export
+  if (PdfExporter::exportToPdf(outputFiles, pdfPath)) {
+    QMessageBox::information(this, tr("Export to PDF"),
+                             tr("Successfully exported %1 pages to PDF.").arg(outputFiles.size()));
+  } else {
+    QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
+  }
+}
 
 void MainWindow::newProject() {
   if (!closeProjectInteractive()) {
