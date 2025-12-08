@@ -142,6 +142,7 @@ void OptionsWidget::colorModeChanged(const int idx) {
   m_colorParams.setColorMode((ColorMode) mode);
   m_settings->setColorParams(m_pageId, m_colorParams);
   updateColorsDisplay();
+  emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
 }
 
@@ -152,6 +153,7 @@ void OptionsWidget::thresholdMethodChanged(int idx) {
   m_colorParams.setBlackWhiteOptions(blackWhiteOptions);
   m_settings->setColorParams(m_pageId, m_colorParams);
 
+  emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
 }
 
@@ -162,6 +164,7 @@ void OptionsWidget::fillingColorChanged(int idx) {
   m_colorParams.setColorCommonOptions(colorCommonOptions);
   m_settings->setColorParams(m_pageId, m_colorParams);
 
+  emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
 }
 
