@@ -214,6 +214,7 @@ MainWindow::MainWindow()
   addAction(actionDiminishThumbnails);
   addAction(actionReloadPage);
   addAction(actionRemovePages);
+  addAction(actionSelectAll);
 
   addAction(actionSwitchFilter1);
   addAction(actionSwitchFilter2);
@@ -288,6 +289,7 @@ MainWindow::MainWindow()
   connect(m_thumbSequence.get(), SIGNAL(pastLastPageContextMenuRequested(const QPoint&)),
           SLOT(pastLastPageContextMenuRequested(const QPoint&)));
   connect(selectionModeBtn, SIGNAL(clicked(bool)), m_thumbSequence.get(), SLOT(setSelectionModeEnabled(bool)));
+  connect(actionSelectAll, &QAction::triggered, m_thumbSequence.get(), &ThumbnailSequence::selectAll);
 
   connect(thumbView->verticalScrollBar(), SIGNAL(sliderMoved(int)), this, SLOT(thumbViewScrolled()));
   connect(thumbView->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(thumbViewScrolled()));

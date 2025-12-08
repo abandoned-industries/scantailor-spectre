@@ -1493,6 +1493,20 @@ QToolButton:pressed {
     <bool>false</bool>
    </property>
   </action>
+  <action name="actionSelectAll">
+   <property name="text">
+    <string>Select All</string>
+   </property>
+   <property name="toolTip">
+    <string>Select all pages</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+A</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
