@@ -94,6 +94,8 @@
     <addaction name="actionSaveProject"/>
     <addaction name="actionSaveProjectAs"/>
     <addaction name="separator"/>
+    <addaction name="actionExportPdf"/>
+    <addaction name="separator"/>
     <addaction name="actionCloseProject"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
@@ -1472,6 +1474,20 @@ QToolButton:pressed {
    </property>
    <property name="shortcut">
     <string notr="true">Backspace</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionExportPdf">
+   <property name="text">
+    <string>Export to PDF...</string>
+   </property>
+   <property name="toolTip">
+    <string>Combine output images into a single PDF</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+E</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>
