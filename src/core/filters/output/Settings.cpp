@@ -99,10 +99,16 @@ Params Settings::getParams(const PageId& pageId) const {
 Params Settings::getParamsOrDetect(const PageId& pageId, const QString& sourceImagePath) {
   const QMutexLocker locker(&m_mutex);
 
+  qDebug() << "getParamsOrDetect called for:" << sourceImagePath;
+
   const auto it(m_perPageParams.find(pageId));
   if (it != m_perPageParams.end()) {
+    qDebug() << "  -> Using existing params";
     return it->second;
   }
+
+  qDebug() << "  -> No existing params, detecting...";
+  qDebug() << "  -> Vision available:" << AppleVisionDetector::isAvailable();
 
   // No existing params - detect color mode from source image
   Params params;
