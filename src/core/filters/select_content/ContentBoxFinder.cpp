@@ -482,7 +482,9 @@ void ContentBoxFinder::inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage&
   const int width = contentBlocks.width();
   const int height = contentBlocks.height();
 
-  const auto maxSpreadDist = static_cast<uint16_t>(std::min(width, height) / 4);
+  // Reduced from /4 to effectively disabled - photos extending to edge were being clipped
+  // Setting to very small value (just remove thin edge artifacts)
+  const auto maxSpreadDist = static_cast<uint16_t>(std::max(2, std::min(width, height) / 64));
 
   std::vector<uint16_t> map((width + 2) * (height + 2), ~uint16_t(0));
 

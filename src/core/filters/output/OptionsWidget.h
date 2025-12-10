@@ -32,6 +32,10 @@ namespace dewarping {
 class DistortionModel;
 }
 
+namespace finalize {
+class Settings;
+}
+
 namespace output {
 class Settings;
 
@@ -49,6 +53,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   ImageViewTab lastTab() const;
 
   const DepthPerception& depthPerception() const;
+
+  void setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings);
 
  signals:
 
@@ -180,6 +186,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void setupUiConnections();
 
   std::shared_ptr<Settings> m_settings;
+  std::shared_ptr<finalize::Settings> m_finalizeSettings;
   PageSelectionAccessor m_pageSelectionAccessor;
   PageId m_pageId;
   Dpi m_outputDpi;

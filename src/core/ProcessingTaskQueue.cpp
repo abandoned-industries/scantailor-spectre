@@ -11,6 +11,7 @@ ProcessingTaskQueue::ProcessingTaskQueue() = default;
 void ProcessingTaskQueue::addProcessingTask(const PageInfo& pageInfo, const BackgroundTaskPtr& task) {
   m_queue.emplace_back(pageInfo, task);
   m_pageToSelectWhenDone = PageInfo();
+  ++m_totalPages;
 }
 
 BackgroundTaskPtr ProcessingTaskQueue::takeForProcessing() {
@@ -61,6 +62,7 @@ void ProcessingTaskQueue::processingFinished(const BackgroundTaskPtr& task) {
   }
 
   m_queue.erase(it);
+  ++m_processedPages;
 
   if (removingSelectedPage) {
     if (!m_queue.empty()) {

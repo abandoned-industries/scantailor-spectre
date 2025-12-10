@@ -66,6 +66,11 @@ void ThumbnailBase::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     }
   }
 
+  // Allow subclasses to transform the pixmap (e.g., apply binarization preview)
+  if (!pixmap.isNull()) {
+    transformPixmap(pixmap);
+  }
+
   const QTransform thumbToDisplay = painter->worldTransform();
   const QTransform imageToDisplay = m_postScaleXform * thumbToDisplay;
 

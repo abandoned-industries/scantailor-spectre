@@ -28,6 +28,7 @@
 #include "SelectedPage.h"
 #include "StatusBarPanel.h"
 #include "ThumbnailSequence.h"
+#include "filters/page_split/LayoutType.h"
 #include "ui_MainWindow.h"
 
 class AbstractFilter;
@@ -43,6 +44,7 @@ class ProcessingIndicationWidget;
 class ImageInfo;
 class ImageViewBase;
 class PageInfo;
+class QLabel;
 class QStackedLayout;
 class WorkerThreadPool;
 class ProjectReader;
@@ -59,6 +61,7 @@ class OutOfMemoryDialog;
 class QLineF;
 class QRectF;
 class QLayout;
+class BatchProcessingSummaryDialog;
 
 class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::MainWindow {
   DECLARE_NON_COPYABLE(MainWindow)
@@ -141,6 +144,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   void reloadRequested();
 
   void startBatchProcessing();
+
+  void startBatchProcessingFrom(const PageInfo& startPage);
 
   void stopBatchProcessing(MainAreaAction mainArea = UPDATE_MAIN_AREA);
 
@@ -268,6 +273,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void showRemovePagesDialog(const std::set<PageId>& pages);
 
+  void forcePageSplitLayout(page_split::LayoutType layoutType);
+
   void insertImage(const ImageInfo& newImage, BeforeOrAfter beforeOrAfter, ImageId existing);
 
   void removeFromProject(const std::set<PageId>& pages);
@@ -300,6 +307,12 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void setupIcons();
 
+  void showBatchProcessingSummary();
+
+  void jumpToPageFromSummary(const ImageId& imageId);
+
+  void forceTwoPageForImages(const std::vector<ImageId>& imageIds);
+
   QSizeF m_maxLogicalThumbSize;
   std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<StageSequence> m_stages;
@@ -318,6 +331,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   std::unique_ptr<ContentBoxPropagator> m_contentBoxPropagator;
   std::unique_ptr<PageOrientationPropagator> m_pageOrientationPropagator;
   std::unique_ptr<QWidget> m_batchProcessingWidget;
+  QLabel* m_batchProgressLabel = nullptr;
   std::unique_ptr<ProcessingIndicationWidget> m_processingIndicationWidget;
   std::function<bool()> m_checkBeepWhenFinished;
   SelectedPage m_selectedPage;
@@ -329,6 +343,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   int m_ignorePageOrderingChanges;
   bool m_debug;
   bool m_closing;
+  bool m_twoPassBatchInProgress;  // True when running first pass (Page Layout) before Output
+  int m_twoPassTargetFilter;      // The filter to run after first pass completes
   QTimer m_autoSaveTimer;
   StatusBarPanel* m_statusBarPanel;
   QActionGroup* m_unitsMenuActionGroup;

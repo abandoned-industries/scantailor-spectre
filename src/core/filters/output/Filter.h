@@ -17,9 +17,14 @@
 #include "SafeDeletingQObjectPtr.h"
 
 class PageSelectionAccessor;
+class ProjectPages;
 class ThumbnailPixmapCache;
 class OutputFileNameGenerator;
 class QString;
+
+namespace finalize {
+class Settings;
+}
 
 namespace output {
 class OptionsWidget;
@@ -32,13 +37,15 @@ class Filter : public AbstractFilter {
 
   Q_DECLARE_TR_FUNCTIONS(output::Filter)
  public:
-  explicit Filter(const PageSelectionAccessor& pageSelectionAccessor);
+  Filter(std::shared_ptr<ProjectPages> pages, const PageSelectionAccessor& pageSelectionAccessor);
 
   ~Filter() override;
 
   QString getName() const override;
 
   PageView getView() const override;
+
+  void selected() override;
 
   void performRelinking(const AbstractRelinker& relinker) override;
 
@@ -60,6 +67,10 @@ class Filter : public AbstractFilter {
 
   OptionsWidget* optionsWidget();
 
+  std::shared_ptr<Settings> settings() const { return m_settings; }
+
+  void setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings);
+
   std::vector<PageOrderOption> pageOrderOptions() const override;
 
   int selectedPageOrder() const override;
@@ -69,6 +80,7 @@ class Filter : public AbstractFilter {
  private:
   void writePageSettings(QDomDocument& doc, QDomElement& filterEl, const PageId& pageId, int numericId) const;
 
+  std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<Settings> m_settings;
   SafeDeletingQObjectPtr<OptionsWidget> m_optionsWidget;
   PictureZonePropFactory m_pictureZonePropFactory;

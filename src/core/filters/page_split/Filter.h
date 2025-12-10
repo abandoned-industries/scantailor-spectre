@@ -66,6 +66,8 @@ class Filter : public AbstractFilter {
 
   OptionsWidget* optionsWidget();
 
+  std::shared_ptr<Settings> settings() const { return m_settings; }
+
   void pageOrientationUpdate(const ImageId& imageId, const OrthogonalRotation& orientation);
 
   std::vector<PageOrderOption> pageOrderOptions() const override;

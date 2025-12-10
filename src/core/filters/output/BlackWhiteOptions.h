@@ -9,7 +9,7 @@ class QDomDocument;
 class QDomElement;
 
 namespace output {
-enum BinarizationMethod { T_OTSU, T_SAUVOLA, T_WOLF, T_BRADLEY, T_GRAD, T_EDGEPLUS, T_BLURDIV, T_EDGEDIV };
+enum BinarizationMethod { T_OTSU, T_SAUVOLA, T_WOLF, T_BRADLEY, T_GRAD, T_EDGEPLUS, T_BLURDIV, T_EDGEDIV, T_NIBLACK, T_NICK, T_SINGH, T_WAN, T_MSCALE, T_ROBUST, T_GATOS, T_WINDOW, T_FOX, T_ENGRAVING, T_BIMODAL, T_MEAN, T_GRAIN };
 
 class BlackWhiteOptions {
  public:

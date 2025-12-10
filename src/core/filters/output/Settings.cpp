@@ -8,9 +8,11 @@
 
 #include "../../Utils.h"
 #include "AbstractRelinker.h"
-#include "AppleVisionDetector.h"
 #include "FillColorProperty.h"
+#include "LeptonicaDetector.h"
+#include "ImageLoader.h"
 #include "ImageTypeDetector.h"
+#include "PageSequence.h"
 #include "PictureLayerProperty.h"
 #include "RelinkablePath.h"
 
@@ -32,6 +34,7 @@ void Settings::clear() {
   m_perPagePictureZones.clear();
   m_perPageFillZones.clear();
   m_perPageOutputProcessingParams.clear();
+  m_colorModeDetectedPages.clear();
 }
 
 void Settings::performRelinking(const AbstractRelinker& relinker) {
@@ -97,66 +100,101 @@ Params Settings::getParams(const PageId& pageId) const {
 }
 
 Params Settings::getParamsOrDetect(const PageId& pageId, const QString& sourceImagePath) {
-  const QMutexLocker locker(&m_mutex);
-
-  qDebug() << "getParamsOrDetect called for:" << sourceImagePath;
-
-  const auto it(m_perPageParams.find(pageId));
-  if (it != m_perPageParams.end()) {
-    qDebug() << "  -> Using existing params";
-    return it->second;
+  // First check if params exist (quick lock)
+  {
+    const QMutexLocker locker(&m_mutex);
+    const auto it(m_perPageParams.find(pageId));
+    if (it != m_perPageParams.end()) {
+      return it->second;
+    }
   }
-
-  qDebug() << "  -> No existing params, detecting...";
-  qDebug() << "  -> Vision available:" << AppleVisionDetector::isAvailable();
+  // Mutex released here - Vision can run without blocking other threads
 
   // No existing params - detect color mode from source image
+  const ImageId& imageId = pageId.imageId();
+  qDebug() << "Auto-detecting color mode for:" << imageId.filePath() << "page:" << imageId.page();
+
   Params params;
   ColorParams colorParams;
 
-  // Try Apple Vision first for intelligent content-aware detection
-  if (AppleVisionDetector::isAvailable()) {
-    const AppleVisionDetector::AnalysisResult analysis = AppleVisionDetector::analyzeFromFile(sourceImagePath);
-    const QString suggestedMode = AppleVisionDetector::suggestColorMode(analysis);
+  // Load the actual page image using ImageLoader (properly handles PDFs and multi-page files)
+  QImage image = ImageLoader::load(imageId);
+  if (image.isNull()) {
+    qDebug() << "getParamsOrDetect: Failed to load image, defaulting to COLOR_GRAYSCALE";
+    colorParams.setColorMode(COLOR_GRAYSCALE);
+    params.setColorParams(colorParams);
 
-    if (suggestedMode == QLatin1String("bw")) {
+    // Store the params
+    {
+      const QMutexLocker locker(&m_mutex);
+      const auto it(m_perPageParams.find(pageId));
+      if (it != m_perPageParams.end()) {
+        return it->second;
+      }
+      m_perPageParams.insert(PerPageParams::value_type(pageId, params));
+    }
+    return params;
+  }
+
+  // Use Leptonica for document color type detection
+  const LeptonicaDetector::ColorType colorType = LeptonicaDetector::detect(image);
+
+  switch (colorType) {
+    case LeptonicaDetector::ColorType::BlackWhite:
       colorParams.setColorMode(BLACK_AND_WHITE);
-      qDebug() << "Vision detected B&W document:" << sourceImagePath
-               << "content:" << static_cast<int>(analysis.contentType)
-               << "text coverage:" << analysis.textCoverage;
-    } else if (suggestedMode == QLatin1String("color")) {
-      colorParams.setColorMode(COLOR_GRAYSCALE);  // Preserves color
-      qDebug() << "Vision detected photo/color:" << sourceImagePath
-               << "content:" << static_cast<int>(analysis.contentType);
-    } else {
-      colorParams.setColorMode(COLOR_GRAYSCALE);
-      qDebug() << "Vision detected grayscale:" << sourceImagePath
-               << "content:" << static_cast<int>(analysis.contentType)
-               << "text coverage:" << analysis.textCoverage;
-    }
-  } else {
-    // Fall back to basic pixel-based detection
-    const ImageTypeDetector::Type imageType = ImageTypeDetector::detectFromFile(sourceImagePath);
-
-    switch (imageType) {
-      case ImageTypeDetector::Type::Mono:
-        colorParams.setColorMode(BLACK_AND_WHITE);
-        qDebug() << "Auto-detected B&W mode for:" << sourceImagePath;
-        break;
-      case ImageTypeDetector::Type::Grayscale:
-        colorParams.setColorMode(COLOR_GRAYSCALE);
-        qDebug() << "Auto-detected Grayscale mode for:" << sourceImagePath;
-        break;
-      case ImageTypeDetector::Type::Color:
-        colorParams.setColorMode(COLOR_GRAYSCALE);
-        qDebug() << "Auto-detected Color mode for:" << sourceImagePath;
-        break;
-    }
+      qDebug() << "Leptonica detected B&W (getParamsOrDetect):" << imageId.filePath() << "page:" << imageId.page();
+      break;
+    case LeptonicaDetector::ColorType::Color:
+      colorParams.setColorMode(COLOR);
+      qDebug() << "Leptonica detected Color (getParamsOrDetect):" << imageId.filePath() << "page:" << imageId.page();
+      break;
+    case LeptonicaDetector::ColorType::Grayscale:
+    default:
+      colorParams.setColorMode(GRAYSCALE);
+      qDebug() << "Leptonica detected Grayscale (getParamsOrDetect):" << imageId.filePath() << "page:" << imageId.page();
+      break;
   }
   params.setColorParams(colorParams);
 
-  // Store the detected params so they persist
-  m_perPageParams.insert(PerPageParams::value_type(pageId, params));
+  // Re-acquire lock to store params
+  {
+    const QMutexLocker locker(&m_mutex);
+    const auto it(m_perPageParams.find(pageId));
+    if (it != m_perPageParams.end()) {
+      // Params already exist - another thread may have stored results
+      // Only update if we detected COLOR_GRAYSCALE (safer) or the existing is B&W default
+      // This prevents a late-finishing thread with B&W from overwriting a correct COLOR_GRAYSCALE
+      const ColorMode existingMode = it->second.colorParams().colorMode();
+      const ColorMode detectedMode = colorParams.colorMode();
+
+      // NEVER overwrite user-set color mode
+      if (it->second.colorParams().isColorModeUserSet()) {
+        qDebug() << "getParamsOrDetect: NOT overwriting USER-SET mode" << static_cast<int>(existingMode)
+                 << "with detected mode" << static_cast<int>(detectedMode);
+        return it->second;
+      }
+
+      // Update only if:
+      // 1. We detected COLOR_GRAYSCALE (always safe, preserves tones)
+      // 2. OR we detected MIXED (document with images - also safe)
+      // 3. OR the existing mode is B&W (might be wrong auto-detection)
+      bool shouldUpdate = (detectedMode == COLOR_GRAYSCALE) ||
+                          (detectedMode == MIXED) ||
+                          (existingMode == BLACK_AND_WHITE);
+
+      if (shouldUpdate) {
+        qDebug() << "getParamsOrDetect: Updating existing params with detected color mode:"
+                 << static_cast<int>(detectedMode) << "(existing was:" << static_cast<int>(existingMode) << ")";
+        it->second.setColorParams(colorParams);
+      } else {
+        qDebug() << "getParamsOrDetect: NOT overwriting existing mode" << static_cast<int>(existingMode)
+                 << "with detected mode" << static_cast<int>(detectedMode);
+      }
+      return it->second;
+    }
+    // Store the detected params so they persist
+    m_perPageParams.insert(PerPageParams::value_type(pageId, params));
+  }
 
   return params;
 }
@@ -390,5 +428,90 @@ void Settings::setBlackOnWhite(const PageId& pageId, const bool blackOnWhite) {
   } else {
     it->second.setBlackOnWhite(blackOnWhite);
   }
+}
+
+Params Settings::detectColorMode(const PageId& pageId, const QString& sourceImagePath) {
+  const QMutexLocker locker(&m_mutex);
+
+  const ImageId& imageId = pageId.imageId();
+  qDebug() << "detectColorMode: Force re-detecting color mode for:" << imageId.filePath()
+           << "page:" << imageId.page();
+
+  // Get existing params to preserve other settings, or create new ones
+  Params params;
+  const auto it(m_perPageParams.find(pageId));
+  if (it != m_perPageParams.end()) {
+    params = it->second;
+  }
+
+  // Detect color mode from source image
+  ColorParams colorParams = params.colorParams();
+
+  // Load the actual page image using ImageLoader (properly handles PDFs and multi-page files)
+  QImage image = ImageLoader::load(imageId);
+  if (image.isNull()) {
+    qDebug() << "detectColorMode: Failed to load image, defaulting to COLOR_GRAYSCALE";
+    colorParams.setColorMode(COLOR_GRAYSCALE);
+    params.setColorParams(colorParams);
+    Utils::mapSetValue(m_perPageParams, pageId, params);
+    m_colorModeDetectedPages.insert(pageId);
+    return params;
+  }
+
+  // Use Leptonica for document color type detection
+  const LeptonicaDetector::ColorType colorType = LeptonicaDetector::detect(image);
+
+  switch (colorType) {
+    case LeptonicaDetector::ColorType::BlackWhite:
+      colorParams.setColorMode(BLACK_AND_WHITE);
+      qDebug() << "Leptonica detected B&W:" << imageId.filePath() << "page:" << imageId.page();
+      break;
+    case LeptonicaDetector::ColorType::Color:
+      colorParams.setColorMode(COLOR_GRAYSCALE);
+      qDebug() << "Leptonica detected Color:" << imageId.filePath() << "page:" << imageId.page();
+      break;
+    case LeptonicaDetector::ColorType::Grayscale:
+    default:
+      colorParams.setColorMode(COLOR_GRAYSCALE);
+      qDebug() << "Leptonica detected Grayscale:" << imageId.filePath() << "page:" << imageId.page();
+      break;
+  }
+  params.setColorParams(colorParams);
+
+  // Store the detected params
+  Utils::mapSetValue(m_perPageParams, pageId, params);
+
+  // Mark this page as having had color mode detection done
+  m_colorModeDetectedPages.insert(pageId);
+
+  return params;
+}
+
+void Settings::batchDetectColorModes(const PageSequence& pages) {
+  qDebug() << "batchDetectColorModes: Starting batch detection for" << pages.numPages() << "pages";
+
+  int detected = 0;
+  int skipped = 0;
+
+  for (const PageInfo& pageInfo : pages) {
+    const PageId& pageId = pageInfo.id();
+    const QString sourceImagePath = pageId.imageId().filePath();
+
+    // Check if we've already done Vision color detection for this page
+    // (not just whether params exist - params may exist with default values from other settings)
+    {
+      const QMutexLocker locker(&m_mutex);
+      if (m_colorModeDetectedPages.find(pageId) != m_colorModeDetectedPages.end()) {
+        skipped++;
+        continue;
+      }
+    }
+
+    // Run Vision detection for this page
+    detectColorMode(pageId, sourceImagePath);
+    detected++;
+  }
+
+  qDebug() << "batchDetectColorModes: Completed - detected:" << detected << "skipped:" << skipped;
 }
 }  // namespace output

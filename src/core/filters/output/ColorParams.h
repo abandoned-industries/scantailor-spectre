@@ -12,7 +12,11 @@ class QDomDocument;
 class QDomElement;
 
 namespace output {
-enum ColorMode { BLACK_AND_WHITE, COLOR_GRAYSCALE, MIXED };
+// Note: AUTO_DETECT is a special value used only in the UI to trigger re-detection.
+// It is never stored - the actual detected mode (B&W, Color, Mixed) is stored instead.
+// COLOR outputs RGB, GRAYSCALE outputs 8-bit grayscale regardless of input.
+// COLOR_GRAYSCALE is kept for backward compatibility (behaves like COLOR - auto-detects).
+enum ColorMode { BLACK_AND_WHITE, COLOR_GRAYSCALE, MIXED, COLOR, GRAYSCALE, AUTO_DETECT = -1 };
 
 class ColorParams {
  public:
@@ -25,6 +29,19 @@ class ColorParams {
   ColorMode colorMode() const;
 
   void setColorMode(ColorMode mode);
+
+  /**
+   * Returns true if the color mode was explicitly set by the user,
+   * false if it's the default value or was auto-detected.
+   * When false, the system may re-run auto-detection.
+   */
+  bool isColorModeUserSet() const;
+
+  /**
+   * Mark the color mode as user-set. Call this when the user
+   * explicitly selects a mode (not when auto-detecting).
+   */
+  void setColorModeUserSet(bool userSet);
 
   const ColorCommonOptions& colorCommonOptions() const;
 
@@ -40,6 +57,7 @@ class ColorParams {
   static QString formatColorMode(ColorMode mode);
 
   ColorMode m_colorMode;
+  bool m_colorModeUserSet;  // true if user explicitly chose this mode
   ColorCommonOptions m_colorCommonOptions;
   BlackWhiteOptions m_bwOptions;
 };

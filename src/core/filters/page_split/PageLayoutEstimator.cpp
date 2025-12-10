@@ -29,6 +29,7 @@
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 
+#include "AppleVisionDetector.h"
 #include "ContentSpanFinder.h"
 #include "DebugImages.h"
 #include "ImageMetadata.h"
@@ -229,6 +230,60 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
                                                                      const ImageTransformation& preXform,
                                                                      DebugImages* const dbg) {
   const int numPages = page_split::numPages(layoutType, preXform);
+  const QRectF virtualImageRect(preXform.transform().mapRect(input.rect()));
+
+  // Try Apple Vision-based page split detection first (macOS only)
+  if (AppleVisionDetector::isAvailable() && (layoutType == AUTO_LAYOUT_TYPE || layoutType == TWO_PAGES)) {
+    const auto visionResult = AppleVisionDetector::detectPageSplit(input);
+    if (visionResult.shouldSplit && visionResult.confidence >= 0.60f) {
+      qDebug() << "PageLayoutEstimator: Using Vision-detected split at" << visionResult.splitLineX
+               << "confidence:" << visionResult.confidence;
+
+      // Convert normalized split position to image coordinates
+      const double splitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
+      const QLineF splitLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
+
+      return std::make_unique<PageLayout>(virtualImageRect, splitLine);
+    } else if (layoutType == TWO_PAGES) {
+      // User explicitly forced TWO_PAGES layout - honor their request.
+      // If Vision found a split position (even low confidence), use it.
+      // Otherwise, split in the center.
+      double splitX;
+      if (visionResult.splitLineX > 0.0) {
+        splitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
+        qDebug() << "PageLayoutEstimator: Forced TWO_PAGES, using Vision split at" << splitX
+                 << "(low confidence:" << visionResult.confidence << ")";
+      } else {
+        splitX = virtualImageRect.center().x();
+        qDebug() << "PageLayoutEstimator: Forced TWO_PAGES, splitting at center" << splitX;
+      }
+      const QLineF splitLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
+      return std::make_unique<PageLayout>(virtualImageRect, splitLine);
+    } else if (visionResult.leftTextRegions > 0 || visionResult.rightTextRegions > 0) {
+      // Vision analyzed the image and didn't find a clear two-page spread.
+      // Trust Vision's analysis and return single page (no split) rather than
+      // falling through to the less intelligent traditional algorithm.
+      // This prevents bad splits on two-column layouts, full-page photos, etc.
+      qDebug() << "PageLayoutEstimator: Vision analysis did not detect two-page spread"
+               << "(left:" << visionResult.leftTextRegions << "right:" << visionResult.rightTextRegions << ")"
+               << "- returning single page layout";
+      return std::make_unique<PageLayout>(virtualImageRect);  // Single page, no split
+    } else {
+      // No text regions detected (photo page, blank page, etc.)
+      // Check aspect ratio: if image is clearly portrait, assume single page.
+      // For square-ish or landscape images without text, fall through to traditional.
+      const double aspectRatio = static_cast<double>(input.width()) / input.height();
+      if (aspectRatio < 0.85) {
+        // Clearly portrait - definitely a single page
+        qDebug() << "PageLayoutEstimator: Vision found no text, aspect ratio" << aspectRatio
+                 << "is portrait - returning single page layout";
+        return std::make_unique<PageLayout>(virtualImageRect);  // Single page, no split
+      }
+      // For square-ish or landscape images without text, fall through to traditional algorithm
+      qDebug() << "PageLayoutEstimator: Vision found no text, aspect ratio" << aspectRatio
+               << "- using traditional detection";
+    }
+  }
 
   GrayImage grayDownscaled;
   QTransform outToDownscaled;
@@ -240,7 +295,6 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
 
   std::sort(lines.begin(), lines.end(), CenterComparator());
 
-  const QRectF virtualImageRect(preXform.transform().mapRect(input.rect()));
   const QPointF center(virtualImageRect.center());
 
   if (numPages == 1) {
