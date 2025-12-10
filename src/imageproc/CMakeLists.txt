@@ -56,6 +56,9 @@ set(sources
 
 add_library(imageproc STATIC ${sources})
 target_link_libraries(imageproc PUBLIC foundation math)
+if(APPLE)
+    target_link_libraries(imageproc PUBLIC acceleration)
+endif()
 target_include_directories(imageproc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(tests)

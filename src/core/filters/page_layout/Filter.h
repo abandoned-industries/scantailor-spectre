@@ -21,10 +21,10 @@ class ImageTransformation;
 class QString;
 class QRectF;
 
-namespace output {
+namespace finalize {
 class Task;
 class CacheDrivenTask;
-}  // namespace output
+}  // namespace finalize
 
 namespace page_layout {
 class OptionsWidget;
@@ -70,11 +70,11 @@ class Filter : public AbstractFilter {
   bool checkReadyForOutput(const ProjectPages& pages, const PageId* ignore = nullptr);
 
   std::shared_ptr<Task> createTask(const PageId& pageId,
-                                   std::shared_ptr<output::Task> nextTask,
+                                   std::shared_ptr<finalize::Task> nextTask,
                                    bool batch,
                                    bool debug);
 
-  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask);
+  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<finalize::CacheDrivenTask> nextTask);
 
   OptionsWidget* optionsWidget();
 

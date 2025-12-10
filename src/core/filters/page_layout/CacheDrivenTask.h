@@ -14,7 +14,7 @@ class PageInfo;
 class AbstractFilterDataCollector;
 class ImageTransformation;
 
-namespace output {
+namespace finalize {
 class CacheDrivenTask;
 }
 
@@ -25,7 +25,7 @@ class CacheDrivenTask {
   DECLARE_NON_COPYABLE(CacheDrivenTask)
 
  public:
-  CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask, std::shared_ptr<Settings> settings);
+  CacheDrivenTask(std::shared_ptr<finalize::CacheDrivenTask> nextTask, std::shared_ptr<Settings> settings);
 
   virtual ~CacheDrivenTask();
 
@@ -36,7 +36,7 @@ class CacheDrivenTask {
                const QRectF& contentRect);
 
  private:
-  std::shared_ptr<output::CacheDrivenTask> m_nextTask;
+  std::shared_ptr<finalize::CacheDrivenTask> m_nextTask;
   std::shared_ptr<Settings> m_settings;
 };
 }  // namespace page_layout

@@ -40,6 +40,14 @@ class ApplicationSettings {
 
   void setTiffColorCompression(int compression);
 
+  bool isJpegOutputEnabled() const;
+
+  void setJpegOutputEnabled(bool enabled);
+
+  int getJpegQuality() const;
+
+  void setJpegQuality(int quality);
+
   bool isBlackOnWhiteDetectionEnabled() const;
 
   void setBlackOnWhiteDetectionEnabled(bool enabled);
@@ -128,6 +136,8 @@ class ApplicationSettings {
   static const QString DEFAULT_UNITS;
   static const QString DEFAULT_PROFILE;
   static const bool DEFAULT_SHOW_CANCELING_SELECTION_QUESTION;
+  static const bool DEFAULT_JPEG_OUTPUT;
+  static const int DEFAULT_JPEG_QUALITY;
 
   static const QString ROOT_KEY;
   static const QString OPENGL_STATE_KEY;
@@ -151,6 +161,8 @@ class ApplicationSettings {
   static const QString UNITS_KEY;
   static const QString CURRENT_PROFILE_KEY;
   static const QString SHOW_CANCELING_SELECTION_QUESTION_KEY;
+  static const QString JPEG_OUTPUT_KEY;
+  static const QString JPEG_QUALITY_KEY;
 
   QSettings m_settings;
 };

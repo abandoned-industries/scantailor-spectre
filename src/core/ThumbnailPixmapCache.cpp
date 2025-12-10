@@ -644,6 +644,15 @@ QImage ThumbnailPixmapCache::Impl::makeThumbnail(const QImage& image, const QSiz
     // This will be faster than QImage::scale().
     return scaleToGray(GrayImage(image), toSize);
   }
+
+  // For 1-bit (mono) images, convert to grayscale first before smooth scaling.
+  // Direct smooth scaling of B&W text pages makes them appear nearly white
+  // because anti-aliasing averages the thin black lines with the white background.
+  if (image.format() == QImage::Format_Mono || image.format() == QImage::Format_MonoLSB) {
+    QImage grayscale = image.convertToFormat(QImage::Format_Grayscale8);
+    return grayscale.scaled(toSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  }
+
   return image.scaled(toSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 

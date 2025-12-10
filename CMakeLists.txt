@@ -152,6 +152,12 @@ if (WIN32)
       INTERFACE_COMPILE_DEFINITIONS USE_LIBTIFF_DLL)
 endif()
 
+#================================ Leptonica ===============================#
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LEPTONICA REQUIRED lept)
+link_directories(${LEPTONICA_LIBRARY_DIRS})
+
 #================================= Boost ================================#
 
 #set(Boost_NO_WARN_NEW_VERSIONS ON)

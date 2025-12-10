@@ -3,10 +3,12 @@
 
 #include "OptionsWidget.h"
 
+#include <QDebug>
 #include <QToolTip>
 #include <utility>
 
 #include "../../Utils.h"
+#include "filters/finalize/Settings.h"
 #include "ApplyColorsDialog.h"
 #include "ChangeDewarpingDialog.h"
 #include "ChangeDpiDialog.h"
@@ -36,7 +38,8 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   despeckleSlider->setMaximum(qRound(3.0 * 10));
 
   colorModeSelector->addItem(tr("Black and White"), BLACK_AND_WHITE);
-  colorModeSelector->addItem(tr("Color / Grayscale"), COLOR_GRAYSCALE);
+  colorModeSelector->addItem(tr("Color"), COLOR);
+  colorModeSelector->addItem(tr("Grayscale"), GRAYSCALE);
   colorModeSelector->addItem(tr("Mixed"), MIXED);
 
   thresholdMethodBox->addItem(tr("Otsu"), T_OTSU);
@@ -47,6 +50,19 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   thresholdMethodBox->addItem(tr("EdgePlus"), T_EDGEPLUS);
   thresholdMethodBox->addItem(tr("BlurDiv"), T_BLURDIV);
   thresholdMethodBox->addItem(tr("EdgeDiv"), T_EDGEDIV);
+  thresholdMethodBox->addItem(tr("Niblack"), T_NIBLACK);
+  thresholdMethodBox->addItem(tr("N.I.C.K"), T_NICK);
+  thresholdMethodBox->addItem(tr("Singh"), T_SINGH);
+  thresholdMethodBox->addItem(tr("WAN"), T_WAN);
+  thresholdMethodBox->addItem(tr("MultiScale"), T_MSCALE);
+  thresholdMethodBox->addItem(tr("Robust"), T_ROBUST);
+  thresholdMethodBox->addItem(tr("Gatos"), T_GATOS);
+  thresholdMethodBox->addItem(tr("Window"), T_WINDOW);
+  thresholdMethodBox->addItem(tr("Fox"), T_FOX);
+  thresholdMethodBox->addItem(tr("Engraving"), T_ENGRAVING);
+  thresholdMethodBox->addItem(tr("BiModal"), T_BIMODAL);
+  thresholdMethodBox->addItem(tr("Mean"), T_MEAN);
+  thresholdMethodBox->addItem(tr("Grain"), T_GRAIN);
 
   fillingColorBox->addItem(tr("Background"), FILL_BACKGROUND);
   fillingColorBox->addItem(tr("White"), FILL_WHITE);
@@ -65,6 +81,37 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
       = new SauvolaBinarizationOptionsWidget(m_settings);
   QPointer<BinarizationOptionsWidget> edgedivBinarizationOptionsWidget
       = new SauvolaBinarizationOptionsWidget(m_settings);
+  // New algorithms - Niblack uses Sauvola-style options (window size + k coefficient)
+  QPointer<BinarizationOptionsWidget> niblackBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> nickBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> singhBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  // WAN, MultiScale, Robust, Gatos - all use Sauvola-style options (window size + k coefficient)
+  QPointer<BinarizationOptionsWidget> wanBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> mscaleBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> robustBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> gatosBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  // Window, Fox, Engraving - all use Sauvola-style options (window size + k coefficient)
+  QPointer<BinarizationOptionsWidget> windowBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> foxBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> engravingBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
+  // BiModal and Mean use Otsu-style options (no window size, just delta)
+  QPointer<BinarizationOptionsWidget> bimodalBinarizationOptionsWidget
+      = new OtsuBinarizationOptionsWidget(m_settings);
+  QPointer<BinarizationOptionsWidget> meanBinarizationOptionsWidget
+      = new OtsuBinarizationOptionsWidget(m_settings);
+  // Grain uses Sauvola-style options (window size + k coefficient)
+  QPointer<BinarizationOptionsWidget> grainBinarizationOptionsWidget
+      = new SauvolaBinarizationOptionsWidget(m_settings);
 
   while (binarizationOptions->count() != 0) {
     binarizationOptions->removeWidget(binarizationOptions->widget(0));
@@ -77,6 +124,19 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   addBinarizationOptionsWidget(edgeplusBinarizationOptionsWidget);
   addBinarizationOptionsWidget(blurdivBinarizationOptionsWidget);
   addBinarizationOptionsWidget(edgedivBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(niblackBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(nickBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(singhBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(wanBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(mscaleBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(robustBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(gatosBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(windowBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(foxBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(engravingBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(bimodalBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(meanBinarizationOptionsWidget);
+  addBinarizationOptionsWidget(grainBinarizationOptionsWidget);
   updateBinarizationOptionsDisplay(binarizationOptions->currentIndex());
 
   pictureShapeSelector->addItem(tr("Off"), OFF_SHAPE);
@@ -94,11 +154,16 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
 
 OptionsWidget::~OptionsWidget() = default;
 
+void OptionsWidget::setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings) {
+  m_finalizeSettings = std::move(finalizeSettings);
+}
+
 void OptionsWidget::preUpdateUI(const PageId& pageId) {
   auto block = m_connectionManager.getScopedBlock();
 
-  // Use getParamsOrDetect to auto-detect color mode for pages without stored params
-  const Params params = m_settings->getParamsOrDetect(pageId, pageId.imageId().filePath());
+  // Just get existing params - don't trigger Vision detection on page click
+  // Detection happens during batch processing or Task execution
+  const Params params = m_settings->getParams(pageId);
   m_pageId = pageId;
   m_outputDpi = params.outputDpi();
   m_colorParams = params.colorParams();
@@ -140,9 +205,33 @@ void OptionsWidget::distortionModelChanged(const dewarping::DistortionModel& mod
 
 void OptionsWidget::colorModeChanged(const int idx) {
   const int mode = colorModeSelector->itemData(idx).toInt();
+
+  // User selected a mode from the dropdown
   m_colorParams.setColorMode((ColorMode) mode);
+  m_colorParams.setColorModeUserSet(true);  // Mark as user-set to prevent auto-detection override
   m_settings->setColorParams(m_pageId, m_colorParams);
   updateColorsDisplay();
+
+  // Also update finalize settings so finalize filter stays in sync
+  if (m_finalizeSettings) {
+    finalize::ColorMode finalizeMode;
+    switch ((ColorMode) mode) {
+      case BLACK_AND_WHITE:
+        finalizeMode = finalize::ColorMode::BlackAndWhite;
+        break;
+      case GRAYSCALE:
+        finalizeMode = finalize::ColorMode::Grayscale;
+        break;
+      case COLOR:
+      default:
+        finalizeMode = finalize::ColorMode::Color;
+        break;
+    }
+    m_finalizeSettings->setColorMode(m_pageId, finalizeMode);
+    qDebug() << "Output: User set color mode to" << mode << "for page" << m_pageId.imageId().filePath()
+             << "- synced to finalize filter";
+  }
+
   emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
 }
@@ -560,7 +649,11 @@ void OptionsWidget::updateDpiDisplay() {
 void OptionsWidget::updateColorsDisplay() {
   colorModeSelector->blockSignals(true);
 
-  const ColorMode colorMode = m_colorParams.colorMode();
+  ColorMode colorMode = m_colorParams.colorMode();
+  // Map legacy COLOR_GRAYSCALE to COLOR for backward compatibility
+  if (colorMode == COLOR_GRAYSCALE) {
+    colorMode = COLOR;
+  }
   const int colorModeIdx = colorModeSelector->findData(colorMode);
   colorModeSelector->setCurrentIndex(colorModeIdx);
 
@@ -576,6 +669,11 @@ void OptionsWidget::updateColorsDisplay() {
       thresholdOptionsVisible = true;
       // fall through
     case COLOR_GRAYSCALE:
+    case COLOR:
+    case GRAYSCALE:
+      break;
+    case AUTO_DETECT:
+      // Should not be stored, but handle it
       break;
   }
 
@@ -594,10 +692,12 @@ void OptionsWidget::updateColorsDisplay() {
   fillOffcutCB->setChecked(colorCommonOptions.fillOffcut());
   fillOffcutCB->setVisible(true);
   equalizeIlluminationCB->setChecked(blackWhiteOptions.normalizeIllumination());
-  equalizeIlluminationCB->setVisible(colorMode != COLOR_GRAYSCALE);
+  // Hide BW illumination option for color/grayscale modes
+  const bool isColorOrGrayscale = (colorMode == COLOR_GRAYSCALE || colorMode == COLOR || colorMode == GRAYSCALE);
+  equalizeIlluminationCB->setVisible(!isColorOrGrayscale);
   equalizeIlluminationColorCB->setChecked(colorCommonOptions.normalizeIllumination());
   equalizeIlluminationColorCB->setVisible(colorMode != BLACK_AND_WHITE);
-  equalizeIlluminationColorCB->setEnabled(colorMode == COLOR_GRAYSCALE || blackWhiteOptions.normalizeIllumination());
+  equalizeIlluminationColorCB->setEnabled(isColorOrGrayscale || blackWhiteOptions.normalizeIllumination());
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
   morphologicalSmoothingCB->setChecked(blackWhiteOptions.isMorphologicalSmoothingEnabled());

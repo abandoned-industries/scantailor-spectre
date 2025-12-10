@@ -4,8 +4,8 @@
 #include "Filter.h"
 
 #include <OrderByDeviationProvider.h>
-#include <filters/output/CacheDrivenTask.h>
-#include <filters/output/Task.h>
+#include <filters/finalize/CacheDrivenTask.h>
+#include <filters/finalize/Task.h>
 
 #include <utility>
 
@@ -172,14 +172,14 @@ bool Filter::checkReadyForOutput(const ProjectPages& pages, const PageId* ignore
 }
 
 std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
-                                         std::shared_ptr<output::Task> nextTask,
+                                         std::shared_ptr<finalize::Task> nextTask,
                                          const bool batch,
                                          const bool debug) {
   return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), std::move(nextTask), m_settings,
                                 pageId, batch, debug);
 }
 
-std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask) {
+std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<finalize::CacheDrivenTask> nextTask) {
   return std::make_shared<CacheDrivenTask>(std::move(nextTask), m_settings);
 }
 

@@ -11,6 +11,10 @@
 #include "Constants.h"
 #include "GrayImage.h"
 
+#ifdef Q_OS_MACOS
+#include "MetalGaussBlur.h"
+#endif
+
 namespace imageproc {
 namespace gauss_blur_impl {
 void findIirConstants(float* nP, float* nM, float* dP, float* dM, float* bdP, float* bdM, float stdDev) {
@@ -82,6 +86,28 @@ GrayImage gaussBlur(const GrayImage& src, float hSigma, float vSigma) {
     return src;
   }
 
+#ifdef Q_OS_MACOS
+  // Try GPU-accelerated blur first
+  if (metalGaussBlurAvailable()) {
+    GrayImage dst(src.size());
+    // Copy source data to destination
+    const int height = src.height();
+    const int srcStride = src.stride();
+    const int dstStride = dst.stride();
+    const uint8_t* srcData = src.data();
+    uint8_t* dstData = dst.data();
+    for (int y = 0; y < height; y++) {
+      memcpy(dstData + y * dstStride, srcData + y * srcStride, src.width());
+    }
+    // Apply GPU blur in-place
+    if (metalGaussBlur(dstData, dst.width(), dst.height(), dstStride, hSigma, vSigma)) {
+      return dst;
+    }
+    // Fall through to CPU if GPU failed
+  }
+#endif
+
+  // CPU fallback
   GrayImage dst(src.size());
   gaussBlurGeneric(src.size(), hSigma, vSigma, src.data(), src.stride(), StaticCastValueConv<float>(), dst.data(),
                    dst.stride(), _1 = bind<uint8_t>(RoundAndClipValueConv<uint8_t>(), _2));

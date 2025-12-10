@@ -29,6 +29,8 @@ const QString ApplicationSettings::DEFAULT_LANGUAGE = QLocale::system().name();
 const QString ApplicationSettings::DEFAULT_UNITS = "mm";
 const QString ApplicationSettings::DEFAULT_PROFILE = "Default";
 const bool ApplicationSettings::DEFAULT_SHOW_CANCELING_SELECTION_QUESTION = true;
+const bool ApplicationSettings::DEFAULT_JPEG_OUTPUT = false;
+const int ApplicationSettings::DEFAULT_JPEG_QUALITY = 90;
 
 const QString ApplicationSettings::ROOT_KEY = "settings";
 const QString ApplicationSettings::OPENGL_STATE_KEY = "enable_opengl";
@@ -52,6 +54,8 @@ const QString ApplicationSettings::LANGUAGE_KEY = "language";
 const QString ApplicationSettings::UNITS_KEY = "units";
 const QString ApplicationSettings::CURRENT_PROFILE_KEY = "current_profile";
 const QString ApplicationSettings::SHOW_CANCELING_SELECTION_QUESTION_KEY = "selection_canceling_question";
+const QString ApplicationSettings::JPEG_OUTPUT_KEY = "jpeg_output";
+const QString ApplicationSettings::JPEG_QUALITY_KEY = "jpeg_quality";
 
 QString ApplicationSettings::getKey(const QString& keyName) {
   return ApplicationSettings::ROOT_KEY + '/' + keyName;
@@ -234,4 +238,20 @@ bool ApplicationSettings::isCancelingSelectionQuestionEnabled() {
 
 void ApplicationSettings::setCancelingSelectionQuestionEnabled(bool enabled) {
   m_settings.setValue(getKey(SHOW_CANCELING_SELECTION_QUESTION_KEY), enabled);
+}
+
+bool ApplicationSettings::isJpegOutputEnabled() const {
+  return m_settings.value(getKey(JPEG_OUTPUT_KEY), DEFAULT_JPEG_OUTPUT).toBool();
+}
+
+void ApplicationSettings::setJpegOutputEnabled(bool enabled) {
+  m_settings.setValue(getKey(JPEG_OUTPUT_KEY), enabled);
+}
+
+int ApplicationSettings::getJpegQuality() const {
+  return m_settings.value(getKey(JPEG_QUALITY_KEY), DEFAULT_JPEG_QUALITY).toInt();
+}
+
+void ApplicationSettings::setJpegQuality(int quality) {
+  m_settings.setValue(getKey(JPEG_QUALITY_KEY), quality);
 }

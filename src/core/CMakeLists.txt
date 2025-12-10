@@ -54,6 +54,7 @@ set(common_sources
     PdfMetadataLoader.cpp PdfMetadataLoader.h
     ImageLoader.cpp ImageLoader.h
     ImageTypeDetector.cpp ImageTypeDetector.h
+    LeptonicaDetector.cpp LeptonicaDetector.h
     AppleVisionDetector.h
     ErrorWidget.cpp ErrorWidget.h
     OrthogonalRotation.cpp OrthogonalRotation.h
@@ -133,20 +134,25 @@ if(APPLE)
   find_library(VISION_FRAMEWORK Vision REQUIRED)
   find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
   find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
+  find_library(ACCELERATE_FRAMEWORK Accelerate REQUIRED)
 endif()
 
 add_library(core STATIC ${common_sources} ${common_ui_files})
 
+target_include_directories(core PRIVATE ${LEPTONICA_INCLUDE_DIRS})
+
 target_link_libraries(
   core
   PRIVATE TIFF::TIFF PNG::PNG ZLIB::ZLIB JPEG::JPEG
+    ${LEPTONICA_LIBRARIES}
     $<$<BOOL:${LibHaru_FOUND}>:LibHaru::LibHaru>
     $<$<BOOL:${VISION_FRAMEWORK}>:${VISION_FRAMEWORK}>
     $<$<BOOL:${FOUNDATION_FRAMEWORK}>:${FOUNDATION_FRAMEWORK}>
     $<$<BOOL:${APPKIT_FRAMEWORK}>:${APPKIT_FRAMEWORK}>
+    $<$<BOOL:${ACCELERATE_FRAMEWORK}>:${ACCELERATE_FRAMEWORK}>
   PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets Qt::Pdf
   imageproc zones
-  fix_orientation page_split deskew select_content page_layout output)
+  fix_orientation page_split deskew select_content page_layout finalize output)
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 set_target_properties(core PROPERTIES AUTOUIC ON)
 
@@ -160,4 +166,5 @@ add_subdirectory(filters/page_split)
 add_subdirectory(filters/deskew)
 add_subdirectory(filters/select_content)
 add_subdirectory(filters/page_layout)
+add_subdirectory(filters/finalize)
 add_subdirectory(filters/output)

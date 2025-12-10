@@ -12,6 +12,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFileSystemModel>
 #include <QFormLayout>
 #include <QLabel>
@@ -75,10 +76,18 @@
 #include "filters/output/CacheDrivenTask.h"
 #include "filters/output/TabbedImageView.h"
 #include "filters/output/Task.h"
+#include "filters/finalize/CacheDrivenTask.h"
+#include "filters/finalize/Task.h"
 #include "filters/page_layout/CacheDrivenTask.h"
 #include "filters/page_layout/Task.h"
 #include "filters/page_split/CacheDrivenTask.h"
+#include "filters/page_split/Filter.h"
+#include "filters/page_split/LayoutType.h"
+#include "filters/page_split/PageLayout.h"
+#include "filters/page_split/Params.h"
+#include "filters/page_split/Settings.h"
 #include "filters/page_split/Task.h"
+#include "BatchProcessingSummaryDialog.h"
 #include "filters/select_content/CacheDrivenTask.h"
 #include "filters/select_content/Task.h"
 #include "ui_AboutDialog.h"
@@ -115,7 +124,9 @@ MainWindow::MainWindow()
       m_ignoreSelectionChanges(0),
       m_ignorePageOrderingChanges(0),
       m_debug(false),
-      m_closing(false) {
+      m_closing(false),
+      m_twoPassBatchInProgress(false),
+      m_twoPassTargetFilter(-1) {
   ApplicationSettings& settings = ApplicationSettings::getInstance();
 
   m_maxLogicalThumbSize = settings.getMaxLogicalThumbnailSize();
@@ -484,6 +495,14 @@ void MainWindow::createBatchProcessingWidget() {
   stopBtn->setIconSize({128, 128});
   stopBtn->setStatusTip(tr("Stop batch processing"));
 
+  // Progress label showing "p X / Y"
+  m_batchProgressLabel = new QLabel(m_batchProcessingWidget.get());
+  m_batchProgressLabel->setAlignment(Qt::AlignCenter);
+  QFont progressFont = m_batchProgressLabel->font();
+  progressFont.setPointSize(24);
+  progressFont.setBold(true);
+  m_batchProgressLabel->setFont(progressFont);
+
   class LowerPanel : public QWidget {
    public:
     explicit LowerPanel(QWidget* parent = 0) : QWidget(parent) { ui.setupUi(this); }
@@ -496,6 +515,7 @@ void MainWindow::createBatchProcessingWidget() {
   m_checkBeepWhenFinished = [lowerPanel]() { return lowerPanel->ui.beepWhenFinished->isChecked(); };
 
   int row = 0;  // Row 0 is reserved.
+  layout->addWidget(m_batchProgressLabel, ++row, 1, Qt::AlignCenter);
   layout->addWidget(stopBtn, ++row, 1, Qt::AlignCenter);
   layout->addWidget(lowerPanel, ++row, 0, 1, 3, Qt::AlignHCenter | Qt::AlignTop);
   layout->setColumnStretch(0, 1);
@@ -967,6 +987,16 @@ void MainWindow::pageContextMenuRequested(const PageInfo& pageInfo_, const QPoin
 
   QAction* remove = menu.addAction(iconProvider.getIcon("user-trash"), tr("Remove from project ..."));
 
+  menu.addSeparator();
+
+  QAction* forceTwoPages = menu.addAction(iconProvider.getIcon("two_pages"), tr("Force two-page layout"));
+  QAction* forceSinglePage = menu.addAction(iconProvider.getIcon("single_page_uncut"), tr("Force single page layout"));
+  QAction* resetAutoLayout = menu.addAction(iconProvider.getIcon("layout_type_auto"), tr("Reset to auto layout"));
+
+  menu.addSeparator();
+
+  QAction* processFromHere = menu.addAction(iconProvider.getIcon("play"), tr("Process from here..."));
+
   QAction* action = menu.exec(screenPos);
   if (action == insBefore) {
     showInsertFileDialog(BEFORE, pageInfo.imageId());
@@ -974,6 +1004,14 @@ void MainWindow::pageContextMenuRequested(const PageInfo& pageInfo_, const QPoin
     showInsertFileDialog(AFTER, pageInfo.imageId());
   } else if (action == remove) {
     showRemovePagesDialog(m_thumbSequence->selectedItems());
+  } else if (action == forceTwoPages) {
+    forcePageSplitLayout(page_split::TWO_PAGES);
+  } else if (action == forceSinglePage) {
+    forcePageSplitLayout(page_split::SINGLE_PAGE_UNCUT);
+  } else if (action == resetAutoLayout) {
+    forcePageSplitLayout(page_split::AUTO_LAYOUT_TYPE);
+  } else if (action == processFromHere) {
+    startBatchProcessingFrom(pageInfo);
   }
 }  // MainWindow::pageContextMenuRequested
 
@@ -1133,13 +1171,27 @@ void MainWindow::startBatchProcessing() {
 
   m_interactiveQueue->cancelAndClear();
 
+  // Check if we're at Output but not all pages have their content sizes defined.
+  // If so, we need a two-pass batch: first run Page Layout to gather all sizes,
+  // then automatically run Output with the complete aggregate size information.
+  int effectiveFilter = m_curFilter;
+  if (isOutputFilter() && !checkReadyForOutput()) {
+    // Need two-pass batch: first run Page Layout only
+    m_twoPassBatchInProgress = true;
+    m_twoPassTargetFilter = m_curFilter;
+    effectiveFilter = m_stages->pageLayoutFilterIdx();
+  } else {
+    m_twoPassBatchInProgress = false;
+    m_twoPassTargetFilter = -1;
+  }
+
   m_batchQueue = std::make_unique<ProcessingTaskQueue>();
   PageInfo page(m_thumbSequence->selectionLeader());
   for (; !page.isNull(); page = m_thumbSequence->nextPage(page.id())) {
     for (int i = 0; i < m_stages->count(); i++) {
       m_stages->filterAt(i)->loadDefaultSettings(page);
     }
-    m_batchQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, /*batch=*/true, m_debug));
+    m_batchQueue->addProcessingTask(page, createCompositeTask(page, effectiveFilter, /*batch=*/true, m_debug));
   }
 
   focusButton->setChecked(true);
@@ -1147,6 +1199,11 @@ void MainWindow::startBatchProcessing() {
   removeFilterOptionsWidget();
   filterList->setBatchProcessingInProgress(true);
   filterList->setEnabled(false);
+
+  // Initialize progress display
+  if (m_batchProgressLabel) {
+    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  }
 
   BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
   if (task) {
@@ -1168,10 +1225,63 @@ void MainWindow::startBatchProcessing() {
   updateMainArea();
 }  // MainWindow::startBatchProcessing
 
+void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
+  if (isBatchProcessingInProgress() || !isProjectLoaded()) {
+    return;
+  }
+
+  m_interactiveQueue->cancelAndClear();
+
+  m_batchQueue = std::make_unique<ProcessingTaskQueue>();
+
+  // Start from the specified page and add all subsequent pages
+  PageInfo page = startPage;
+  for (; !page.isNull(); page = m_thumbSequence->nextPage(page.id())) {
+    for (int i = 0; i < m_stages->count(); i++) {
+      m_stages->filterAt(i)->loadDefaultSettings(page);
+    }
+    m_batchQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, /*batch=*/true, m_debug));
+  }
+
+  focusButton->setChecked(true);
+
+  removeFilterOptionsWidget();
+  filterList->setBatchProcessingInProgress(true);
+  filterList->setEnabled(false);
+
+  // Initialize progress display
+  if (m_batchProgressLabel) {
+    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  }
+
+  BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
+  if (task) {
+    do {
+      m_workerThreadPool->submitTask(task);
+      if (!m_workerThreadPool->hasSpareCapacity()) {
+        break;
+      }
+    } while ((task = m_batchQueue->takeForProcessing()));
+  } else {
+    stopBatchProcessing();
+  }
+
+  page = m_batchQueue->selectedPage();
+  if (!page.isNull()) {
+    m_thumbSequence->setSelection(page.id());
+  }
+  // Display the batch processing screen.
+  updateMainArea();
+}  // MainWindow::startBatchProcessingFrom
+
 void MainWindow::stopBatchProcessing(MainAreaAction mainArea) {
   if (!isBatchProcessingInProgress()) {
     return;
   }
+
+  // Reset two-pass batch state if user manually stops
+  m_twoPassBatchInProgress = false;
+  m_twoPassTargetFilter = -1;
 
   const PageInfo page(m_batchQueue->selectedPage());
   if (!page.isNull()) {
@@ -1201,6 +1311,11 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
   m_interactiveQueue->processingFinished(task);
   if (m_batchQueue) {
     m_batchQueue->processingFinished(task);
+    // Update progress display
+    if (m_batchProgressLabel) {
+      m_batchProgressLabel->setText(
+          tr("p. %1 / %2").arg(m_batchQueue->processedPages() + 1).arg(m_batchQueue->totalPages()));
+    }
   }
 
   if (task->isCancelled()) {
@@ -1227,11 +1342,57 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
 
   if (isBatchProcessingInProgress()) {
     if (m_batchQueue->allProcessed()) {
+      // Check if we're in a two-pass batch and need to start the second pass
+      if (m_twoPassBatchInProgress && m_twoPassTargetFilter >= 0) {
+        // First pass (Page Layout) is complete. Now start the second pass (Output).
+        const int targetFilter = m_twoPassTargetFilter;
+        m_twoPassBatchInProgress = false;
+        m_twoPassTargetFilter = -1;
+
+        // Stop the current batch without alerts
+        m_batchQueue->cancelAndClear();
+        m_batchQueue.reset();
+
+        // Build new batch queue for the target filter (Output)
+        m_batchQueue = std::make_unique<ProcessingTaskQueue>();
+        PageInfo page(m_thumbSequence->firstPage());
+        for (; !page.isNull(); page = m_thumbSequence->nextPage(page.id())) {
+          m_batchQueue->addProcessingTask(page, createCompositeTask(page, targetFilter, /*batch=*/true, m_debug));
+        }
+
+        // Update progress display for second pass
+        if (m_batchProgressLabel) {
+          m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+        }
+
+        // Start processing
+        BackgroundTaskPtr nextTask(m_batchQueue->takeForProcessing());
+        if (nextTask) {
+          do {
+            m_workerThreadPool->submitTask(nextTask);
+            if (!m_workerThreadPool->hasSpareCapacity()) {
+              break;
+            }
+          } while ((nextTask = m_batchQueue->takeForProcessing()));
+        }
+
+        page = m_batchQueue->selectedPage();
+        if (!page.isNull()) {
+          m_thumbSequence->setSelection(page.id());
+        }
+        return;
+      }
+
+      // Check if we just finished processing the Page Split filter
+      const bool wasPageSplitBatch = (m_curFilter == m_stages->pageSplitFilterIdx());
+
       stopBatchProcessing();
 
       QApplication::alert(this);  // Flash the taskbar entry.
       if (m_checkBeepWhenFinished()) {
-#if defined(Q_OS_UNIX)
+#if defined(Q_OS_MACOS)
+        QString extPlayCmd;  // Use QApplication::beep() on macOS
+#elif defined(Q_OS_UNIX)
         QString extPlayCmd("play /usr/share/sounds/freedesktop/stereo/bell.oga");
 #else
         QString extPlayCmd;
@@ -1243,6 +1404,11 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
         } else {
           Q_UNUSED(std::system(cmd.toStdString().c_str()));
         }
+      }
+
+      // Show batch processing summary for Page Split filter
+      if (wasPageSplitBatch) {
+        showBatchProcessingSummary();
       }
 
       if (m_selectedPage.get(getCurrentView()) == m_thumbSequence->lastPage().id()) {
@@ -1989,6 +2155,25 @@ void MainWindow::showRemovePagesDialog(const std::set<PageId>& pages) {
   }
 }
 
+void MainWindow::forcePageSplitLayout(page_split::LayoutType layoutType) {
+  const std::set<PageId> selectedPages = m_thumbSequence->selectedItems();
+  if (selectedPages.empty()) {
+    return;
+  }
+
+  // Apply the layout type to all selected pages using UpdateAction
+  auto settings = m_stages->pageSplitFilter()->settings();
+  for (const PageId& pageId : selectedPages) {
+    page_split::Settings::UpdateAction updateAction;
+    updateAction.setLayoutType(layoutType);
+    settings->updatePage(pageId.imageId(), updateAction);
+  }
+
+  // Invalidate thumbnails and reload
+  m_thumbSequence->invalidateAllThumbnails();
+  reloadRequested();
+}
+
 /**
  * Note: insertImage(..., BEFORE, ImageId()) is legal and means inserting at the end.
  */
@@ -2096,6 +2281,7 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
   std::shared_ptr<deskew::Task> deskewTask;
   std::shared_ptr<select_content::Task> selectContentTask;
   std::shared_ptr<page_layout::Task> pageLayoutTask;
+  std::shared_ptr<finalize::Task> finalizeTask;
   std::shared_ptr<output::Task> outputTask;
 
   if (batch) {
@@ -2106,8 +2292,12 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
     outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
     debug = false;
   }
+  if (lastFilterIdx >= m_stages->finalizeFilterIdx()) {
+    finalizeTask = m_stages->finalizeFilter()->createTask(page.id(), outputTask,
+                                                          m_stages->outputFilter()->settings(), batch);
+  }
   if (lastFilterIdx >= m_stages->pageLayoutFilterIdx()) {
-    pageLayoutTask = m_stages->pageLayoutFilter()->createTask(page.id(), outputTask, batch, debug);
+    pageLayoutTask = m_stages->pageLayoutFilter()->createTask(page.id(), finalizeTask, batch, debug);
     debug = false;
   }
   if (lastFilterIdx >= m_stages->selectContentFilterIdx()) {
@@ -2137,13 +2327,17 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   std::shared_ptr<deskew::CacheDrivenTask> deskewTask;
   std::shared_ptr<select_content::CacheDrivenTask> selectContentTask;
   std::shared_ptr<page_layout::CacheDrivenTask> pageLayoutTask;
+  std::shared_ptr<finalize::CacheDrivenTask> finalizeTask;
   std::shared_ptr<output::CacheDrivenTask> outputTask;
 
   if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
   }
+  if (lastFilterIdx >= m_stages->finalizeFilterIdx()) {
+    finalizeTask = m_stages->finalizeFilter()->createCacheDrivenTask(outputTask);
+  }
   if (lastFilterIdx >= m_stages->pageLayoutFilterIdx()) {
-    pageLayoutTask = m_stages->pageLayoutFilter()->createCacheDrivenTask(outputTask);
+    pageLayoutTask = m_stages->pageLayoutFilter()->createCacheDrivenTask(finalizeTask);
   }
   if (lastFilterIdx >= m_stages->selectContentFilterIdx()) {
     selectContentTask = m_stages->selectContentFilter()->createCacheDrivenTask(pageLayoutTask);
@@ -2272,4 +2466,125 @@ void MainWindow::reloadCurrentPage() {
     return;
 
   updateMainArea();
+}
+
+void MainWindow::showBatchProcessingSummary() {
+  if (!m_stages || !m_pages) {
+    return;
+  }
+
+  // Get the page_split settings
+  auto pageSplitSettings = m_stages->pageSplitFilter()->settings();
+  if (!pageSplitSettings) {
+    return;
+  }
+
+  // Get all images and count split vs single pages
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  int totalImages = 0;
+  int splitPages = 0;
+  int singlePages = 0;
+  std::vector<BatchProcessingSummaryDialog::PageSummary> singlePageList;
+
+  // Track which ImageIds we've seen to avoid counting the same image twice
+  std::set<ImageId> seenImages;
+
+  for (const PageInfo& pageInfo : pages) {
+    const ImageId& imageId = pageInfo.id().imageId();
+
+    // Skip if we've already processed this image
+    if (seenImages.find(imageId) != seenImages.end()) {
+      continue;
+    }
+    seenImages.insert(imageId);
+    totalImages++;
+
+    // Get the page split record for this image
+    page_split::Settings::Record record = pageSplitSettings->getPageRecord(imageId);
+    const page_split::Params* params = record.params();
+
+    bool isSplit = false;
+    if (params) {
+      // Check the actual PageLayout type
+      const page_split::PageLayout& layout = params->pageLayout();
+      isSplit = (layout.type() == page_split::PageLayout::TWO_PAGES);
+    }
+
+    if (isSplit) {
+      splitPages++;
+    } else {
+      singlePages++;
+      BatchProcessingSummaryDialog::PageSummary summary;
+      summary.imageId = imageId;
+      summary.fileName = QFileInfo(imageId.filePath()).fileName();
+      summary.isSplit = false;
+      singlePageList.push_back(summary);
+    }
+  }
+
+  // Create and show the dialog
+  auto* dialog = new BatchProcessingSummaryDialog(this);
+  dialog->setSummary(totalImages, splitPages, singlePages, singlePageList);
+
+  connect(dialog, &BatchProcessingSummaryDialog::jumpToPage,
+          this, &MainWindow::jumpToPageFromSummary);
+  connect(dialog, &BatchProcessingSummaryDialog::forceTwoPageSelected,
+          this, &MainWindow::forceTwoPageForImages);
+  connect(dialog, &BatchProcessingSummaryDialog::forceTwoPageAll,
+          this, &MainWindow::forceTwoPageForImages);
+
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
+  dialog->raise();
+  dialog->activateWindow();
+}
+
+void MainWindow::jumpToPageFromSummary(const ImageId& imageId) {
+  if (!m_thumbSequence) {
+    return;
+  }
+
+  // Find the PageId for this image and jump to it
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  for (const PageInfo& pageInfo : pages) {
+    if (pageInfo.id().imageId() == imageId) {
+      goToPage(pageInfo.id());
+      return;
+    }
+  }
+}
+
+void MainWindow::forceTwoPageForImages(const std::vector<ImageId>& imageIds) {
+  if (imageIds.empty() || !m_stages) {
+    return;
+  }
+
+  // Build a set of PageIds from the image IDs
+  std::set<PageId> pageIds;
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  for (const PageInfo& pageInfo : pages) {
+    for (const ImageId& imageId : imageIds) {
+      if (pageInfo.id().imageId() == imageId) {
+        pageIds.insert(pageInfo.id());
+      }
+    }
+  }
+
+  if (pageIds.empty()) {
+    return;
+  }
+
+  // Set layout type to TWO_PAGES for all the selected pages
+  m_stages->pageSplitFilter()->settings()->setLayoutTypeFor(
+      page_split::TWO_PAGES, pageIds);
+
+  // Invalidate thumbnails for these pages to trigger re-processing
+  for (const PageId& pageId : pageIds) {
+    m_thumbSequence->invalidateThumbnail(pageId);
+  }
+
+  // Refresh the current view if we're on Page Split filter
+  if (m_curFilter == m_stages->pageSplitFilterIdx()) {
+    updateMainArea();
+  }
 }

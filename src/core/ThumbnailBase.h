@@ -69,6 +69,16 @@ class ThumbnailBase : public QGraphicsItem {
 
   virtual void paintDeviant(QPainter& painter);
 
+  /**
+   * \brief A hook to allow subclasses to transform the thumbnail pixmap.
+   *
+   * \param pixmap The loaded thumbnail pixmap (may be modified in place).
+   *
+   * Subclasses can override this to apply transformations like binarization
+   * or color conversion before the thumbnail is rendered.
+   */
+  virtual void transformPixmap(QPixmap& pixmap) const {}
+
   void setImageXform(const ImageTransformation& imageXform);
 
   const ImageTransformation& imageXform() const { return m_imageXform; }

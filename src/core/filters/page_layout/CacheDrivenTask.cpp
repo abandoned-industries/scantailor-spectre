@@ -15,10 +15,10 @@
 #include "Utils.h"
 #include "core/AbstractFilterDataCollector.h"
 #include "core/ThumbnailCollector.h"
-#include "filters/output/CacheDrivenTask.h"
+#include "filters/finalize/CacheDrivenTask.h"
 
 namespace page_layout {
-CacheDrivenTask::CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask, std::shared_ptr<Settings> settings)
+CacheDrivenTask::CacheDrivenTask(std::shared_ptr<finalize::CacheDrivenTask> nextTask, std::shared_ptr<Settings> settings)
     : m_nextTask(std::move(nextTask)), m_settings(std::move(settings)) {}
 
 CacheDrivenTask::~CacheDrivenTask() = default;

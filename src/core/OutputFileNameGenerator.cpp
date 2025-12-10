@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "AbstractRelinker.h"
+#include "ApplicationSettings.h"
 #include "PageId.h"
 #include "RelinkablePath.h"
 
@@ -43,7 +44,11 @@ QString OutputFileNameGenerator::fileNameFor(const PageId& page) const {
     name += QLatin1Char(ltr == (subPage == PageId::LEFT_PAGE) ? '1' : '2');
     name += QLatin1Char(subPage == PageId::LEFT_PAGE ? 'L' : 'R');
   }
-  name += QString::fromLatin1(".tif");
+  if (ApplicationSettings::getInstance().isJpegOutputEnabled()) {
+    name += QString::fromLatin1(".jpg");
+  } else {
+    name += QString::fromLatin1(".tif");
+  }
   return name;
 }
 

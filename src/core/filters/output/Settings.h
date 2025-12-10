@@ -9,6 +9,7 @@
 #include <QMutex>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ColorParams.h"
 #include "DespeckleLevel.h"
@@ -23,6 +24,7 @@
 #include "ZoneSet.h"
 
 class AbstractRelinker;
+class PageSequence;
 class QString;
 
 namespace output {
@@ -106,6 +108,25 @@ class Settings {
 
   void setBlackOnWhite(const PageId& pageId, bool blackOnWhite);
 
+  /**
+   * Force re-detection of color mode for a page using Apple Vision or fallback detector.
+   * Clears any existing params and runs detection fresh.
+   *
+   * @param pageId The page to detect color mode for
+   * @param sourceImagePath Path to the original source image
+   * @return The detected Params with appropriate color mode
+   */
+  Params detectColorMode(const PageId& pageId, const QString& sourceImagePath);
+
+  /**
+   * Batch detect color modes for all pages that don't have params yet.
+   * Called when entering the Output filter to pre-populate color mode detection
+   * for all pages, eliminating the need to detect on first view of each page.
+   *
+   * @param pages The PageSequence containing all pages to process
+   */
+  void batchDetectColorModes(const PageSequence& pages);
+
  private:
   using PerPageParams = std::unordered_map<PageId, Params>;
   using PerPageOutputParams = std::unordered_map<PageId, OutputParams>;
@@ -124,6 +145,7 @@ class Settings {
   PropertySet m_defaultPictureZoneProps;
   PropertySet m_defaultFillZoneProps;
   PerPageOutputProcessingParams m_perPageOutputProcessingParams;
+  std::unordered_set<PageId> m_colorModeDetectedPages;  // Track pages that have had Vision color detection
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_SETTINGS_H_
