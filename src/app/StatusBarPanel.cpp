@@ -37,8 +37,9 @@ void StatusBarPanel::onImageViewInfoProviderStopped() {
 }
 
 void StatusBarPanel::updatePage(int pageNumber, size_t pageCount, const PageId& pageId) {
-  ui.pageNoLabel->setText(tr("p. %1 / %2").arg(pageNumber).arg(pageCount));
-  ui.pageNoLabel->setVisible(true);
+  // Page number display removed - it was causing lag during batch processing
+  (void)pageNumber;
+  (void)pageCount;
 
   QString pageFileInfo = QFileInfo(pageId.imageId().filePath()).completeBaseName();
   if (pageFileInfo.size() > 15) {
@@ -63,7 +64,6 @@ inline void clearAndHideLabel(QLabel* widget) {
 void StatusBarPanel::clear() {
   clearAndHideLabel(ui.mousePosLabel);
   clearAndHideLabel(ui.physSizeLabel);
-  clearAndHideLabel(ui.pageNoLabel);
   clearAndHideLabel(ui.pageInfoLabel);
   clearAndHideLabel(ui.zoneModeLabel);
 

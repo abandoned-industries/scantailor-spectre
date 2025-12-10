@@ -82,6 +82,32 @@ BinarizationMethod BlackWhiteOptions::parseBinarizationMethod(const QString& str
     return T_BLURDIV;
   } else if (str == "edgediv") {
     return T_EDGEDIV;
+  } else if (str == "niblack") {
+    return T_NIBLACK;
+  } else if (str == "nick") {
+    return T_NICK;
+  } else if (str == "singh") {
+    return T_SINGH;
+  } else if (str == "wan") {
+    return T_WAN;
+  } else if (str == "mscale") {
+    return T_MSCALE;
+  } else if (str == "robust") {
+    return T_ROBUST;
+  } else if (str == "gatos") {
+    return T_GATOS;
+  } else if (str == "window") {
+    return T_WINDOW;
+  } else if (str == "fox") {
+    return T_FOX;
+  } else if (str == "engraving") {
+    return T_ENGRAVING;
+  } else if (str == "bimodal") {
+    return T_BIMODAL;
+  } else if (str == "mean") {
+    return T_MEAN;
+  } else if (str == "grain") {
+    return T_GRAIN;
   } else {
     return T_OTSU;
   }
@@ -113,6 +139,45 @@ QString BlackWhiteOptions::formatBinarizationMethod(BinarizationMethod type) {
       break;
     case T_EDGEDIV:
       str = "edgediv";
+      break;
+    case T_NIBLACK:
+      str = "niblack";
+      break;
+    case T_NICK:
+      str = "nick";
+      break;
+    case T_SINGH:
+      str = "singh";
+      break;
+    case T_WAN:
+      str = "wan";
+      break;
+    case T_MSCALE:
+      str = "mscale";
+      break;
+    case T_ROBUST:
+      str = "robust";
+      break;
+    case T_GATOS:
+      str = "gatos";
+      break;
+    case T_WINDOW:
+      str = "window";
+      break;
+    case T_FOX:
+      str = "fox";
+      break;
+    case T_ENGRAVING:
+      str = "engraving";
+      break;
+    case T_BIMODAL:
+      str = "bimodal";
+      break;
+    case T_MEAN:
+      str = "mean";
+      break;
+    case T_GRAIN:
+      str = "grain";
       break;
   }
   return str;

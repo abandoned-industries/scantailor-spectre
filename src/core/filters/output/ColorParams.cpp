@@ -4,19 +4,29 @@
 #include "ColorParams.h"
 
 namespace output {
-ColorParams::ColorParams() : m_colorMode(BLACK_AND_WHITE) {}
+ColorParams::ColorParams() : m_colorMode(BLACK_AND_WHITE), m_colorModeUserSet(false) {}
 
 ColorParams::ColorParams(const QDomElement& el)
     : m_colorMode(parseColorMode(el.attribute("colorMode"))),
+      m_colorModeUserSet(el.attribute("colorModeUserSet", "0") == "1"),
       m_colorCommonOptions(el.namedItem("color-or-grayscale").toElement()),
       m_bwOptions(el.namedItem("bw").toElement()) {}
 
 QDomElement ColorParams::toXml(QDomDocument& doc, const QString& name) const {
   QDomElement el(doc.createElement(name));
   el.setAttribute("colorMode", formatColorMode(m_colorMode));
+  el.setAttribute("colorModeUserSet", m_colorModeUserSet ? "1" : "0");
   el.appendChild(m_colorCommonOptions.toXml(doc, "color-or-grayscale"));
   el.appendChild(m_bwOptions.toXml(doc, "bw"));
   return el;
+}
+
+bool ColorParams::isColorModeUserSet() const {
+  return m_colorModeUserSet;
+}
+
+void ColorParams::setColorModeUserSet(bool userSet) {
+  m_colorModeUserSet = userSet;
 }
 
 ColorMode ColorParams::parseColorMode(const QString& str) {
@@ -26,6 +36,10 @@ ColorMode ColorParams::parseColorMode(const QString& str) {
     return COLOR_GRAYSCALE;
   } else if (str == "mixed") {
     return MIXED;
+  } else if (str == "color") {
+    return COLOR;
+  } else if (str == "grayscale") {
+    return GRAYSCALE;
   } else {
     return BLACK_AND_WHITE;
   }
@@ -42,6 +56,15 @@ QString ColorParams::formatColorMode(const ColorMode mode) {
       break;
     case MIXED:
       str = "mixed";
+      break;
+    case COLOR:
+      str = "color";
+      break;
+    case GRAYSCALE:
+      str = "grayscale";
+      break;
+    case AUTO_DETECT:
+      str = "bw";  // Should not be stored, but fallback to bw
       break;
   }
   return QString::fromLatin1(str);

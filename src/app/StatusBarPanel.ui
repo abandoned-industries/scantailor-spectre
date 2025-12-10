@@ -126,37 +126,6 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="pageNoLabel">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="toolTip">
-      <string>Page number.</string>
-     </property>
-     <property name="statusTip">
-      <string>Position of the selected page in current order.</string>
-     </property>
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="textInteractionFlags">
-      <set>Qt::LinksAccessibleByMouse</set>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="Line" name="pageInfoLine">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

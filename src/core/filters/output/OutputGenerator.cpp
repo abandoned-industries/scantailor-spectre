@@ -1230,7 +1230,19 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
   if (!m_blackOnWhite) {
     m_inputOrigImage.invertPixels();
   }
-  m_colorOriginal = !m_inputOrigImage.allGray();
+
+  // Determine if output should be color based on mode and input
+  const ColorMode colorMode = m_colorParams.colorMode();
+  if (colorMode == GRAYSCALE) {
+    // Force grayscale output regardless of input
+    m_colorOriginal = false;
+  } else if (colorMode == COLOR) {
+    // Force color output (preserve RGB even if input is grayscale)
+    m_colorOriginal = true;
+  } else {
+    // Auto-detect for COLOR_GRAYSCALE and other modes
+    m_colorOriginal = !m_inputOrigImage.allGray();
+  }
 }
 
 std::unique_ptr<OutputImage> OutputGenerator::Processor::processImpl(ZoneSet& pictureZones,
@@ -2359,6 +2371,101 @@ BinaryImage OutputGenerator::Processor::binarize(const QImage& image) const {
       const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
 
       binarized = binarizeEdgeDiv(image, windowsSize, thresholdCoef, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_NIBLACK: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeNiblack(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_NICK: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeNick(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_SINGH: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeSingh(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_WAN: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeWAN(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_MSCALE: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeMultiScale(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_ROBUST: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      binarized = binarizeRobust(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_GATOS: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+
+      // Gatos uses: windowSize, noiseSigma=3.0, k=thresholdCoef, delta=thresholdDelta, q=0.6, p=0.2
+      binarized = binarizeGatos(image, windowsSize, 3.0, thresholdCoef, thresholdDelta, 0.6, 0.2);
+      break;
+    }
+    case T_WINDOW: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+      binarized = binarizeWindow(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_FOX: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+      binarized = binarizeFox(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_ENGRAVING: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+      binarized = binarizeEngraving(image, windowsSize, thresholdCoef, thresholdDelta);
+      break;
+    }
+    case T_BIMODAL: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      binarized = binarizeBiModal(image, thresholdDelta);
+      break;
+    }
+    case T_MEAN: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      binarized = binarizeMean(image, thresholdDelta);
+      break;
+    }
+    case T_GRAIN: {
+      const double thresholdDelta = blackWhiteOptions.thresholdAdjustment();
+      const QSize windowsSize = QSize(blackWhiteOptions.getWindowSize(), blackWhiteOptions.getWindowSize());
+      const double thresholdCoef = blackWhiteOptions.getSauvolaCoef();
+      binarized = binarizeGrain(image, windowsSize, thresholdCoef, thresholdDelta);
       break;
     }
   }

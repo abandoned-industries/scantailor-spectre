@@ -157,9 +157,14 @@ bool OutputImageParams::colorParamsMatch(const ColorParams& cp1,
       }
       // fall through
     case COLOR_GRAYSCALE:
+    case COLOR:
+    case GRAYSCALE:
       if (cp1.colorCommonOptions() != cp2.colorCommonOptions()) {
         return false;
       }
+      break;
+    case AUTO_DETECT:
+      // Should never be stored, but handle it
       break;
   }
   return true;

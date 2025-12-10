@@ -9,7 +9,7 @@ namespace output {
 ColorCommonOptions::ColorCommonOptions()
     : m_fillOffcut(true),
       m_fillMargins(true),
-      m_normalizeIllumination(false),
+      m_normalizeIllumination(true),
       m_fillingColor(FILL_BACKGROUND),
       m_wienerCoef(0.0),
       m_wienerWindowSize(5) {}
