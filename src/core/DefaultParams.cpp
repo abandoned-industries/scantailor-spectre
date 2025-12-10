@@ -125,7 +125,7 @@ DefaultParams::PageLayoutParams::PageLayoutParams(const Margins& hardMargins,
                                                   bool autoMargins)
     : m_hardMargins(hardMargins), m_alignment(alignment), m_autoMargins(autoMargins) {}
 
-DefaultParams::PageLayoutParams::PageLayoutParams() : m_hardMargins(10, 5, 10, 5), m_autoMargins(false) {}
+DefaultParams::PageLayoutParams::PageLayoutParams() : m_hardMargins(10, 5, 10, 5), m_autoMargins(true) {}
 
 DefaultParams::PageLayoutParams::PageLayoutParams(const QDomElement& el)
     : m_hardMargins(el.namedItem("hardMargins").toElement()),

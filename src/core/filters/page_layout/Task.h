@@ -16,7 +16,7 @@ class ImageTransformation;
 class QRectF;
 class Dpi;
 
-namespace output {
+namespace finalize {
 class Task;
 }
 
@@ -29,7 +29,7 @@ class Task {
 
  public:
   Task(std::shared_ptr<Filter> filter,
-       std::shared_ptr<output::Task> nextTask,
+       std::shared_ptr<finalize::Task> nextTask,
        std::shared_ptr<Settings> settings,
        const PageId& pageId,
        bool batch,
@@ -46,7 +46,7 @@ class Task {
   class UiUpdater;
 
   std::shared_ptr<Filter> m_filter;
-  std::shared_ptr<output::Task> m_nextTask;
+  std::shared_ptr<finalize::Task> m_nextTask;
   std::shared_ptr<Settings> m_settings;
   PageId m_pageId;
   bool m_batchProcessing;

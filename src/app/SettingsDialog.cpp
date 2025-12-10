@@ -82,6 +82,14 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
   ui.singleColumnThumbnailsCB->setChecked(settings.isSingleColumnThumbnailDisplayEnabled());
   ui.cancelingSelectionQuestionCB->setChecked(settings.isCancelingSelectionQuestionEnabled());
 
+  // JPEG output settings
+  ui.jpegOutputCB->setChecked(settings.isJpegOutputEnabled());
+  ui.jpegQualitySlider->setValue(settings.getJpegQuality());
+  ui.jpegQualityValueLabel->setText(QString::number(settings.getJpegQuality()));
+  updateJpegQualityEnabled(settings.isJpegOutputEnabled());
+  connect(ui.jpegOutputCB, &QCheckBox::toggled, this, &SettingsDialog::jpegOutputToggled);
+  connect(ui.jpegQualitySlider, &QSlider::valueChanged, this, &SettingsDialog::jpegQualityChanged);
+
   connect(ui.buttonBox, SIGNAL(accepted()), SLOT(commitChanges()));
 }
 
@@ -122,9 +130,26 @@ void SettingsDialog::commitChanges() {
   settings.setSingleColumnThumbnailDisplayEnabled(ui.singleColumnThumbnailsCB->isChecked());
   settings.setCancelingSelectionQuestionEnabled(ui.cancelingSelectionQuestionCB->isChecked());
 
+  settings.setJpegOutputEnabled(ui.jpegOutputCB->isChecked());
+  settings.setJpegQuality(ui.jpegQualitySlider->value());
+
   emit settingsChanged();
 }
 
 void SettingsDialog::blackOnWhiteDetectionToggled(bool checked) {
   ui.blackOnWhiteDetectionAtOutputCB->setEnabled(checked);
+}
+
+void SettingsDialog::jpegOutputToggled(bool checked) {
+  updateJpegQualityEnabled(checked);
+}
+
+void SettingsDialog::jpegQualityChanged(int value) {
+  ui.jpegQualityValueLabel->setText(QString::number(value));
+}
+
+void SettingsDialog::updateJpegQualityEnabled(bool enabled) {
+  ui.jpegQualityLabel->setEnabled(enabled);
+  ui.jpegQualitySlider->setEnabled(enabled);
+  ui.jpegQualityValueLabel->setEnabled(enabled);
 }

@@ -48,4 +48,40 @@ else
     fi
 fi
 
+# Fix libsharpyuv (dependency of libwebp, needed by leptonica)
+if [ -f "$FRAMEWORKS_DIR/libwebp.7.dylib" ]; then
+    if [ ! -f "$FRAMEWORKS_DIR/libsharpyuv.0.dylib" ]; then
+        echo "Fixing missing libsharpyuv..."
+
+        SHARPYUV=""
+        for path in "/opt/homebrew/opt/webp/lib/libsharpyuv.0.dylib" \
+                    "/opt/homebrew/lib/libsharpyuv.0.dylib" \
+                    "/usr/local/opt/webp/lib/libsharpyuv.0.dylib" \
+                    "/usr/local/lib/libsharpyuv.0.dylib"; do
+            if [ -f "$path" ]; then
+                SHARPYUV="$path"
+                break
+            fi
+        done
+
+        if [ -n "$SHARPYUV" ]; then
+            echo "Copying $SHARPYUV to bundle..."
+            cp -L "$SHARPYUV" "$FRAMEWORKS_DIR/"
+            chmod 755 "$FRAMEWORKS_DIR/libsharpyuv.0.dylib"
+            install_name_tool -id "@executable_path/../Frameworks/libsharpyuv.0.dylib" "$FRAMEWORKS_DIR/libsharpyuv.0.dylib"
+        fi
+    else
+        echo "libsharpyuv.0.dylib already present."
+    fi
+
+    # Fix the @rpath references in webp libraries to use @executable_path
+    echo "Fixing webp library paths..."
+    install_name_tool -change "@rpath/libsharpyuv.0.dylib" "@executable_path/../Frameworks/libsharpyuv.0.dylib" "$FRAMEWORKS_DIR/libwebp.7.dylib" 2>/dev/null || true
+
+    if [ -f "$FRAMEWORKS_DIR/libwebpmux.3.dylib" ]; then
+        install_name_tool -change "@rpath/libwebp.7.dylib" "@executable_path/../Frameworks/libwebp.7.dylib" "$FRAMEWORKS_DIR/libwebpmux.3.dylib" 2>/dev/null || true
+        install_name_tool -change "@rpath/libsharpyuv.0.dylib" "@executable_path/../Frameworks/libsharpyuv.0.dylib" "$FRAMEWORKS_DIR/libwebpmux.3.dylib" 2>/dev/null || true
+    fi
+fi
+
 echo "Bundle library fix complete."

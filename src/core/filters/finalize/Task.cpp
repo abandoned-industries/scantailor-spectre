@@ -1,0 +1,201 @@
+// Copyright (C) 2024  ScanTailor Advanced contributors
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "Task.h"
+
+#include <QDebug>
+#include <QImage>
+#include <cstdio>
+#include <QPolygonF>
+#include <utility>
+
+#include "BinaryImage.h"
+#include "Binarize.h"
+#include "Filter.h"
+#include "FilterData.h"
+#include "FilterUiInterface.h"
+#include "ImageView.h"
+#include "OptionsWidget.h"
+#include "Settings.h"
+#include "TaskStatus.h"
+#include "Thumbnail.h"
+#include "filters/output/ColorParams.h"
+#include "filters/output/Settings.h"
+#include "filters/output/Task.h"
+#include "LeptonicaDetector.h"
+
+namespace finalize {
+
+class Task::UiUpdater : public FilterResult {
+ public:
+  UiUpdater(std::shared_ptr<Filter> filter,
+            const PageId& pageId,
+            const QImage& image,
+            const ImageTransformation& xform,
+            ColorMode colorMode,
+            bool batchProcessing);
+
+  void updateUI(FilterUiInterface* ui) override;
+
+  std::shared_ptr<AbstractFilter> filter() override { return m_filter; }
+
+ private:
+  static QImage applyColorMode(const QImage& image, ColorMode mode);
+
+  std::shared_ptr<Filter> m_filter;
+  PageId m_pageId;
+  QImage m_image;
+  QImage m_downscaledImage;
+  ImageTransformation m_xform;
+  ColorMode m_colorMode;
+  bool m_batchProcessing;
+};
+
+Task::Task(std::shared_ptr<Filter> filter,
+           std::shared_ptr<output::Task> nextTask,
+           std::shared_ptr<Settings> settings,
+           std::shared_ptr<output::Settings> outputSettings,
+           const PageId& pageId,
+           const bool batch)
+    : m_filter(std::move(filter)),
+      m_nextTask(std::move(nextTask)),
+      m_settings(std::move(settings)),
+      m_outputSettings(std::move(outputSettings)),
+      m_pageId(pageId),
+      m_batchProcessing(batch) {}
+
+Task::~Task() = default;
+
+FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, const QPolygonF& contentRectPhys) {
+  status.throwIfCancelled();
+
+  const QImage& image = data.origImage();
+
+  // Run color mode detection if not already done
+  const std::unique_ptr<Params> existingParams = m_settings->getParams(m_pageId);
+  if (!existingParams || !existingParams->isColorModeDetected()) {
+    // Crop to content area for detection (avoids analyzing gutters/margins)
+    QRect cropRect = contentRectPhys.boundingRect().toRect().intersected(image.rect());
+    fprintf(stderr, "Crop: img=%dx%d content=%d,%d %dx%d\n",
+            image.width(), image.height(),
+            cropRect.x(), cropRect.y(), cropRect.width(), cropRect.height());
+    if (cropRect.isValid() && cropRect.width() > 100 && cropRect.height() > 100) {
+      detectColorMode(image.copy(cropRect));
+    } else {
+      // Fallback to full image if crop is too small
+      detectColorMode(image);
+    }
+  }
+
+  // Mark as processed
+  m_settings->setProcessed(m_pageId, true);
+
+  status.throwIfCancelled();
+
+  // Pass to next task (output)
+  if (m_nextTask) {
+    return m_nextTask->process(status, data, contentRectPhys);
+  }
+
+  // Get the current color mode for display
+  const ColorMode colorMode = m_settings->getColorMode(m_pageId);
+
+  // If no next task, show UI
+  return std::make_shared<UiUpdater>(m_filter, m_pageId, image, data.xform(), colorMode, m_batchProcessing);
+}
+
+void Task::detectColorMode(const QImage& image) {
+  ColorMode mode = ColorMode::Grayscale;
+  output::ColorMode outputMode = output::GRAYSCALE;
+
+  // Use Leptonica for document color type detection
+  const int threshold = m_settings->midtoneThreshold();
+  const LeptonicaDetector::ColorType colorType = LeptonicaDetector::detect(image, threshold);
+
+  switch (colorType) {
+    case LeptonicaDetector::ColorType::BlackWhite:
+      mode = ColorMode::BlackAndWhite;
+      outputMode = output::BLACK_AND_WHITE;
+      break;
+    case LeptonicaDetector::ColorType::Color:
+      mode = ColorMode::Color;
+      outputMode = output::COLOR;
+      break;
+    case LeptonicaDetector::ColorType::Grayscale:
+    default:
+      mode = ColorMode::Grayscale;
+      outputMode = output::GRAYSCALE;
+      break;
+  }
+
+  fprintf(stderr, "PAGE %d%s -> %s\n",
+          m_pageId.imageId().page(),
+          m_pageId.subPage() == PageId::LEFT_PAGE ? "L" : (m_pageId.subPage() == PageId::RIGHT_PAGE ? "R" : ""),
+          LeptonicaDetector::colorTypeToString(colorType));
+  fflush(stderr);
+
+  // Store in finalize settings
+  m_settings->setColorMode(m_pageId, mode);
+
+  // Also set in output::Settings so output filter uses our detection
+  if (m_outputSettings) {
+    output::ColorParams colorParams;
+    colorParams.setColorMode(outputMode);
+    colorParams.setColorModeUserSet(false);  // Mark as auto-detected, not user-set
+    m_outputSettings->setColorParams(m_pageId, colorParams);
+    qDebug() << "Finalize: set output color params for page" << m_pageId.imageId().filePath()
+             << "outputMode:" << outputMode;
+  }
+}
+
+Task::UiUpdater::UiUpdater(std::shared_ptr<Filter> filter,
+                           const PageId& pageId,
+                           const QImage& image,
+                           const ImageTransformation& xform,
+                           const ColorMode colorMode,
+                           const bool batchProcessing)
+    : m_filter(std::move(filter)),
+      m_pageId(pageId),
+      m_image(image),
+      m_xform(xform),
+      m_colorMode(colorMode),
+      m_batchProcessing(batchProcessing) {}
+
+QImage Task::UiUpdater::applyColorMode(const QImage& image, const ColorMode mode) {
+  switch (mode) {
+    case ColorMode::BlackAndWhite: {
+      // Apply binarization using Otsu's method
+      const imageproc::BinaryImage binaryImage = imageproc::binarizeOtsu(image);
+      return binaryImage.toQImage();
+    }
+    case ColorMode::Grayscale: {
+      // Convert to grayscale
+      return image.convertToFormat(QImage::Format_Grayscale8);
+    }
+    case ColorMode::Color:
+    default:
+      // Keep original color
+      return image;
+  }
+}
+
+void Task::UiUpdater::updateUI(FilterUiInterface* ui) {
+  // Notify the options widget about the current page
+  OptionsWidget* optWidget = m_filter->optionsWidget();
+  optWidget->postUpdateUI(m_pageId);
+  ui->setOptionsWidget(optWidget, ui->KEEP_OWNERSHIP);
+
+  ui->invalidateThumbnail(m_pageId);
+
+  if (m_batchProcessing) {
+    return;
+  }
+
+  // Apply color mode transformation for preview
+  const QImage displayImage = applyColorMode(m_image, m_colorMode);
+
+  auto* view = new ImageView(displayImage, m_downscaledImage, m_xform);
+  ui->setImageWidget(view, ui->TRANSFER_OWNERSHIP, nullptr);
+}
+
+}  // namespace finalize

@@ -48,14 +48,29 @@ class AppleVisionDetector {
   };
 
   /**
+   * Detected image/photo region within a document.
+   */
+  struct ImageRegion {
+    QRectF bounds;           // Bounding rectangle in image coordinates
+    float confidence;        // Detection confidence (0.0 - 1.0)
+    bool hasFace;            // True if faces were detected in this region
+    float colorfulness;      // How colorful this region is (0.0 - 1.0)
+  };
+
+  /**
    * Complete analysis result for an image.
    */
   struct AnalysisResult {
     ContentType contentType;
     DocumentBounds documentBounds;
     QVector<TextRegion> textRegions;
-    float textCoverage;      // Percentage of image covered by text (0.0 - 1.0)
-    bool isHighContrast;     // True if image has high contrast (good for B&W)
+    QVector<ImageRegion> imageRegions;  // Detected photos/images within the document
+    float textCoverage;          // Percentage of image covered by text (0.0 - 1.0)
+    float imageCoverage;         // Percentage of image covered by photos/images (0.0 - 1.0)
+    float overallColorfulness;   // Overall colorfulness of the image (0.0 - 1.0)
+    bool isHighContrast;         // True if image has high contrast (good for B&W)
+    bool hasEmbeddedImages;      // True if document contains photos or illustrations
+    bool hasTonalContent;        // True if meaningful gradients/shading detected (preserve grayscale)
   };
 
   /**
@@ -99,11 +114,52 @@ class AppleVisionDetector {
   static ContentType classifyContent(const QImage& image);
 
   /**
+   * Detect faces in an image (used to identify photo regions).
+   * @param image The image to analyze
+   * @return Vector of face bounding rectangles
+   */
+  static QVector<QRectF> detectFaces(const QImage& image);
+
+  /**
+   * Detect image/photo regions within a document using saliency and colorfulness analysis.
+   * @param image The image to analyze
+   * @param textRegions Already-detected text regions to exclude
+   * @return Vector of detected image regions
+   */
+  static QVector<ImageRegion> detectImageRegions(const QImage& image, const QVector<TextRegion>& textRegions);
+
+  /**
    * Suggest optimal color mode based on Vision analysis.
    * @param result Analysis result from analyze()
    * @return Suggested mode: "bw" for black/white, "grayscale", or "color"
    */
   static QString suggestColorMode(const AnalysisResult& result);
+
+  /**
+   * Page split detection result.
+   */
+  struct PageSplitResult {
+    bool shouldSplit;        // True if a two-page layout was detected
+    double splitLineX;       // X coordinate of suggested split line (normalized 0.0-1.0)
+    float confidence;        // Detection confidence (0.0 - 1.0)
+    int leftTextRegions;     // Number of text regions on left side
+    int rightTextRegions;    // Number of text regions on right side
+  };
+
+  /**
+   * Detect if an image contains two pages (like a book spread) and suggest split location.
+   * Uses text region clustering to find natural page boundaries.
+   * @param image The image to analyze
+   * @return Page split detection result
+   */
+  static PageSplitResult detectPageSplit(const QImage& image);
+
+  /**
+   * Detect page split from file path (with automatic downscaling for performance).
+   * @param imagePath Path to the image file
+   * @return Page split detection result
+   */
+  static PageSplitResult detectPageSplitFromFile(const QString& imagePath);
 };
 
 #endif  // SCANTAILOR_CORE_APPLEVISIONDETECTOR_H_

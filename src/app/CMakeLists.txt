@@ -26,7 +26,8 @@ set(gui_only_sources
     MainWindow.cpp MainWindow.h
     main.cpp
     StatusBarPanel.cpp StatusBarPanel.h
-    DefaultParamsDialog.cpp DefaultParamsDialog.h)
+    DefaultParamsDialog.cpp DefaultParamsDialog.h
+    BatchProcessingSummaryDialog.cpp BatchProcessingSummaryDialog.h)
 
 set(gui_only_ui_files
     AboutDialog.ui
@@ -102,6 +103,16 @@ if(APPLE)
     set_source_files_properties("${MACOS_ICON_FILE}" PROPERTIES
       MACOSX_PACKAGE_LOCATION "Resources")
     target_sources(scantailor PRIVATE "${MACOS_ICON_FILE}")
+  endif()
+
+  # Copy Metal shader library into bundle Resources
+  if(DEFINED SCANTAILOR_METALLIB)
+    add_custom_command(TARGET scantailor POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${SCANTAILOR_METALLIB}"
+        "$<TARGET_BUNDLE_DIR:scantailor>/Contents/Resources/default.metallib"
+      COMMENT "Copying Metal shader library to app bundle..."
+    )
   endif()
 
   # Find macdeployqt

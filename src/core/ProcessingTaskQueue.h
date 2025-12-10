@@ -40,6 +40,10 @@ class ProcessingTaskQueue {
 
   bool allProcessed() const;
 
+  size_t totalPages() const { return m_totalPages; }
+
+  size_t processedPages() const { return m_processedPages; }
+
   void cancelAndRemove(const std::set<PageId>& pages);
 
   void cancelAndClear();
@@ -56,6 +60,8 @@ class ProcessingTaskQueue {
   std::list<Entry> m_queue;
   PageInfo m_selectedPage;
   PageInfo m_pageToSelectWhenDone;
+  size_t m_totalPages = 0;
+  size_t m_processedPages = 0;
 };
 
 

@@ -15,7 +15,7 @@
 #include "Settings.h"
 #include "TaskStatus.h"
 #include "Utils.h"
-#include "filters/output/Task.h"
+#include "filters/finalize/Task.h"
 
 using namespace imageproc;
 
@@ -51,7 +51,7 @@ class Task::UiUpdater : public FilterResult {
 
 
 Task::Task(std::shared_ptr<Filter> filter,
-           std::shared_ptr<output::Task> nextTask,
+           std::shared_ptr<finalize::Task> nextTask,
            std::shared_ptr<Settings> settings,
            const PageId& pageId,
            bool batch,

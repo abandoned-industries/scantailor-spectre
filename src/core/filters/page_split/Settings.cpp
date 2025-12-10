@@ -60,6 +60,7 @@ void Settings::setLayoutTypeFor(const LayoutType layoutType, const std::set<Page
   QMutexLocker locker(&m_mutex);
 
   UpdateAction action;
+  action.setLayoutType(layoutType);
 
   for (const PageId& pageId : pages) {
     updatePageLocked(pageId.imageId(), action);

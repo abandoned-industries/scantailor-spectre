@@ -12,6 +12,7 @@
 #include "filters/deskew/Filter.h"
 #include "filters/fix_orientation/Filter.h"
 #include "filters/output/Filter.h"
+#include "filters/finalize/Filter.h"
 #include "filters/page_layout/Filter.h"
 #include "filters/page_split/Filter.h"
 #include "filters/select_content/Filter.h"
@@ -51,6 +52,8 @@ class StageSequence {
 
   const std::shared_ptr<page_layout::Filter>& pageLayoutFilter() const { return m_pageLayoutFilter; }
 
+  const std::shared_ptr<finalize::Filter>& finalizeFilter() const { return m_finalizeFilter; }
+
   const std::shared_ptr<output::Filter>& outputFilter() const { return m_outputFilter; }
 
   int fixOrientationFilterIdx() const { return m_fixOrientationFilterIdx; }
@@ -63,6 +66,8 @@ class StageSequence {
 
   int pageLayoutFilterIdx() const { return m_pageLayoutFilterIdx; }
 
+  int finalizeFilterIdx() const { return m_finalizeFilterIdx; }
+
   int outputFilterIdx() const { return m_outputFilterIdx; }
 
  private:
@@ -71,6 +76,7 @@ class StageSequence {
   std::shared_ptr<deskew::Filter> m_deskewFilter;
   std::shared_ptr<select_content::Filter> m_selectContentFilter;
   std::shared_ptr<page_layout::Filter> m_pageLayoutFilter;
+  std::shared_ptr<finalize::Filter> m_finalizeFilter;
   std::shared_ptr<output::Filter> m_outputFilter;
   std::vector<FilterPtr> m_filters;
   int m_fixOrientationFilterIdx;
@@ -78,6 +84,7 @@ class StageSequence {
   int m_deskewFilterIdx;
   int m_selectContentFilterIdx;
   int m_pageLayoutFilterIdx;
+  int m_finalizeFilterIdx;
   int m_outputFilterIdx;
 };
 

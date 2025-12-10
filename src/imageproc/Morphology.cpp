@@ -13,6 +13,10 @@
 #include "Grayscale.h"
 #include "RasterOp.h"
 
+#ifdef Q_OS_MACOS
+#include "MetalMorphology.h"
+#endif
+
 namespace imageproc {
 Brick::Brick(const QSize& size) {
   const int xOrigin = size.width() >> 1;
@@ -684,6 +688,26 @@ GrayImage dilateGray(const GrayImage& src,
   if (dstArea.isEmpty()) {
     throw std::invalid_argument("dilateGray: dstArea is empty");
   }
+
+#ifdef Q_OS_MACOS
+  // DISABLED: Metal dilation has a bug causing assertion failures in mokjiThreshold
+  // The in-place dilation is returning incorrect results (dilated > original)
+  // TODO: Fix the Metal shader or the in-place algorithm
+#if 0
+  // Try GPU acceleration for simple case where dstArea == src.rect()
+  if (dstArea == src.rect() && metalMorphologyAvailable()) {
+    GrayImage dst(src);  // Copy source to destination
+    const int brickWidth = brick.width();
+    const int brickHeight = brick.height();
+    if (metalDilateGray(dst.data(), dst.width(), dst.height(), dst.stride(),
+                        brickWidth, brickHeight, srcSurroundings)) {
+      return dst;
+    }
+    // Fall through to CPU if GPU failed
+  }
+#endif
+#endif
+
   return dilateOrErodeGray<Darker>(src, brick, dstArea, srcSurroundings);
 }
 
@@ -730,6 +754,21 @@ GrayImage erodeGray(const GrayImage& src,
   if (dstArea.isEmpty()) {
     throw std::invalid_argument("erodeGray: dstArea is empty");
   }
+
+#ifdef Q_OS_MACOS
+  // Try GPU acceleration for simple case where dstArea == src.rect()
+  if (dstArea == src.rect() && metalMorphologyAvailable()) {
+    GrayImage dst(src);  // Copy source to destination
+    const int brickWidth = brick.width();
+    const int brickHeight = brick.height();
+    if (metalErodeGray(dst.data(), dst.width(), dst.height(), dst.stride(),
+                       brickWidth, brickHeight, srcSurroundings)) {
+      return dst;
+    }
+    // Fall through to CPU if GPU failed
+  }
+#endif
+
   return dilateOrErodeGray<Lighter>(src, brick, dstArea, srcSurroundings);
 }
 

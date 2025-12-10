@@ -6,6 +6,7 @@
 #include <DewarpingPointMapper.h>
 #include <PolygonUtils.h>
 #include <UnitsProvider.h>
+#include <core/ApplicationSettings.h>
 #include <core/TiffWriter.h>
 
 #include <QDir>
@@ -44,6 +45,21 @@ using namespace imageproc;
 using namespace dewarping;
 
 namespace output {
+namespace {
+// Write output image in the appropriate format based on settings
+bool writeOutputImage(const QString& filePath, const QImage& image) {
+  const ApplicationSettings& settings = ApplicationSettings::getInstance();
+  if (settings.isJpegOutputEnabled()) {
+    // Use JPEG format
+    const int quality = settings.getJpegQuality();
+    return image.save(filePath, "JPEG", quality);
+  } else {
+    // Use TIFF format
+    return TiffWriter::writeImage(filePath, image);
+  }
+}
+}  // namespace
+
 class Task::UiUpdater : public FilterResult {
   Q_DECLARE_TR_FUNCTIONS(output::Task::UiUpdater)
  public:
@@ -372,7 +388,7 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
       QFile::remove(backgroundFilePath);
     }
 
-    if (!TiffWriter::writeImage(outFilePath, outImg)) {
+    if (!writeOutputImage(outFilePath, outImg)) {
       invalidateParams = true;
     } else {
       deleteMutuallyExclusiveOutputFiles();

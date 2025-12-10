@@ -5,11 +5,15 @@
 
 #include <OrderByCompletenessProvider.h>
 
+#include <QtConcurrent/QtConcurrent>
 #include <utility>
 
 #include "CacheDrivenTask.h"
+#include "filters/finalize/Settings.h"
 #include "FilterUiInterface.h"
 #include "OptionsWidget.h"
+#include "PageSequence.h"
+#include "ProjectPages.h"
 #include "ProjectReader.h"
 #include "ProjectWriter.h"
 #include "Settings.h"
@@ -18,8 +22,8 @@
 #include "Utils.h"
 
 namespace output {
-Filter::Filter(const PageSelectionAccessor& pageSelectionAccessor)
-    : m_settings(std::make_shared<Settings>()), m_selectedPageOrder(0) {
+Filter::Filter(std::shared_ptr<ProjectPages> pages, const PageSelectionAccessor& pageSelectionAccessor)
+    : m_pages(std::move(pages)), m_settings(std::make_shared<Settings>()), m_selectedPageOrder(0) {
   m_optionsWidget.reset(new OptionsWidget(m_settings, pageSelectionAccessor));
 
   const PageOrderOption::ProviderPtr defaultOrder;
@@ -36,6 +40,28 @@ QString Filter::getName() const {
 
 PageView Filter::getView() const {
   return PAGE_VIEW;
+}
+
+void Filter::selected() {
+  // Spawn background threads to detect color modes for pages that don't have params yet.
+  // Using QtConcurrent so it won't block the UI - detection runs in a thread pool.
+  // Results are cached in Settings, so subsequent access is fast.
+  const PageSequence pages(m_pages->toPageSequence(getView()));
+
+  for (const PageInfo& page : pages) {
+    // Check if page needs detection (no params yet)
+    if (m_settings->isParamsNull(page.id())) {
+      // Capture by value for thread safety
+      const PageId pageId = page.id();
+      const QString imagePath = page.imageId().filePath();
+      std::shared_ptr<Settings> settings = m_settings;
+
+      QtConcurrent::run([settings, pageId, imagePath]() {
+        // This runs in a background thread from the global thread pool
+        settings->getParamsOrDetect(pageId, imagePath);
+      });
+    }
+  }
 }
 
 void Filter::performRelinking(const AbstractRelinker& relinker) {
@@ -157,6 +183,10 @@ void Filter::loadDefaultSettings(const PageInfo& pageInfo) {
 
 OptionsWidget* Filter::optionsWidget() {
   return m_optionsWidget.get();
+}
+
+void Filter::setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings) {
+  m_optionsWidget->setFinalizeSettings(std::move(finalizeSettings));
 }
 
 std::vector<PageOrderOption> Filter::pageOrderOptions() const {

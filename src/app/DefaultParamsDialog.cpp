@@ -38,7 +38,8 @@ DefaultParamsDialog::DefaultParamsDialog(QWidget* parent)
   layoutModeCB->addItem(tr("Manual"), MODE_MANUAL);
 
   colorModeSelector->addItem(tr("Black and White"), BLACK_AND_WHITE);
-  colorModeSelector->addItem(tr("Color / Grayscale"), COLOR_GRAYSCALE);
+  colorModeSelector->addItem(tr("Color"), COLOR);
+  colorModeSelector->addItem(tr("Grayscale"), GRAYSCALE);
   colorModeSelector->addItem(tr("Mixed"), MIXED);
 
   fillingColorBox->addItem(tr("Background"), FILL_BACKGROUND);
@@ -500,6 +501,11 @@ void DefaultParamsDialog::colorModeChanged(const int idx) {
       thresholdOptionsVisible = true;
       // fall through
     case COLOR_GRAYSCALE:
+    case COLOR:
+    case GRAYSCALE:
+      break;
+    case AUTO_DETECT:
+      // Should not be stored, but handle it
       break;
   }
   thresholdOptions->setEnabled(thresholdOptionsVisible);
@@ -509,7 +515,8 @@ void DefaultParamsDialog::colorModeChanged(const int idx) {
 
   fillingOptions->setEnabled(colorMode != BLACK_AND_WHITE);
 
-  equalizeIlluminationCB->setEnabled(colorMode != COLOR_GRAYSCALE);
+  const bool isColorOrGrayscale = (colorMode == COLOR_GRAYSCALE || colorMode == COLOR || colorMode == GRAYSCALE);
+  equalizeIlluminationCB->setEnabled(!isColorOrGrayscale);
   equalizeIlluminationColorCB->setEnabled(colorMode != BLACK_AND_WHITE);
   if ((colorMode == MIXED)) {
     if (equalizeIlluminationColorCB->isChecked()) {
@@ -517,8 +524,8 @@ void DefaultParamsDialog::colorModeChanged(const int idx) {
     }
     equalizeIlluminationColorCB->setEnabled(equalizeIlluminationCB->isChecked());
   }
-  savitzkyGolaySmoothingCB->setEnabled(colorMode != COLOR_GRAYSCALE);
-  morphologicalSmoothingCB->setEnabled(colorMode != COLOR_GRAYSCALE);
+  savitzkyGolaySmoothingCB->setEnabled(!isColorOrGrayscale);
+  morphologicalSmoothingCB->setEnabled(!isColorOrGrayscale);
 
   colorSegmentationCB->setEnabled(thresholdOptionsVisible);
   segmenterOptionsWidget->setEnabled(thresholdOptionsVisible && colorSegmentationCB->isChecked());

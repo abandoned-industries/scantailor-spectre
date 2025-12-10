@@ -45,8 +45,9 @@ void CacheDrivenTask::process(const PageInfo& pageInfo,
     const QString originalBackgroundFilePath(QDir(originalBackgroundDir).absoluteFilePath(outFileInfo.fileName()));
     const QFileInfo originalBackgroundFileInfo(originalBackgroundFilePath);
 
-    // Use getParamsOrDetect to auto-detect color mode for pages without stored params
-    const Params params(m_settings->getParamsOrDetect(pageInfo.id(), sourceFileInfo.absoluteFilePath()));
+    // For thumbnails, just use existing params without triggering Vision detection
+    // Detection should only happen during actual page processing, not during thumbnail generation
+    const Params params(m_settings->getParams(pageInfo.id()));
     RenderParams renderParams(params.colorParams(), params.splittingOptions());
 
     ImageTransformation newXform(xform);
