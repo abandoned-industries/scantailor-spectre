@@ -47,11 +47,11 @@ int main(int argc, char* argv[]) {
 
   auto* mainWnd = new MainWindow();
   mainWnd->setAttribute(Qt::WA_DeleteOnClose);
-  if (settings.value("mainWindow/maximized") == false) {
-    mainWnd->show();
-  } else {
+  if (settings.value("mainWindow/maximized", false).toBool()) {
     // mainWnd->showMaximized();  // Doesn't work for Windows.
     QTimer::singleShot(0, mainWnd, &QMainWindow::showMaximized);
+  } else {
+    mainWnd->show();
   }
 
   if (args.size() > 1) {
