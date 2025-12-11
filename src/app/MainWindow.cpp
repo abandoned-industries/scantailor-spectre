@@ -2227,19 +2227,34 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
     m_stages->filterAt(i)->loadDefaultSettings(page);
   }
 
+  // Export filter is control panel only - no per-page processing needed
+  const bool isExportFilter = (m_curFilter == m_stages->exportFilterIdx());
+
   if (!isBatchProcessingInProgress()) {
-    if (m_imageFrameLayout->indexOf(m_processingIndicationWidget.get()) != -1) {
-      m_processingIndicationWidget->processingRestartedEffect();
+    if (isExportFilter) {
+      // For Export filter, try to show the cached output image if it exists
+      const QString outputPath = m_outFileNameGen.filePathFor(page.id());
+      if (QFile::exists(outputPath)) {
+        QImage outputImage(outputPath);
+        if (!outputImage.isNull()) {
+          auto* view = new BasicImageView(outputImage);
+          setImageWidget(view, TRANSFER_OWNERSHIP);
+        }
+      }
+    } else {
+      // Show processing spinner for filters that do actual processing
+      if (m_imageFrameLayout->indexOf(m_processingIndicationWidget.get()) != -1) {
+        m_processingIndicationWidget->processingRestartedEffect();
+      }
+      bool currentWidgetIsImage = (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(0)) != nullptr);
+      setImageWidget(m_processingIndicationWidget.get(), KEEP_OWNERSHIP, nullptr, currentWidgetIsImage);
     }
-    bool currentWidgetIsImage = (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(0)) != nullptr);
-    setImageWidget(m_processingIndicationWidget.get(), KEEP_OWNERSHIP, nullptr, currentWidgetIsImage);
     m_stages->filterAt(m_curFilter)->preUpdateUI(this, page);
   }
 
   assert(m_thumbnailCache);
 
-  // Export filter is control panel only - no per-page processing needed
-  if (m_curFilter != m_stages->exportFilterIdx()) {
+  if (!isExportFilter) {
     m_interactiveQueue->cancelAndClear();
     m_interactiveQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, false, m_debug));
     m_workerThreadPool->submitTask(m_interactiveQueue->takeForProcessing());
