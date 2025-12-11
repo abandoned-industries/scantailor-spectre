@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "AbstractRelinker.h"
-#include "ApplicationSettings.h"
 #include "PageId.h"
 #include "RelinkablePath.h"
 
@@ -25,6 +24,18 @@ OutputFileNameGenerator::OutputFileNameGenerator(std::shared_ptr<FileNameDisambi
 void OutputFileNameGenerator::performRelinking(const AbstractRelinker& relinker) {
   m_disambiguator->performRelinking(relinker);
   m_outDir = relinker.substitutionPathFor(RelinkablePath(m_outDir, RelinkablePath::Dir));
+}
+
+QString OutputFileNameGenerator::formatExtension() const {
+  switch (m_outputFormat) {
+    case OutputImageFormat::PNG:
+      return QStringLiteral("png");
+    case OutputImageFormat::JPEG:
+      return QStringLiteral("jpg");
+    case OutputImageFormat::TIFF:
+    default:
+      return QStringLiteral("tif");
+  }
 }
 
 QString OutputFileNameGenerator::fileNameFor(const PageId& page) const {
@@ -44,11 +55,8 @@ QString OutputFileNameGenerator::fileNameFor(const PageId& page) const {
     name += QLatin1Char(ltr == (subPage == PageId::LEFT_PAGE) ? '1' : '2');
     name += QLatin1Char(subPage == PageId::LEFT_PAGE ? 'L' : 'R');
   }
-  if (ApplicationSettings::getInstance().isJpegOutputEnabled()) {
-    name += QString::fromLatin1(".jpg");
-  } else {
-    name += QString::fromLatin1(".tif");
-  }
+  // Use format from settings instead of ApplicationSettings
+  name += QLatin1Char('.') + formatExtension();
   return name;
 }
 

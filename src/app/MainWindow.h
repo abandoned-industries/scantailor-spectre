@@ -20,6 +20,7 @@
 #include "BeforeOrAfter.h"
 #include "FilterResult.h"
 #include "FilterUiInterface.h"
+#include "ImageFileInfo.h"
 #include "NonCopyable.h"
 #include "OutputFileNameGenerator.h"
 #include "PageId.h"
@@ -78,6 +79,10 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   std::vector<PageRange> selectedRanges() const;
 
+ signals:
+  void projectClosed();
+  void newProjectRequested();
+
  protected:
   bool eventFilter(QObject* obj, QEvent* ev) override;
 
@@ -90,6 +95,20 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
  public slots:
 
   void openProject(const QString& projectFile);
+
+  void newProject();
+
+  void importPdf();
+
+  void openProject();
+
+  void importPdfFile(const QString& pdfPath);
+
+  void createProjectFromFiles(const QString& inputDir,
+                              const QString& outputDir,
+                              const std::vector<ImageFileInfo>& files,
+                              bool rtl,
+                              bool fixDpi);
 
  private:
   enum MainAreaAction { UPDATE_MAIN_AREA, CLEAR_MAIN_AREA };
@@ -143,6 +162,12 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void reloadRequested();
 
+  void outputDirectoryChanged(const QString& newDir);
+
+  void outputFormatSettingChanged(int format);
+  void tiffCompressionSettingChanged(int compression);
+  void jpegQualitySettingChanged(int quality);
+
   void startBatchProcessing();
 
   void startBatchProcessingFrom(const PageInfo& startPage);
@@ -171,13 +196,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void exportToPdf();
 
-  void newProject();
-
-  void importPdf();
-
   void newProjectCreated(ProjectCreationContext* context);
-
-  void openProject();
 
   void projectOpened(ProjectOpeningContext* context);
 
@@ -192,6 +211,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   void showAboutDialog();
 
   void handleOutOfMemorySituation();
+
+  void quitApp();
 
   void reloadCurrentPage();
 
@@ -269,6 +290,10 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void closeProjectWithoutSaving();
 
+  void cleanupTempOutputFiles();
+
+  bool showTempCleanupWarning();
+
   bool saveProjectWithFeedback(const QString& projectFile);
 
   void showInsertFileDialog(BeforeOrAfter beforeOrAfter, const ImageId& existig);
@@ -319,6 +344,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<StageSequence> m_stages;
   QString m_projectFile;
+  QString m_defaultOutDir;  // Original (temp) output directory
   OutputFileNameGenerator m_outFileNameGen;
   std::shared_ptr<ThumbnailPixmapCache> m_thumbnailCache;
   std::unique_ptr<ThumbnailSequence> m_thumbSequence;
@@ -345,6 +371,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   int m_ignorePageOrderingChanges;
   bool m_debug;
   bool m_closing;
+  bool m_quitting;  // True when user explicitly wants to quit (Cmd+Q or Quit menu)
   bool m_twoPassBatchInProgress;  // True when running first pass (Page Layout) before Output
   int m_twoPassTargetFilter;      // The filter to run after first pass completes
   QTimer m_autoSaveTimer;

@@ -87,6 +87,140 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="outputImagesGroup">
+     <property name="title">
+      <string>Output Images</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QCheckBox" name="preserveOutputCB">
+        <property name="text">
+         <string>Preserve output images</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="outputFolderLayout">
+        <item>
+         <widget class="QPushButton" name="chooseOutputFolderBtn">
+          <property name="text">
+           <string>Choose Output Folder...</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="outputPathLabel">
+        <property name="text">
+         <string>Using temporary folder</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="formatLayout">
+        <item>
+         <widget class="QLabel" name="formatLabel">
+          <property name="text">
+           <string>Format:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="formatCombo"/>
+        </item>
+        <item>
+         <spacer name="formatSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="compressionLayout">
+        <item>
+         <widget class="QLabel" name="compressionLabel">
+          <property name="text">
+           <string>Compression:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="compressionCombo"/>
+        </item>
+        <item>
+         <spacer name="compressionSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="jpegQualityLayout">
+        <item>
+         <widget class="QLabel" name="jpegQualityLabel">
+          <property name="text">
+           <string>Quality:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="jpegQualitySlider">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="value">
+           <number>90</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="jpegQualityValueLabel">
+          <property name="text">
+           <string>90</string>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>25</width>
+            <height>0</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
