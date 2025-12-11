@@ -88,13 +88,13 @@ target_include_directories(
 # macOS bundle configuration
 if(APPLE)
   set_target_properties(scantailor PROPERTIES
-    MACOSX_BUNDLE_BUNDLE_NAME "ScanTailor Advanced"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "com.scantailor.advanced"
+    MACOSX_BUNDLE_BUNDLE_NAME "ScanTailor Spectre"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.scantailor.spectre"
     MACOSX_BUNDLE_BUNDLE_VERSION "${VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${VERSION}"
     MACOSX_BUNDLE_ICON_FILE "scantailor.icns"
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in"
-    OUTPUT_NAME "ScanTailor Advanced"
+    OUTPUT_NAME "ScanTailor Spectre"
   )
 
   # Copy icon file into bundle Resources
