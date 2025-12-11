@@ -7,7 +7,7 @@ if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
       " You should create a separate directory for build files.")
 endif()
 
-project("ScanTailor Advanced")
+project("ScanTailor Spectre")
 
 # Set compiler flags.
 set(CMAKE_CXX_STANDARD 17)
