@@ -23,13 +23,7 @@ class SettingsDialog : public QDialog {
 
   void blackOnWhiteDetectionToggled(bool checked);
 
-  void jpegOutputToggled(bool checked);
-
-  void jpegQualityChanged(int value);
-
  private:
-  void updateJpegQualityEnabled(bool enabled);
-
   Ui::SettingsDialog ui;
 };
 

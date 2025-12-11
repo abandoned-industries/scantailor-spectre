@@ -4,7 +4,6 @@
 #include "SettingsDialog.h"
 
 #include <core/ApplicationSettings.h>
-#include <tiff.h>
 
 #include <QtCore/QDir>
 #include <QtWidgets/QMessageBox>
@@ -38,18 +37,6 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
                              tr("ScanTailor need to be restarted to apply the color scheme changes."));
   });
 
-  ui.tiffCompressionBWBox->addItem(tr("None"), COMPRESSION_NONE);
-  ui.tiffCompressionBWBox->addItem(tr("LZW"), COMPRESSION_LZW);
-  ui.tiffCompressionBWBox->addItem(tr("Deflate"), COMPRESSION_DEFLATE);
-  ui.tiffCompressionBWBox->addItem(tr("CCITT G4"), COMPRESSION_CCITTFAX4);
-  ui.tiffCompressionBWBox->setCurrentIndex(ui.tiffCompressionBWBox->findData(settings.getTiffBwCompression()));
-
-  ui.tiffCompressionColorBox->addItem(tr("None"), COMPRESSION_NONE);
-  ui.tiffCompressionColorBox->addItem(tr("LZW"), COMPRESSION_LZW);
-  ui.tiffCompressionColorBox->addItem(tr("Deflate"), COMPRESSION_DEFLATE);
-  ui.tiffCompressionColorBox->addItem(tr("JPEG"), COMPRESSION_JPEG);
-  ui.tiffCompressionColorBox->setCurrentIndex(ui.tiffCompressionColorBox->findData(settings.getTiffColorCompression()));
-
   {
     auto* app = static_cast<Application*>(qApp);
     for (const QString& locale : app->getLanguagesList()) {
@@ -82,14 +69,6 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
   ui.singleColumnThumbnailsCB->setChecked(settings.isSingleColumnThumbnailDisplayEnabled());
   ui.cancelingSelectionQuestionCB->setChecked(settings.isCancelingSelectionQuestionEnabled());
 
-  // JPEG output settings
-  ui.jpegOutputCB->setChecked(settings.isJpegOutputEnabled());
-  ui.jpegQualitySlider->setValue(settings.getJpegQuality());
-  ui.jpegQualityValueLabel->setText(QString::number(settings.getJpegQuality()));
-  updateJpegQualityEnabled(settings.isJpegOutputEnabled());
-  connect(ui.jpegOutputCB, &QCheckBox::toggled, this, &SettingsDialog::jpegOutputToggled);
-  connect(ui.jpegQualitySlider, &QSlider::valueChanged, this, &SettingsDialog::jpegQualityChanged);
-
   connect(ui.buttonBox, SIGNAL(accepted()), SLOT(commitChanges()));
 }
 
@@ -102,9 +81,6 @@ void SettingsDialog::commitChanges() {
   settings.setAutoSaveProjectEnabled(ui.autoSaveProjectCB->isChecked());
   settings.setHighlightDeviationEnabled(ui.highlightDeviationCB->isChecked());
   settings.setColorScheme(ui.colorSchemeBox->currentData().toString());
-
-  settings.setTiffBwCompression(ui.tiffCompressionBWBox->currentData().toInt());
-  settings.setTiffColorCompression(ui.tiffCompressionColorBox->currentData().toInt());
   settings.setLanguage(ui.languageBox->currentData().toString());
 
   settings.setDeskewDeviationCoef(ui.deskewDeviationCoefSB->value());
@@ -130,26 +106,9 @@ void SettingsDialog::commitChanges() {
   settings.setSingleColumnThumbnailDisplayEnabled(ui.singleColumnThumbnailsCB->isChecked());
   settings.setCancelingSelectionQuestionEnabled(ui.cancelingSelectionQuestionCB->isChecked());
 
-  settings.setJpegOutputEnabled(ui.jpegOutputCB->isChecked());
-  settings.setJpegQuality(ui.jpegQualitySlider->value());
-
   emit settingsChanged();
 }
 
 void SettingsDialog::blackOnWhiteDetectionToggled(bool checked) {
   ui.blackOnWhiteDetectionAtOutputCB->setEnabled(checked);
-}
-
-void SettingsDialog::jpegOutputToggled(bool checked) {
-  updateJpegQualityEnabled(checked);
-}
-
-void SettingsDialog::jpegQualityChanged(int value) {
-  ui.jpegQualityValueLabel->setText(QString::number(value));
-}
-
-void SettingsDialog::updateJpegQualityEnabled(bool enabled) {
-  ui.jpegQualityLabel->setEnabled(enabled);
-  ui.jpegQualitySlider->setEnabled(enabled);
-  ui.jpegQualityValueLabel->setEnabled(enabled);
 }

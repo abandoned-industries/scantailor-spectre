@@ -79,6 +79,7 @@
 #include "filters/output/TabbedImageView.h"
 #include "filters/output/Task.h"
 #include "filters/finalize/CacheDrivenTask.h"
+#include "filters/finalize/Settings.h"
 #include "filters/finalize/Task.h"
 #include "filters/page_layout/CacheDrivenTask.h"
 #include "filters/page_layout/Task.h"
@@ -127,6 +128,7 @@ MainWindow::MainWindow()
       m_ignorePageOrderingChanges(0),
       m_debug(false),
       m_closing(false),
+      m_quitting(false),
       m_twoPassBatchInProgress(false),
       m_twoPassTargetFilter(-1) {
   ApplicationSettings& settings = ApplicationSettings::getInstance();
@@ -343,7 +345,7 @@ MainWindow::MainWindow()
   connect(actionSaveProjectAs, SIGNAL(triggered(bool)), this, SLOT(saveProjectAsTriggered()));
   connect(actionExportPdf, &QAction::triggered, this, &MainWindow::exportToPdf);
   connect(actionCloseProject, SIGNAL(triggered(bool)), this, SLOT(closeProject()));
-  connect(actionQuit, SIGNAL(triggered(bool)), this, SLOT(close()));
+  connect(actionQuit, SIGNAL(triggered(bool)), this, SLOT(quitApp()));
 
   updateProjectActions();
   updateWindowTitle();
@@ -412,6 +414,7 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
     disambiguator.reset(new FileNameDisambiguator);
   }
 
+  m_defaultOutDir = outDir;  // Store original (temp) output directory
   m_outFileNameGen = OutputFileNameGenerator(disambiguator, outDir, pages->layoutDirection());
   // These two need to go in this order.
   updateDisambiguationRecords(pages->toPageSequence(IMAGE_VIEW));
@@ -469,8 +472,16 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
     }
   }
 
-  if (!QDir(outDir).exists()) {
-    showRelinkingDialog();
+  // Only show relinking dialog for existing projects with missing paths
+  // For new projects (no projectReader), just create the output directory
+  if (!outDir.isEmpty() && !QDir(outDir).exists()) {
+    if (projectReader) {
+      // Existing project with missing output directory - show relinking dialog
+      showRelinkingDialog();
+    } else {
+      // New project - just create the output directory
+      QDir().mkpath(outDir);
+    }
   }
 }  // MainWindow::switchToNewProject
 
@@ -591,6 +602,14 @@ void MainWindow::timerEvent(QTimerEvent* const event) {
   killTimer(event->timerId());
 
   if (closeProjectInteractive()) {
+#ifdef Q_OS_MAC
+    // On macOS, only close window if user explicitly chose to quit (Cmd+Q or Quit menu)
+    // Otherwise emit projectClosed signal so AppController can show startup window
+    if (!m_quitting) {
+      emit projectClosed();
+      return;
+    }
+#endif
     m_closing = true;
     QSettings settings;
     settings.setValue("mainWindow/maximized", isMaximized());
@@ -753,6 +772,11 @@ void MainWindow::setOptionsWidget(FilterOptionsWidget* widget, const Ownership o
   connect(widget, SIGNAL(invalidateThumbnail(const PageInfo&)), this, SLOT(invalidateThumbnail(const PageInfo&)));
   connect(widget, SIGNAL(invalidateAllThumbnails()), this, SLOT(invalidateAllThumbnails()));
   connect(widget, SIGNAL(goToPage(const PageId&)), this, SLOT(goToPage(const PageId&)));
+  // Connect output settings change signals (only finalize::OptionsWidget has these, others will silently ignore)
+  connect(widget, SIGNAL(outputDirectoryChanged(const QString&)), this, SLOT(outputDirectoryChanged(const QString&)));
+  connect(widget, SIGNAL(outputFormatSettingChanged(int)), this, SLOT(outputFormatSettingChanged(int)));
+  connect(widget, SIGNAL(tiffCompressionSettingChanged(int)), this, SLOT(tiffCompressionSettingChanged(int)));
+  connect(widget, SIGNAL(jpegQualitySettingChanged(int)), this, SLOT(jpegQualitySettingChanged(int)));
 }  // MainWindow::setOptionsWidget
 
 void MainWindow::setImageWidget(QWidget* widget, const Ownership ownership, DebugImages* debugImages, bool overlay) {
@@ -1175,6 +1199,32 @@ void MainWindow::pageOrderingChanged(int idx) {
 void MainWindow::reloadRequested() {
   // Start loading / processing the current page.
   updateMainArea();
+}
+
+void MainWindow::outputDirectoryChanged(const QString& newDir) {
+  // Empty string means switch back to default (temp) directory
+  const QString effectiveDir = newDir.isEmpty() ? m_defaultOutDir : newDir;
+  qDebug() << "Output directory changed to:" << effectiveDir;
+  m_outFileNameGen.setOutDir(effectiveDir);
+  // Recreate thumbnail cache for the new output directory
+  if (!effectiveDir.isEmpty()) {
+    m_thumbnailCache = Utils::createThumbnailCache(effectiveDir);
+  }
+}
+
+void MainWindow::outputFormatSettingChanged(int format) {
+  m_outFileNameGen.setOutputFormat(static_cast<OutputImageFormat>(format));
+  qDebug() << "Output format setting changed to:" << format;
+}
+
+void MainWindow::tiffCompressionSettingChanged(int compression) {
+  m_outFileNameGen.setTiffCompression(static_cast<OutputTiffCompression>(compression));
+  qDebug() << "TIFF compression setting changed to:" << compression;
+}
+
+void MainWindow::jpegQualitySettingChanged(int quality) {
+  m_outFileNameGen.setJpegQuality(quality);
+  qDebug() << "JPEG quality setting changed to:" << quality;
 }
 
 void MainWindow::startBatchProcessing() {
@@ -1676,9 +1726,14 @@ void MainWindow::newProject() {
     return;
   }
 
+#ifdef Q_OS_MAC
+  // On macOS, emit signal to show startup window instead of dialog
+  emit newProjectRequested();
+#else
   // It will delete itself when it's done.
   auto* context = new ProjectCreationContext(this);
   connect(context, SIGNAL(done(ProjectCreationContext*)), this, SLOT(newProjectCreated(ProjectCreationContext*)));
+#endif
 }
 
 void MainWindow::importPdf() {
@@ -1727,8 +1782,8 @@ void MainWindow::importPdf() {
   std::vector<ImageFileInfo> consolidatedFiles;
   consolidatedFiles.emplace_back(QFileInfo(pdfPath), allPages);
 
-  // Create output directory next to the PDF
-  QString outDir = QFileInfo(pdfPath).absolutePath() + "/out";
+  // Use temp directory for output (cleaned on project close/quit)
+  QString outDir = finalize::Settings::getTempOutputDir(pdfPath);
 
   // Create project pages
   auto pages = std::make_shared<ProjectPages>(consolidatedFiles, ProjectPages::AUTO_PAGES, Qt::LeftToRight);
@@ -1738,6 +1793,50 @@ void MainWindow::importPdf() {
 void MainWindow::newProjectCreated(ProjectCreationContext* context) {
   auto pages = std::make_shared<ProjectPages>(context->files(), ProjectPages::AUTO_PAGES, context->layoutDirection());
   switchToNewProject(pages, context->outDir());
+}
+
+void MainWindow::importPdfFile(const QString& pdfPath) {
+  // Load PDF metadata to get page count and sizes
+  std::vector<ImageFileInfo> files;
+  const ImageMetadataLoader::Status status = ImageMetadataLoader::load(pdfPath, [&](const ImageMetadata& metadata) {
+    files.emplace_back(QFileInfo(pdfPath), std::vector<ImageMetadata>{metadata});
+  });
+
+  if (status != ImageMetadataLoader::LOADED || files.empty()) {
+    QMessageBox::warning(this, tr("Error"), tr("Failed to load PDF file."));
+    return;
+  }
+
+  // Consolidate all pages into a single file entry with multiple pages
+  std::vector<ImageMetadata> allPages;
+  for (const auto& file : files) {
+    for (const auto& meta : file.imageInfo()) {
+      allPages.push_back(meta);
+    }
+  }
+
+  std::vector<ImageFileInfo> consolidatedFiles;
+  consolidatedFiles.emplace_back(QFileInfo(pdfPath), allPages);
+
+  // Use temp directory for output
+  QString outDir = finalize::Settings::getTempOutputDir(pdfPath);
+
+  // Create project pages
+  auto pages = std::make_shared<ProjectPages>(consolidatedFiles, ProjectPages::AUTO_PAGES, Qt::LeftToRight);
+  switchToNewProject(pages, outDir);
+}
+
+void MainWindow::createProjectFromFiles(const QString& inputDir,
+                                        const QString& outputDir,
+                                        const std::vector<ImageFileInfo>& files,
+                                        bool rtl,
+                                        bool fixDpi) {
+  Q_UNUSED(inputDir)
+  Q_UNUSED(fixDpi)
+
+  Qt::LayoutDirection layoutDir = rtl ? Qt::RightToLeft : Qt::LeftToRight;
+  auto pages = std::make_shared<ProjectPages>(files, ProjectPages::AUTO_PAGES, layoutDir);
+  switchToNewProject(pages, outputDir);
 }
 
 void MainWindow::openProject() {
@@ -1860,6 +1959,11 @@ void MainWindow::handleOutOfMemorySituation() {
 
   m_outOfMemoryDialog->setAttribute(Qt::WA_DeleteOnClose);
   m_outOfMemoryDialog.release()->show();
+}
+
+void MainWindow::quitApp() {
+  m_quitting = true;
+  close();
 }
 
 /**
@@ -2075,8 +2179,82 @@ bool MainWindow::closeProjectInteractive() {
 }  // MainWindow::closeProjectInteractive
 
 void MainWindow::closeProjectWithoutSaving() {
+  // Clean up temp output files if not preserving them
+  cleanupTempOutputFiles();
+
   auto pages = std::make_shared<ProjectPages>();
   switchToNewProject(pages, QString());
+}
+
+void MainWindow::cleanupTempOutputFiles() {
+  qDebug() << "cleanupTempOutputFiles: entering";
+  if (!m_stages || !m_stages->finalizeFilter()) {
+    qDebug() << "cleanupTempOutputFiles: no stages or finalize filter, returning early";
+    return;
+  }
+
+  const auto& finalizeSettings = m_stages->finalizeFilter()->settings();
+  if (!finalizeSettings) {
+    qDebug() << "cleanupTempOutputFiles: no finalize settings, returning early";
+    return;
+  }
+
+  // If user chose to preserve output, don't clean up
+  if (finalizeSettings->preserveOutput()) {
+    return;
+  }
+
+  // Get the temp directory for this project
+  const QString tempDir = finalize::Settings::getTempOutputDir(m_projectFile);
+  QDir dir(tempDir);
+
+  // Check if temp directory exists and has files
+  if (!dir.exists()) {
+    return;
+  }
+
+  const QFileInfoList files = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+  if (files.isEmpty()) {
+    // Empty temp dir - just remove it
+    dir.removeRecursively();
+    return;
+  }
+
+  // Show warning if enabled
+  if (!showTempCleanupWarning()) {
+    return;  // User cancelled
+  }
+
+  // Clean up the temp directory
+  dir.removeRecursively();
+  qDebug() << "Cleaned up temp output directory:" << tempDir;
+}
+
+bool MainWindow::showTempCleanupWarning() {
+  // Check if warning is disabled
+  if (!ApplicationSettings::getInstance().isTempCleanupWarningEnabled()) {
+    return true;  // Proceed without warning
+  }
+
+  QMessageBox msgBox(this);
+  msgBox.setIcon(QMessageBox::Warning);
+  msgBox.setWindowTitle(tr("Output Images"));
+  msgBox.setText(tr("Temporary output images will be deleted."));
+  msgBox.setInformativeText(tr("You will need to rebuild the output stage to regenerate them."));
+
+  QCheckBox* dontShowAgain = new QCheckBox(tr("Don't show this message again"), &msgBox);
+  msgBox.setCheckBox(dontShowAgain);
+
+  msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+  msgBox.setDefaultButton(QMessageBox::Ok);
+
+  const int result = msgBox.exec();
+
+  if (dontShowAgain->isChecked()) {
+    ApplicationSettings::getInstance().setTempCleanupWarningEnabled(false);
+  }
+
+  return (result == QMessageBox::Ok);
 }
 
 bool MainWindow::saveProjectWithFeedback(const QString& projectFile) {

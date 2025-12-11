@@ -13,11 +13,17 @@
 #include <QSettings>
 #include <QStringList>
 
+#include "AppController.h"
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
   // Qt6 enables high DPI scaling by default
   Application app(argc, argv);
+
+#ifdef Q_OS_MAC
+  // macOS style: don't quit when last window is closed, only on Cmd+Q or Quit menu
+  Application::setQuitOnLastWindowClosed(false);
+#endif
 
 #ifdef _WIN32
   // Get rid of all references to Qt's installation directory.
@@ -34,7 +40,6 @@ int main(int argc, char* argv[]) {
   if (app.isPortableVersion()) {
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, app.getPortableConfigPath());
   }
-  QSettings settings;
 
   app.installLanguage(ApplicationSettings::getInstance().getLanguage());
 
@@ -45,17 +50,28 @@ int main(int argc, char* argv[]) {
   }
   IconProvider::getInstance().setIconPack(StyledIconPack::createDefault());
 
+#ifdef Q_OS_MAC
+  // macOS: Use AppController to manage StartupWindow and MainWindow
+  AppController controller;
+  if (args.size() > 1) {
+    controller.openProject(args.at(1));
+  } else {
+    controller.start();
+  }
+#else
+  // Other platforms: Show MainWindow directly (original behavior)
   auto* mainWnd = new MainWindow();
   mainWnd->setAttribute(Qt::WA_DeleteOnClose);
+  QSettings settings;
   if (settings.value("mainWindow/maximized", false).toBool()) {
-    // mainWnd->showMaximized();  // Doesn't work for Windows.
     QTimer::singleShot(0, mainWnd, &QMainWindow::showMaximized);
   } else {
     mainWnd->show();
   }
-
   if (args.size() > 1) {
     mainWnd->openProject(args.at(1));
   }
+#endif
+
   return Application::exec();
 }  // main
