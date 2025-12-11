@@ -112,6 +112,10 @@ class ApplicationSettings {
 
   void setCancelingSelectionQuestionEnabled(bool enabled);
 
+  bool isTempCleanupWarningEnabled() const;
+
+  void setTempCleanupWarningEnabled(bool enabled);
+
  private:
   static inline QString getKey(const QString& keyName);
 
@@ -138,6 +142,7 @@ class ApplicationSettings {
   static const bool DEFAULT_SHOW_CANCELING_SELECTION_QUESTION;
   static const bool DEFAULT_JPEG_OUTPUT;
   static const int DEFAULT_JPEG_QUALITY;
+  static const bool DEFAULT_TEMP_CLEANUP_WARNING;
 
   static const QString ROOT_KEY;
   static const QString OPENGL_STATE_KEY;
@@ -163,6 +168,7 @@ class ApplicationSettings {
   static const QString SHOW_CANCELING_SELECTION_QUESTION_KEY;
   static const QString JPEG_OUTPUT_KEY;
   static const QString JPEG_QUALITY_KEY;
+  static const QString TEMP_CLEANUP_WARNING_KEY;
 
   QSettings m_settings;
 };

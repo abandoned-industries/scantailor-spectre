@@ -3,8 +3,12 @@
 
 #include "Settings.h"
 
+#include <QCryptographicHash>
+#include <QDir>
 #include <QDomDocument>
+#include <QFileInfo>
 #include <QMutexLocker>
+#include <QStandardPaths>
 
 #include "AbstractRelinker.h"
 #include "PageSequence.h"
@@ -147,6 +151,20 @@ bool Settings::checkEverythingDefined(const PageSequence& pages, const PageId* i
     }
   }
   return true;
+}
+
+QString Settings::getEffectiveOutputDir(const QString& projectPath) const {
+  if (m_preserveOutput && !m_outputPath.isEmpty()) {
+    return m_outputPath;
+  }
+  return getTempOutputDir(projectPath);
+}
+
+QString Settings::getTempOutputDir(const QString& projectPath) {
+  // Create a hash of the project path for a unique temp folder name
+  const QByteArray hash = QCryptographicHash::hash(projectPath.toUtf8(), QCryptographicHash::Md5).toHex().left(8);
+  const QString tempBase = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+  return tempBase + "/scantailor-spectre-" + QString::fromLatin1(hash);
 }
 
 }  // namespace finalize

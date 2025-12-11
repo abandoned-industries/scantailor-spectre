@@ -46,16 +46,19 @@ using namespace dewarping;
 
 namespace output {
 namespace {
-// Write output image in the appropriate format based on settings
-bool writeOutputImage(const QString& filePath, const QImage& image) {
-  const ApplicationSettings& settings = ApplicationSettings::getInstance();
-  if (settings.isJpegOutputEnabled()) {
-    // Use JPEG format
-    const int quality = settings.getJpegQuality();
-    return image.save(filePath, "JPEG", quality);
-  } else {
-    // Use TIFF format
-    return TiffWriter::writeImage(filePath, image);
+// Write output image in the appropriate format based on OutputFileNameGenerator settings
+bool writeOutputImage(const QString& filePath, const QImage& image, const OutputFileNameGenerator& outFileNameGen) {
+  const OutputImageFormat format = outFileNameGen.outputFormat();
+  switch (format) {
+    case OutputImageFormat::JPEG:
+      return image.save(filePath, "JPEG", outFileNameGen.jpegQuality());
+    case OutputImageFormat::PNG:
+      return image.save(filePath, "PNG");
+    case OutputImageFormat::TIFF:
+    default:
+      // TiffWriter uses ApplicationSettings internally for compression
+      // The finalize settings compression is synced to ApplicationSettings when changed
+      return TiffWriter::writeImage(filePath, image);
   }
 }
 }  // namespace
@@ -388,7 +391,7 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
       QFile::remove(backgroundFilePath);
     }
 
-    if (!writeOutputImage(outFilePath, outImg)) {
+    if (!writeOutputImage(outFilePath, outImg, m_outFileNameGen)) {
       invalidateParams = true;
     } else {
       deleteMutuallyExclusiveOutputFiles();

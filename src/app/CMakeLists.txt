@@ -22,6 +22,8 @@ set(gui_only_sources
     ThumbnailSequence.cpp ThumbnailSequence.h
     ProjectFilesDialog.cpp ProjectFilesDialog.h
     NewOpenProjectPanel.cpp NewOpenProjectPanel.h
+    StartupWindow.cpp StartupWindow.h
+    AppController.cpp AppController.h
     SystemLoadWidget.cpp SystemLoadWidget.h
     MainWindow.cpp MainWindow.h
     main.cpp
