@@ -4,35 +4,119 @@
 #include "NewOpenProjectPanel.h"
 
 #include <QFileInfo>
-#include <QPainter>
+#include <QMouseEvent>
+#include <QVBoxLayout>
 
-#include "ColorSchemeManager.h"
 #include "RecentProjects.h"
-#include "Utils.h"
 
-using namespace core;
+// ClickableLabel implementation
+ClickableLabel::ClickableLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
+  setCursor(Qt::PointingHandCursor);
+  m_normalColor = palette().color(QPalette::WindowText);
+  m_hoverColor = palette().color(QPalette::Link);
+  applyColor(m_normalColor);
+}
 
+void ClickableLabel::setTextColor(const QColor& color) {
+  m_normalColor = color;
+  applyColor(m_normalColor);
+}
+
+void ClickableLabel::applyColor(const QColor& color) {
+  QPalette pal = palette();
+  pal.setColor(QPalette::WindowText, color);
+  setPalette(pal);
+}
+
+void ClickableLabel::enterEvent(QEnterEvent* event) {
+  // No color change on hover - cursor change only
+  QLabel::enterEvent(event);
+}
+
+void ClickableLabel::leaveEvent(QEvent* event) {
+  QLabel::leaveEvent(event);
+}
+
+void ClickableLabel::mousePressEvent(QMouseEvent* event) {
+  if (event->button() == Qt::LeftButton) {
+    emit clicked();
+  }
+  QLabel::mousePressEvent(event);
+}
+
+// NewOpenProjectPanel implementation
 NewOpenProjectPanel::NewOpenProjectPanel(QWidget* parent) : QWidget(parent) {
-  setupUi(this);
+  // Main layout - anchored top-left with fixed margins
+  auto* mainLayout = new QVBoxLayout(this);
+  mainLayout->setContentsMargins(40, 40, 40, 40);
+  mainLayout->setSpacing(8);
+  mainLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-  newProjectLabel->setText(Utils::richTextForLink(newProjectLabel->text()));
-  openProjectLabel->setText(Utils::richTextForLink(openProjectLabel->text()));
+  // Action labels - bold weight
+  QFont actionFont;
+  actionFont.setPointSize(15);
+  actionFont.setWeight(QFont::DemiBold);
 
+  auto* importPdfLabel = new ClickableLabel(tr("Import PDF"), this);
+  importPdfLabel->setFont(actionFont);
+  mainLayout->addWidget(importPdfLabel);
+
+  auto* importFolderLabel = new ClickableLabel(tr("Import Folder"), this);
+  importFolderLabel->setFont(actionFont);
+  mainLayout->addWidget(importFolderLabel);
+
+  auto* openProjectLabel = new ClickableLabel(tr("Open Project"), this);
+  openProjectLabel->setFont(actionFont);
+  mainLayout->addWidget(openProjectLabel);
+
+  // Spacer between actions and recent section
+  mainLayout->addSpacing(20);
+
+  // Recent section label - regular weight, secondary color
+  QFont sectionFont;
+  sectionFont.setPointSize(13);
+
+  auto* recentLabel = new QLabel(tr("Recent"), this);
+  recentLabel->setFont(sectionFont);
+  QPalette recentPal = recentLabel->palette();
+  recentPal.setColor(QPalette::WindowText, palette().color(QPalette::PlaceholderText));
+  recentLabel->setPalette(recentPal);
+  mainLayout->addWidget(recentLabel);
+
+  // Recent projects container
+  m_recentContainer = new QWidget(this);
+  m_recentLayout = new QVBoxLayout(m_recentContainer);
+  m_recentLayout->setContentsMargins(0, 0, 0, 0);
+  m_recentLayout->setSpacing(4);
+  mainLayout->addWidget(m_recentContainer);
+
+  // "No recent projects" label - tertiary color
+  m_noRecentLabel = new QLabel(tr("No recent projects"), m_recentContainer);
+  m_noRecentLabel->setFont(sectionFont);
+  QPalette noRecentPal = m_noRecentLabel->palette();
+  noRecentPal.setColor(QPalette::WindowText, palette().color(QPalette::Disabled, QPalette::WindowText));
+  m_noRecentLabel->setPalette(noRecentPal);
+  m_recentLayout->addWidget(m_noRecentLabel);
+
+  // Push everything to the top
+  mainLayout->addStretch();
+
+  // Load recent projects
   RecentProjects rp;
   rp.read();
   if (!rp.validate()) {
-    // Some project files weren't found.
-    // Write the list without them.
     rp.write();
   }
-  if (rp.isEmpty()) {
-    recentProjectsGroup->setVisible(false);
-  } else {
+
+  if (!rp.isEmpty()) {
+    m_noRecentLabel->setVisible(false);
     rp.enumerate([this](const QString& filePath) { addRecentProject(filePath); });
   }
 
-  connect(newProjectLabel, SIGNAL(linkActivated(const QString&)), this, SIGNAL(newProject()));
-  connect(openProjectLabel, SIGNAL(linkActivated(const QString&)), this, SIGNAL(openProject()));
+  // Connect signals
+  connect(importPdfLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::importPdf);
+  connect(importFolderLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::importFolder);
+  connect(openProjectLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::openProject);
 }
 
 void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
@@ -41,40 +125,20 @@ void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
   if (baseName.isEmpty()) {
     baseName = QChar('_');
   }
-  auto* label = new QLabel(recentProjectsGroup);
-  label->setWordWrap(true);
-  label->setTextFormat(Qt::RichText);
-  label->setText(Utils::richTextForLink(baseName, filePath));
+
+  auto* label = new ClickableLabel(baseName, m_recentContainer);
   label->setToolTip(filePath);
 
-  int fontSize = recentProjectsGroup->font().pointSize();
-  QFont widgetFont = label->font();
-  widgetFont.setPointSize(fontSize);
-  label->setFont(widgetFont);
+  QFont font;
+  font.setPointSize(13);
+  label->setFont(font);
 
-  recentProjectsGroup->layout()->addWidget(label);
+  // Secondary color for recent items
+  label->setTextColor(palette().color(QPalette::PlaceholderText));
 
-  connect(label, SIGNAL(linkActivated(const QString&)), this, SIGNAL(openRecentProject(const QString&)));
+  m_recentLayout->addWidget(label);
+
+  connect(label, &ClickableLabel::clicked, this, [this, filePath]() {
+    emit openRecentProject(filePath);
+  });
 }
-
-void NewOpenProjectPanel::paintEvent(QPaintEvent*) {
-  // In fact Qt doesn't draw QWidget's background, unless
-  // autoFillBackground property is set, so we can safely
-  // draw our borders and shadows in the margins area.
-
-  int left = 0, top = 0, right = 0, bottom = 0;
-  layout()->getContentsMargins(&left, &top, &right, &bottom);
-
-  const QRect widgetRect(rect());
-  const QRect exceptMargins(widgetRect.adjusted(left, top, -right, -bottom));
-
-  const int border = 1;  // Solid line border width.
-
-  QPainter painter(this);
-
-  const QBrush borderBrush
-      = ColorSchemeManager::instance().getColorParam("OpenNewProjectBorder", palette().windowText());
-  painter.setPen(QPen(borderBrush, border));
-
-  painter.drawRect(exceptMargins);
-}  // NewOpenProjectPanel::paintEvent

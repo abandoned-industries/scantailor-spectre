@@ -173,6 +173,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void newProject();
 
+  void importPdf();
+
   void newProjectCreated(ProjectCreationContext* context);
 
   void openProject();

@@ -12,6 +12,8 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QFormLayout>
@@ -348,10 +350,10 @@ MainWindow::MainWindow()
   updateMainArea();
 
   QSettings qSettings;
-  if (qSettings.value("mainWindow/maximized") == false) {
+  if (!qSettings.value("mainWindow/maximized", false).toBool()) {
     const QVariant geom(qSettings.value("mainWindow/nonMaximizedGeometry"));
     if (!restoreGeometry(geom.toByteArray())) {
-      resize(1014, 689);  // A sensible value.
+      resize(800, 550);  // A sensible value.
     }
   }
 
@@ -455,6 +457,18 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
   updateWindowTitle();
   updateMainArea();
 
+  // Resize window larger when loading a project with pages
+  if (m_pages->numImages() > 0) {
+    resize(1200, 800);
+    // Center on screen
+    if (QScreen* screen = QGuiApplication::primaryScreen()) {
+      QRect screenGeometry = screen->availableGeometry();
+      int x = (screenGeometry.width() - width()) / 2 + screenGeometry.x();
+      int y = (screenGeometry.height() - height()) / 2 + screenGeometry.y();
+      move(x, y);
+    }
+  }
+
   if (!QDir(outDir).exists()) {
     showRelinkingDialog();
   }
@@ -469,16 +483,15 @@ void MainWindow::showNewOpenProjectPanel() {
   // We use asynchronous connections because otherwise we
   // would be deleting a widget from its event handler, which
   // Qt doesn't like.
-  connect(nop, SIGNAL(newProject()), this, SLOT(newProject()), Qt::QueuedConnection);
+  connect(nop, SIGNAL(importPdf()), this, SLOT(importPdf()), Qt::QueuedConnection);
+  connect(nop, SIGNAL(importFolder()), this, SLOT(newProject()), Qt::QueuedConnection);
   connect(nop, SIGNAL(openProject()), this, SLOT(openProject()), Qt::QueuedConnection);
   connect(nop, SIGNAL(openRecentProject(const QString&)), this, SLOT(openProject(const QString&)),
           Qt::QueuedConnection);
 
-  layout->addWidget(nop, 1, 1);
-  layout->setColumnStretch(0, 1);
-  layout->setColumnStretch(2, 1);
-  layout->setRowStretch(0, 1);
-  layout->setRowStretch(2, 1);
+  layout->addWidget(nop, 0, 0);
+  layout->setColumnStretch(1, 1);
+  layout->setRowStretch(1, 1);
   setImageWidget(outerWidget.release(), TRANSFER_OWNERSHIP);
 
   filterList->setBatchProcessingPossible(false);
@@ -1668,6 +1681,60 @@ void MainWindow::newProject() {
   connect(context, SIGNAL(done(ProjectCreationContext*)), this, SLOT(newProjectCreated(ProjectCreationContext*)));
 }
 
+void MainWindow::importPdf() {
+  if (!closeProjectInteractive()) {
+    return;
+  }
+
+  QSettings settings;
+  QString lastDir = settings.value("lastInputDir").toString();
+  if (lastDir.isEmpty() || !QDir(lastDir).exists()) {
+    lastDir = QDir::homePath();
+  }
+
+  const QString pdfPath = QFileDialog::getOpenFileName(
+      this, tr("Import PDF"), lastDir, tr("PDF Files (*.pdf)"));
+
+  if (pdfPath.isEmpty()) {
+    return;
+  }
+
+  // Save the directory for next time
+  settings.setValue("lastInputDir", QFileInfo(pdfPath).absolutePath());
+
+  // Load PDF metadata to get page count and sizes
+  std::vector<ImageFileInfo> files;
+  const ImageMetadataLoader::Status status = ImageMetadataLoader::load(
+      pdfPath, [&](const ImageMetadata& metadata) {
+        // For each page in the PDF, create an ImageFileInfo entry
+        // The page number will be encoded in the metadata
+        files.emplace_back(QFileInfo(pdfPath), std::vector<ImageMetadata>{metadata});
+      });
+
+  if (status != ImageMetadataLoader::LOADED || files.empty()) {
+    QMessageBox::warning(this, tr("Error"), tr("Failed to load PDF file."));
+    return;
+  }
+
+  // Consolidate all pages into a single file entry with multiple pages
+  std::vector<ImageMetadata> allPages;
+  for (const auto& file : files) {
+    for (const auto& meta : file.imageInfo()) {
+      allPages.push_back(meta);
+    }
+  }
+
+  std::vector<ImageFileInfo> consolidatedFiles;
+  consolidatedFiles.emplace_back(QFileInfo(pdfPath), allPages);
+
+  // Create output directory next to the PDF
+  QString outDir = QFileInfo(pdfPath).absolutePath() + "/out";
+
+  // Create project pages
+  auto pages = std::make_shared<ProjectPages>(consolidatedFiles, ProjectPages::AUTO_PAGES, Qt::LeftToRight);
+  switchToNewProject(pages, outDir);
+}
+
 void MainWindow::newProjectCreated(ProjectCreationContext* context) {
   auto pages = std::make_shared<ProjectPages>(context->files(), ProjectPages::AUTO_PAGES, context->layoutDirection());
   switchToNewProject(pages, context->outDir());
@@ -1933,7 +2000,7 @@ void MainWindow::updateWindowTitle() {
     projectName = QFileInfo(m_projectFile).completeBaseName();
   }
   const QString version(QString::fromUtf8(VERSION));
-  setWindowTitle(tr("%2 - ScanTailor Advanced [%1bit]").arg(sizeof(void*) * 8).arg(projectName));
+  setWindowTitle(tr("%2 - ScanTailor Spectre [%1bit]").arg(sizeof(void*) * 8).arg(projectName));
 }
 
 /**
