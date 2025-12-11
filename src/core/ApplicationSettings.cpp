@@ -8,7 +8,7 @@
 #include <QLocale>
 #include <QtCore/QSettings>
 
-const bool ApplicationSettings::DEFAULT_OPENGL_STATE = false;
+const bool ApplicationSettings::DEFAULT_OPENGL_STATE = true;
 const QString ApplicationSettings::DEFAULT_COLOR_SCHEME = "native";
 const bool ApplicationSettings::DEFAULT_AUTO_SAVE_PROJECT = false;
 const int ApplicationSettings::DEFAULT_TIFF_BW_COMPRESSION = COMPRESSION_CCITTFAX4;
@@ -31,6 +31,7 @@ const QString ApplicationSettings::DEFAULT_PROFILE = "Default";
 const bool ApplicationSettings::DEFAULT_SHOW_CANCELING_SELECTION_QUESTION = true;
 const bool ApplicationSettings::DEFAULT_JPEG_OUTPUT = false;
 const int ApplicationSettings::DEFAULT_JPEG_QUALITY = 90;
+const bool ApplicationSettings::DEFAULT_TEMP_CLEANUP_WARNING = true;
 
 const QString ApplicationSettings::ROOT_KEY = "settings";
 const QString ApplicationSettings::OPENGL_STATE_KEY = "enable_opengl";
@@ -56,6 +57,7 @@ const QString ApplicationSettings::CURRENT_PROFILE_KEY = "current_profile";
 const QString ApplicationSettings::SHOW_CANCELING_SELECTION_QUESTION_KEY = "selection_canceling_question";
 const QString ApplicationSettings::JPEG_OUTPUT_KEY = "jpeg_output";
 const QString ApplicationSettings::JPEG_QUALITY_KEY = "jpeg_quality";
+const QString ApplicationSettings::TEMP_CLEANUP_WARNING_KEY = "temp_cleanup_warning";
 
 QString ApplicationSettings::getKey(const QString& keyName) {
   return ApplicationSettings::ROOT_KEY + '/' + keyName;
@@ -254,4 +256,12 @@ int ApplicationSettings::getJpegQuality() const {
 
 void ApplicationSettings::setJpegQuality(int quality) {
   m_settings.setValue(getKey(JPEG_QUALITY_KEY), quality);
+}
+
+bool ApplicationSettings::isTempCleanupWarningEnabled() const {
+  return m_settings.value(getKey(TEMP_CLEANUP_WARNING_KEY), DEFAULT_TEMP_CLEANUP_WARNING).toBool();
+}
+
+void ApplicationSettings::setTempCleanupWarningEnabled(bool enabled) {
+  m_settings.setValue(getKey(TEMP_CLEANUP_WARNING_KEY), enabled);
 }

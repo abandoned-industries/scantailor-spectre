@@ -34,15 +34,26 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::FinalizeOptionsWid
   void invalidateThumbnail(const PageId& pageId);
   void reloadRequested();
   void invalidateAllThumbnails();
+  void outputDirectoryChanged(const QString& newDir);
+  void outputFormatSettingChanged(int format);         // OutputFormat enum value
+  void tiffCompressionSettingChanged(int compression); // TiffCompression enum value
+  void jpegQualitySettingChanged(int quality);
 
  private slots:
   void colorModeChanged(int index);
   void thresholdChanged(int value);
   void clearCacheClicked();
   void clearAllCacheClicked();
+  void preserveOutputChanged(bool checked);
+  void chooseOutputFolderClicked();
+  void formatChanged(int index);
+  void compressionChanged(int index);
+  void jpegQualityChanged(int value);
 
  private:
   void updateDisplay();
+  void updateOutputUI();
+  void updateFormatOptions();
 
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<output::Settings> m_outputSettings;
