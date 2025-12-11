@@ -10,6 +10,7 @@
 #include "AbstractFilter.h"
 #include "NonCopyable.h"
 #include "filters/deskew/Filter.h"
+#include "filters/export/Filter.h"
 #include "filters/fix_orientation/Filter.h"
 #include "filters/output/Filter.h"
 #include "filters/finalize/Filter.h"
@@ -56,6 +57,8 @@ class StageSequence {
 
   const std::shared_ptr<output::Filter>& outputFilter() const { return m_outputFilter; }
 
+  const std::shared_ptr<export_::Filter>& exportFilter() const { return m_exportFilter; }
+
   int fixOrientationFilterIdx() const { return m_fixOrientationFilterIdx; }
 
   int pageSplitFilterIdx() const { return m_pageSplitFilterIdx; }
@@ -70,6 +73,8 @@ class StageSequence {
 
   int outputFilterIdx() const { return m_outputFilterIdx; }
 
+  int exportFilterIdx() const { return m_exportFilterIdx; }
+
  private:
   std::shared_ptr<fix_orientation::Filter> m_fixOrientationFilter;
   std::shared_ptr<page_split::Filter> m_pageSplitFilter;
@@ -78,6 +83,7 @@ class StageSequence {
   std::shared_ptr<page_layout::Filter> m_pageLayoutFilter;
   std::shared_ptr<finalize::Filter> m_finalizeFilter;
   std::shared_ptr<output::Filter> m_outputFilter;
+  std::shared_ptr<export_::Filter> m_exportFilter;
   std::vector<FilterPtr> m_filters;
   int m_fixOrientationFilterIdx;
   int m_pageSplitFilterIdx;
@@ -86,6 +92,7 @@ class StageSequence {
   int m_pageLayoutFilterIdx;
   int m_finalizeFilterIdx;
   int m_outputFilterIdx;
+  int m_exportFilterIdx;
 };
 
 

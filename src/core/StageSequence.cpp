@@ -13,11 +13,14 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
       m_selectContentFilter(std::make_shared<select_content::Filter>(pageSelectionAccessor)),
       m_pageLayoutFilter(std::make_shared<page_layout::Filter>(pages, pageSelectionAccessor)),
       m_finalizeFilter(std::make_shared<finalize::Filter>(pages, pageSelectionAccessor)),
-      m_outputFilter(std::make_shared<output::Filter>(pages, pageSelectionAccessor)) {
+      m_outputFilter(std::make_shared<output::Filter>(pages, pageSelectionAccessor)),
+      m_exportFilter(std::make_shared<export_::Filter>(pages, pageSelectionAccessor)) {
   // Connect finalize filter to output settings so user changes in finalize propagate to output
   m_finalizeFilter->setOutputSettings(m_outputFilter->settings());
   // Connect output filter to finalize settings so user changes in output propagate back to finalize
   m_outputFilter->setFinalizeSettings(m_finalizeFilter->settings());
+  // Connect export filter to output settings for PDF export
+  m_exportFilter->setOutputSettings(m_outputFilter->settings());
 
   m_fixOrientationFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_fixOrientationFilter);
@@ -39,6 +42,9 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
 
   m_outputFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_outputFilter);
+
+  m_exportFilterIdx = static_cast<int>(m_filters.size());
+  m_filters.emplace_back(m_exportFilter);
 }
 
 void StageSequence::performRelinking(const AbstractRelinker& relinker) {
