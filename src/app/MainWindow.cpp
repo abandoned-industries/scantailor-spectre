@@ -78,6 +78,11 @@
 #include "filters/output/CacheDrivenTask.h"
 #include "filters/output/TabbedImageView.h"
 #include "filters/output/Task.h"
+#include "filters/export/CacheDrivenTask.h"
+#include "filters/export/Filter.h"
+#include "filters/export/OptionsWidget.h"
+#include "filters/export/Settings.h"
+#include "filters/export/Task.h"
 #include "filters/finalize/CacheDrivenTask.h"
 #include "filters/finalize/Settings.h"
 #include "filters/finalize/Task.h"
@@ -445,6 +450,10 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
 
   m_pageOrientationPropagator = std::make_unique<PageOrientationPropagator>(
       m_stages->pageSplitFilter(), createCompositeCacheDrivenTask(m_stages->fixOrientationFilterIdx()));
+
+  // Connect export filter signal to trigger PDF export
+  connect(m_stages->exportFilter()->optionsWidget(), &export_::OptionsWidget::exportToPdfRequested,
+          this, &MainWindow::exportToPdfFromFilter);
 
   // Thumbnails are stored relative to the output directory,
   // so recreate the thumbnail cache.
@@ -1178,6 +1187,14 @@ void MainWindow::switchFilter6() {
   filterList->selectRow(5);
 }
 
+void MainWindow::switchFilter7() {
+  filterList->selectRow(6);
+}
+
+void MainWindow::switchFilter8() {
+  filterList->selectRow(7);
+}
+
 void MainWindow::pageOrderingChanged(int idx) {
   if (m_ignorePageOrderingChanges) {
     return;
@@ -1721,6 +1738,135 @@ void MainWindow::exportToPdf() {
   }
 }
 
+void MainWindow::exportToPdfFromFilter() {
+  if (!isProjectLoaded()) {
+    QMessageBox::warning(this, tr("Export to PDF"), tr("No project is loaded."));
+    return;
+  }
+
+  // Get all pages in order
+  const PageSequence pages = m_thumbSequence->toPageSequence();
+  if (pages.numPages() == 0) {
+    QMessageBox::warning(this, tr("Export to PDF"), tr("No pages in project."));
+    return;
+  }
+
+  // Get settings from export filter
+  const auto& exportSettings = m_stages->exportFilter()->settings();
+  const bool noDpiLimit = exportSettings->noDpiLimit();
+  const int maxDpi = noDpiLimit ? 0 : exportSettings->maxDpi();  // 0 means no limit
+  const bool compressGrayscale = exportSettings->compressGrayscale();
+  const PdfExporter::Quality quality = exportSettings->quality();
+
+  // Collect output file paths and check for unprocessed pages
+  QStringList outputFiles;
+  QStringList missingPages;
+  for (const PageInfo& pageInfo : pages) {
+    const QString filePath = m_outFileNameGen.filePathFor(pageInfo.id());
+    if (QFile::exists(filePath)) {
+      outputFiles.append(filePath);
+    } else {
+      missingPages.append(pageInfo.id().imageId().filePath());
+    }
+  }
+
+  // If there are missing pages, offer to process them first
+  if (!missingPages.isEmpty()) {
+    const int missingCount = missingPages.size();
+    const int reply = QMessageBox::question(
+        this, tr("Export to PDF"),
+        tr("%1 of %2 pages have not been processed yet.\n\n"
+           "Would you like to process them now before exporting?")
+            .arg(missingCount)
+            .arg(pages.numPages()),
+        QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
+    if (reply == QMessageBox::Cancel) {
+      return;
+    }
+
+    if (reply == QMessageBox::Yes) {
+      // Start batch processing from the output stage
+      // The user will need to trigger export again after processing completes
+      QMessageBox::information(
+          this, tr("Export to PDF"),
+          tr("Starting batch processing. Please click 'Export to PDF' again after processing completes."));
+      startBatchProcessing();
+      return;
+    }
+
+    // No - export only the processed pages
+    if (outputFiles.isEmpty()) {
+      QMessageBox::warning(this, tr("Export to PDF"),
+                           tr("No output files found. Please process the pages first."));
+      return;
+    }
+  }
+
+  // Ask for PDF save location
+  QString projectDir;
+  if (!m_projectFile.isEmpty()) {
+    projectDir = QFileInfo(m_projectFile).absolutePath();
+  } else {
+    QSettings settings;
+    projectDir = settings.value("project/lastDir").toString();
+  }
+
+  QString pdfPath = QFileDialog::getSaveFileName(this, tr("Export to PDF"), projectDir, tr("PDF Files (*.pdf)"));
+  if (pdfPath.isEmpty()) {
+    return;
+  }
+
+  if (!pdfPath.endsWith(".pdf", Qt::CaseInsensitive)) {
+    pdfPath += ".pdf";
+  }
+
+  // Create progress dialog
+  QProgressDialog progressDialog(tr("Exporting to PDF..."), tr("Cancel"), 0, outputFiles.size(), this);
+  progressDialog.setWindowModality(Qt::WindowModal);
+  progressDialog.setMinimumDuration(0);
+  progressDialog.setValue(0);
+
+  bool wasCancelled = false;
+
+  // Progress callback
+  auto progressCallback = [&progressDialog, &wasCancelled](int current, int total) -> bool {
+    progressDialog.setMaximum(total);
+    progressDialog.setValue(current);
+    progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
+    QCoreApplication::processEvents();
+
+    if (progressDialog.wasCanceled()) {
+      wasCancelled = true;
+      return false;
+    }
+    return true;
+  };
+
+  // Export
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, progressCallback);
+  progressDialog.close();
+
+  if (wasCancelled) {
+    // Remove partial file
+    QFile::remove(pdfPath);
+    QMessageBox::information(this, tr("Export to PDF"), tr("Export cancelled."));
+  } else if (success) {
+    QFileInfo fileInfo(pdfPath);
+    const qint64 sizeBytes = fileInfo.size();
+    QString sizeStr;
+    if (sizeBytes >= 1024 * 1024) {
+      sizeStr = QString::number(sizeBytes / (1024.0 * 1024.0), 'f', 1) + " MB";
+    } else {
+      sizeStr = QString::number(sizeBytes / 1024.0, 'f', 1) + " KB";
+    }
+    QMessageBox::information(this, tr("Export to PDF"),
+                             tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(outputFiles.size()).arg(sizeStr));
+  } else {
+    QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
+  }
+}
+
 void MainWindow::newProject() {
   if (!closeProjectInteractive()) {
     return;
@@ -2017,7 +2163,9 @@ bool MainWindow::isOutputFilter() const {
 }
 
 bool MainWindow::isOutputFilter(const int filterIdx) const {
-  return filterIdx == m_stages->outputFilterIdx();
+  // Output filter and Export filter both require the same prerequisites
+  // (pages must have content sizes determined through Page Layout processing)
+  return filterIdx == m_stages->outputFilterIdx() || filterIdx == m_stages->exportFilterIdx();
 }
 
 PageView MainWindow::getCurrentView() const {
@@ -2090,9 +2238,12 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
 
   assert(m_thumbnailCache);
 
-  m_interactiveQueue->cancelAndClear();
-  m_interactiveQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, false, m_debug));
-  m_workerThreadPool->submitTask(m_interactiveQueue->takeForProcessing());
+  // Export filter is control panel only - no per-page processing needed
+  if (m_curFilter != m_stages->exportFilterIdx()) {
+    m_interactiveQueue->cancelAndClear();
+    m_interactiveQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, false, m_debug));
+    m_workerThreadPool->submitTask(m_interactiveQueue->takeForProcessing());
+  }
 }  // MainWindow::loadPageInteractive
 
 void MainWindow::updateWindowTitle() {
@@ -2528,12 +2679,18 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
   std::shared_ptr<page_layout::Task> pageLayoutTask;
   std::shared_ptr<finalize::Task> finalizeTask;
   std::shared_ptr<output::Task> outputTask;
+  std::shared_ptr<export_::Task> exportTask;
 
   if (batch) {
     debug = false;
   }
 
-  if (lastFilterIdx >= m_stages->outputFilterIdx()) {
+  if (lastFilterIdx >= m_stages->exportFilterIdx()) {
+    // Export filter delegates to output, so create output task first
+    outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
+    exportTask = m_stages->exportFilter()->createTask(page.id(), outputTask, batch);
+    debug = false;
+  } else if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
     debug = false;
   }
@@ -2574,8 +2731,13 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   std::shared_ptr<page_layout::CacheDrivenTask> pageLayoutTask;
   std::shared_ptr<finalize::CacheDrivenTask> finalizeTask;
   std::shared_ptr<output::CacheDrivenTask> outputTask;
+  std::shared_ptr<export_::CacheDrivenTask> exportTask;
 
-  if (lastFilterIdx >= m_stages->outputFilterIdx()) {
+  if (lastFilterIdx >= m_stages->exportFilterIdx()) {
+    // Export filter delegates to output for thumbnails
+    outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
+    exportTask = m_stages->exportFilter()->createCacheDrivenTask(outputTask);
+  } else if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
   }
   if (lastFilterIdx >= m_stages->finalizeFilterIdx()) {
