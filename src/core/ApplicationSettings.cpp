@@ -9,7 +9,7 @@
 #include <QtCore/QSettings>
 
 const bool ApplicationSettings::DEFAULT_OPENGL_STATE = false;
-const QString ApplicationSettings::DEFAULT_COLOR_SCHEME = "dark";
+const QString ApplicationSettings::DEFAULT_COLOR_SCHEME = "native";
 const bool ApplicationSettings::DEFAULT_AUTO_SAVE_PROJECT = false;
 const int ApplicationSettings::DEFAULT_TIFF_BW_COMPRESSION = COMPRESSION_CCITTFAX4;
 const int ApplicationSettings::DEFAULT_TIFF_COLOR_COMPRESSION = COMPRESSION_LZW;
