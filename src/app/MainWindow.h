@@ -158,6 +158,10 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void switchFilter6();
 
+  void switchFilter7();
+
+  void switchFilter8();
+
   void pageOrderingChanged(int idx);
 
   void reloadRequested();
@@ -195,6 +199,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   void saveProjectAsTriggered();
 
   void exportToPdf();
+
+  void exportToPdfFromFilter();
 
   void newProjectCreated(ProjectCreationContext* context);
 
