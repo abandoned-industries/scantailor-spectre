@@ -302,6 +302,10 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   bool saveProjectWithFeedback(const QString& projectFile);
 
+  bool saveProjectToFolder(const QString& folderPath);
+
+  QString suggestProjectName() const;
+
   void showInsertFileDialog(BeforeOrAfter beforeOrAfter, const ImageId& existig);
 
   void showRemovePagesDialog(const std::set<PageId>& pages);
@@ -350,6 +354,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<StageSequence> m_stages;
   QString m_projectFile;
+  QString m_projectFolderPath;       // Base path when saved to project folder structure
+  bool m_projectSavedToFolder = false;  // True when project is saved to folder structure
   QString m_defaultOutDir;  // Original (temp) output directory
   OutputFileNameGenerator m_outFileNameGen;
   std::shared_ptr<ThumbnailPixmapCache> m_thumbnailCache;
