@@ -10,7 +10,7 @@
 using namespace foundation;
 
 namespace output {
-Params::Params() : m_dpi(600, 600), m_despeckleLevel(1.0), m_blackOnWhite(true) {}
+Params::Params() : m_dpi(400, 400), m_despeckleLevel(1.0), m_blackOnWhite(true) {}
 
 Params::Params(const Dpi& dpi,
                const ColorParams& colorParams,
