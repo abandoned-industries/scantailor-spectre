@@ -8,7 +8,7 @@
 namespace export_ {
 
 Settings::Settings()
-    : m_noDpiLimit(false), m_maxDpi(400), m_compressGrayscale(false), m_quality(PdfExporter::Quality::Medium) {}
+    : m_noDpiLimit(true), m_maxDpi(400), m_compressGrayscale(false), m_quality(PdfExporter::Quality::Medium) {}
 
 bool Settings::noDpiLimit() const {
   QMutexLocker locker(&m_mutex);
