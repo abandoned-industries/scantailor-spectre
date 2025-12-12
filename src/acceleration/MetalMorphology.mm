@@ -7,7 +7,9 @@
 #import <Foundation/Foundation.h>
 
 // Minimum image size to use GPU (smaller images are faster on CPU)
-static const int MIN_GPU_SIZE = 128;
+// On Apple Silicon with unified memory, GPU overhead is minimal, allowing
+// acceleration for smaller images.
+static const int MIN_GPU_SIZE = 64;
 
 bool metalMorphologyAvailable(void) {
     return metalIsAvailable();
