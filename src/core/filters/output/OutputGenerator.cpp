@@ -1232,13 +1232,38 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
     m_inputOrigImage.invertPixels();
   }
 
-  // NOTE: White balance correction in Output is disabled for now.
-  // It was causing page inversion issues by interfering with blackOnWhite detection.
-  // The white balance in Finalize filter handles color mode detection correctly.
-  // TODO: Re-enable output white balance with proper handling of grayscale conversion.
-
   // Determine if output should be color based on mode and input
   const ColorMode colorMode = m_colorParams.colorMode();
+
+  // Apply white balance correction for color modes
+  // Priority: 1) Manual picked color, 2) Force WB (auto-detect brightest), 3) None
+  if (colorMode == COLOR || colorMode == COLOR_GRAYSCALE || colorMode == MIXED) {
+    const QColor manualWBColor = m_settings->getManualWhiteBalanceColor(m_pageId);
+    const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
+
+    fprintf(stderr, "OutputGenerator: colorMode=%d forceWB=%d manualWB=%d page=%s\n",
+            colorMode, forceWB, manualWBColor.isValid(), m_pageId.imageId().filePath().toUtf8().constData());
+
+    if (manualWBColor.isValid()) {
+      // User picked a paper color - use it directly
+      qDebug() << "OutputGenerator: Applying manual white balance with color:" << manualWBColor;
+      m_inputOrigImage = WhiteBalance::apply(m_inputOrigImage, manualWBColor);
+      qDebug() << "OutputGenerator: APPLIED manual white balance";
+    } else if (forceWB) {
+      // Auto-detect brightest pixels and use them as paper color
+      qDebug() << "OutputGenerator: Applying force white balance...";
+      const QColor brightestColor = WhiteBalance::findBrightestPixels(m_inputOrigImage);
+      qDebug() << "OutputGenerator: Detected brightest color:" << brightestColor
+               << "valid:" << brightestColor.isValid()
+               << "hasCast:" << WhiteBalance::hasSignificantCast(brightestColor);
+      if (brightestColor.isValid() && WhiteBalance::hasSignificantCast(brightestColor)) {
+        m_inputOrigImage = WhiteBalance::apply(m_inputOrigImage, brightestColor);
+        qDebug() << "OutputGenerator: APPLIED forced white balance";
+      } else {
+        qDebug() << "OutputGenerator: NOT applying - color invalid or no cast";
+      }
+    }
+  }
   if (colorMode == GRAYSCALE) {
     // Force grayscale output regardless of input
     m_colorOriginal = false;

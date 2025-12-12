@@ -7,6 +7,7 @@
 #include <DistortionModel.h>
 #include <ImageTransformation.h>
 
+#include <QColor>
 #include <QRect>
 #include <QSize>
 
@@ -41,7 +42,9 @@ class OutputImageParams {
                     double despeckleLevel,
                     const PictureShapeOptions& pictureShapeOptions,
                     const OutputProcessingParams& outputProcessingParams,
-                    bool isBlackOnWhite);
+                    bool isBlackOnWhite,
+                    bool forceWhiteBalance = false,
+                    const QColor& manualWhiteBalanceColor = QColor());
 
   explicit OutputImageParams(const QDomElement& el);
 
@@ -145,6 +148,12 @@ class OutputImageParams {
 
   /** Whether the page has dark content on light background */
   bool m_blackOnWhite;
+
+  /** Whether to force white balance correction */
+  bool m_forceWhiteBalance;
+
+  /** Manual white balance color (if picked by user) */
+  QColor m_manualWhiteBalanceColor;
 };
 
 

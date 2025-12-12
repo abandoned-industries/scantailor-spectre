@@ -205,6 +205,75 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="forceWhiteBalanceCB">
+             <property name="toolTip">
+              <string>Find brightest pixels and assume they should be white. Use for pages with color cast but no clear margins.</string>
+             </property>
+             <property name="text">
+              <string>Force white balance</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="pickPaperColorLayout">
+             <item>
+              <widget class="QPushButton" name="pickPaperColorBtn">
+               <property name="toolTip">
+                <string>Click to pick a paper color from the screen. This color will be corrected to neutral white.</string>
+               </property>
+               <property name="text">
+                <string>Pick Paper Color...</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="paperColorSwatch">
+               <property name="minimumSize">
+                <size>
+                 <width>24</width>
+                 <height>24</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>24</width>
+                 <height>24</height>
+                </size>
+               </property>
+               <property name="frameShape">
+                <enum>QFrame::Box</enum>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="clearPaperColorBtn">
+               <property name="toolTip">
+                <string>Clear the manually picked paper color</string>
+               </property>
+               <property name="text">
+                <string>Clear</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="pickPaperColorSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>1</width>
+                 <height>1</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QCheckBox" name="savitzkyGolaySmoothingCB">
              <property name="text">
               <string>Savitzky-Golay smoothing</string>

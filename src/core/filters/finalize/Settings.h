@@ -54,10 +54,15 @@ class Params {
   bool isProcessed() const { return m_processed; }
   void setProcessed(bool processed) { m_processed = processed; }
 
+  // Per-page force white balance (finds brightest pixels, assumes white)
+  bool forceWhiteBalance() const { return m_forceWhiteBalance; }
+  void setForceWhiteBalance(bool force) { m_forceWhiteBalance = force; }
+
  private:
   ColorMode m_colorMode;
   bool m_colorModeDetected;
   bool m_processed;
+  bool m_forceWhiteBalance = false;
 };
 
 class Settings {
@@ -82,6 +87,10 @@ class Settings {
 
   void clearDetectionCache();
   void clearDetectionCacheForPage(const PageId& pageId);
+
+  // Per-page force white balance
+  void setForceWhiteBalance(const PageId& pageId, bool force);
+  bool getForceWhiteBalance(const PageId& pageId) const;
 
   bool checkEverythingDefined(const PageSequence& pages, const PageId* ignore = nullptr) const;
 

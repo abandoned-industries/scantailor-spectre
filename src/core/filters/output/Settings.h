@@ -6,6 +6,7 @@
 
 #include <DistortionModel.h>
 
+#include <QColor>
 #include <QMutex>
 #include <memory>
 #include <unordered_map>
@@ -112,6 +113,15 @@ class Settings {
   bool autoWhiteBalance() const { return m_autoWhiteBalance; }
   void setAutoWhiteBalance(bool enabled) { m_autoWhiteBalance = enabled; }
 
+  // Per-page force white balance (finds brightest pixels, assumes white)
+  void setForceWhiteBalance(const PageId& pageId, bool force);
+  bool getForceWhiteBalance(const PageId& pageId) const;
+
+  // Per-page manual white balance color (user-picked "paper" color)
+  void setManualWhiteBalanceColor(const PageId& pageId, const QColor& color);
+  QColor getManualWhiteBalanceColor(const PageId& pageId) const;
+  void clearManualWhiteBalanceColor(const PageId& pageId);
+
   /**
    * Force re-detection of color mode for a page using Apple Vision or fallback detector.
    * Clears any existing params and runs detection fresh.
@@ -151,6 +161,8 @@ class Settings {
   PerPageOutputProcessingParams m_perPageOutputProcessingParams;
   std::unordered_set<PageId> m_colorModeDetectedPages;  // Track pages that have had Vision color detection
   bool m_autoWhiteBalance = true;  // Auto white balance enabled by default
+  std::unordered_set<PageId> m_forceWhiteBalancePages;  // Pages with force WB enabled
+  std::unordered_map<PageId, QColor> m_manualWhiteBalanceColors;  // User-picked paper colors per page
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_SETTINGS_H_
