@@ -124,6 +124,12 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void equalizeIlluminationColorToggled(bool checked);
 
+  void forceWhiteBalanceToggled(bool checked);
+
+  void pickPaperColorClicked();
+
+  void clearPaperColorClicked();
+
   void savitzkyGolaySmoothingToggled(bool checked);
 
   void morphologicalSmoothingToggled(bool checked);
@@ -170,6 +176,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updateDpiDisplay();
 
   void updateColorsDisplay();
+
+  void updatePaperColorSwatch();
 
   void updateDewarpingDisplay();
 

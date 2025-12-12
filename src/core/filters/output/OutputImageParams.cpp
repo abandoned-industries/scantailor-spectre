@@ -25,7 +25,9 @@ OutputImageParams::OutputImageParams(const QSize& outImageSize,
                                      const double despeckleLevel,
                                      const PictureShapeOptions& pictureShapeOptions,
                                      const OutputProcessingParams& outputProcessingParams,
-                                     bool isBlackOnWhite)
+                                     bool isBlackOnWhite,
+                                     bool forceWhiteBalance,
+                                     const QColor& manualWhiteBalanceColor)
     : m_size(outImageSize),
       m_contentRect(contentRect),
       m_cropArea(xform.resultingPreCropArea()),
@@ -38,7 +40,9 @@ OutputImageParams::OutputImageParams(const QSize& outImageSize,
       m_dewarpingOptions(dewarpingOptions),
       m_despeckleLevel(despeckleLevel),
       m_outputProcessingParams(outputProcessingParams),
-      m_blackOnWhite(isBlackOnWhite) {
+      m_blackOnWhite(isBlackOnWhite),
+      m_forceWhiteBalance(forceWhiteBalance),
+      m_manualWhiteBalanceColor(manualWhiteBalanceColor) {
   // For historical reasons, we disregard post-cropping and post-scaling here.
   xform.setPostCropArea(QPolygonF());  // Resets post-scale as well.
   m_partialXform = xform.transform();
@@ -58,7 +62,9 @@ OutputImageParams::OutputImageParams(const QDomElement& el)
       m_dewarpingOptions(el.namedItem("dewarping-options").toElement()),
       m_despeckleLevel(el.attribute("despeckleLevel").toDouble()),
       m_outputProcessingParams(el.namedItem("processing-params").toElement()),
-      m_blackOnWhite(el.attribute("blackOnWhite") == "1") {}
+      m_blackOnWhite(el.attribute("blackOnWhite") == "1"),
+      m_forceWhiteBalance(el.attribute("forceWhiteBalance") == "1"),
+      m_manualWhiteBalanceColor(el.attribute("manualWhiteBalanceColor")) {}
 
 QDomElement OutputImageParams::toXml(QDomDocument& doc, const QString& name) const {
   XmlMarshaller marshaller(doc);
@@ -78,6 +84,10 @@ QDomElement OutputImageParams::toXml(QDomDocument& doc, const QString& name) con
   el.setAttribute("despeckleLevel", Utils::doubleToString(m_despeckleLevel));
   el.appendChild(m_outputProcessingParams.toXml(doc, "processing-params"));
   el.setAttribute("blackOnWhite", m_blackOnWhite ? "1" : "0");
+  el.setAttribute("forceWhiteBalance", m_forceWhiteBalance ? "1" : "0");
+  if (m_manualWhiteBalanceColor.isValid()) {
+    el.setAttribute("manualWhiteBalanceColor", m_manualWhiteBalanceColor.name());
+  }
   return el;
 }
 
@@ -127,6 +137,14 @@ bool OutputImageParams::matches(const OutputImageParams& other) const {
   }
 
   if (m_blackOnWhite != other.m_blackOnWhite) {
+    return false;
+  }
+
+  if (m_forceWhiteBalance != other.m_forceWhiteBalance) {
+    return false;
+  }
+
+  if (m_manualWhiteBalanceColor != other.m_manualWhiteBalanceColor) {
     return false;
   }
   return true;

@@ -430,6 +430,43 @@ void Settings::setBlackOnWhite(const PageId& pageId, const bool blackOnWhite) {
   }
 }
 
+void Settings::setForceWhiteBalance(const PageId& pageId, bool force) {
+  const QMutexLocker locker(&m_mutex);
+  if (force) {
+    m_forceWhiteBalancePages.insert(pageId);
+  } else {
+    m_forceWhiteBalancePages.erase(pageId);
+  }
+}
+
+bool Settings::getForceWhiteBalance(const PageId& pageId) const {
+  const QMutexLocker locker(&m_mutex);
+  return m_forceWhiteBalancePages.count(pageId) > 0;
+}
+
+void Settings::setManualWhiteBalanceColor(const PageId& pageId, const QColor& color) {
+  const QMutexLocker locker(&m_mutex);
+  if (color.isValid()) {
+    m_manualWhiteBalanceColors[pageId] = color;
+  } else {
+    m_manualWhiteBalanceColors.erase(pageId);
+  }
+}
+
+QColor Settings::getManualWhiteBalanceColor(const PageId& pageId) const {
+  const QMutexLocker locker(&m_mutex);
+  const auto it = m_manualWhiteBalanceColors.find(pageId);
+  if (it != m_manualWhiteBalanceColors.end()) {
+    return it->second;
+  }
+  return QColor();  // Invalid color means no manual WB set
+}
+
+void Settings::clearManualWhiteBalanceColor(const PageId& pageId) {
+  const QMutexLocker locker(&m_mutex);
+  m_manualWhiteBalanceColors.erase(pageId);
+}
+
 Params Settings::detectColorMode(const PageId& pageId, const QString& sourceImagePath) {
   const QMutexLocker locker(&m_mutex);
 

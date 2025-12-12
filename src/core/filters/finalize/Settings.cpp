@@ -32,6 +32,7 @@ Params::Params(const QDomElement& el) {
   }
   m_colorModeDetected = (el.attribute("detected", "0") == "1");
   m_processed = (el.attribute("processed", "0") == "1");
+  m_forceWhiteBalance = (el.attribute("forceWB", "0") == "1");
 }
 
 QDomElement Params::toXml(QDomDocument& doc, const QString& name) const {
@@ -52,6 +53,9 @@ QDomElement Params::toXml(QDomDocument& doc, const QString& name) const {
   el.setAttribute("colorMode", colorModeStr);
   el.setAttribute("detected", m_colorModeDetected ? "1" : "0");
   el.setAttribute("processed", m_processed ? "1" : "0");
+  if (m_forceWhiteBalance) {
+    el.setAttribute("forceWB", "1");
+  }
 
   return el;
 }
@@ -137,6 +141,20 @@ void Settings::clearDetectionCacheForPage(const PageId& pageId) {
     it->second.setColorModeDetected(false);
     it->second.setProcessed(false);
   }
+}
+
+void Settings::setForceWhiteBalance(const PageId& pageId, bool force) {
+  const QMutexLocker locker(&m_mutex);
+  m_perPageParams[pageId].setForceWhiteBalance(force);
+}
+
+bool Settings::getForceWhiteBalance(const PageId& pageId) const {
+  const QMutexLocker locker(&m_mutex);
+  const auto it = m_perPageParams.find(pageId);
+  if (it != m_perPageParams.end()) {
+    return it->second.forceWhiteBalance();
+  }
+  return false;
 }
 
 bool Settings::checkEverythingDefined(const PageSequence& pages, const PageId* ignore) const {

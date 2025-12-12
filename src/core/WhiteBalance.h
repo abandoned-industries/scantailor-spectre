@@ -54,6 +54,18 @@ class WhiteBalance {
    */
   static bool hasSignificantCast(const QColor& paperColor, int threshold = 5);
 
+  /**
+   * \brief Find the brightest pixels and assume they should be white.
+   *
+   * This is a more aggressive approach for "Force White Balance" mode.
+   * Finds the brightest pixels in the image and uses their color
+   * as the paper color to correct.
+   *
+   * \param image The source image
+   * \return The color of the brightest pixels
+   */
+  static QColor findBrightestPixels(const QImage& image);
+
  private:
   /**
    * \brief Sample color from margin areas outside the content box.
