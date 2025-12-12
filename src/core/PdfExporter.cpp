@@ -166,9 +166,9 @@ bool exportWithLibHaru(const QStringList& imagePaths,
                << "at" << dpiX << "DPI" << (maxDpi > 0 ? QString("(max: %1)").arg(maxDpi) : QString());
     }
 
-    // Skip downsampling for color pages - they often have fine details (covers, illustrations)
-    // and there are typically only 1-2 of them, so the size impact is minimal
-    const bool shouldDownsample = (maxDpi > 0 && originalDpi > maxDpi && type != ImageType::Color);
+    // Skip downsampling for B&W pages - they need high DPI for sharp text edges
+    // Only downsample grayscale/color images which have anti-aliasing
+    const bool shouldDownsample = (maxDpi > 0 && originalDpi > maxDpi && type != ImageType::Mono);
 
     if (shouldDownsample) {
       const double scale = static_cast<double>(maxDpi) / originalDpi;
