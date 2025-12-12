@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QGuiApplication>
+#include <QRegularExpression>
 #include <QScreen>
 #include <QFileInfo>
 #include <QFileSystemModel>
@@ -30,6 +31,8 @@
 
 #include "AbstractRelinker.h"
 #include "Application.h"
+#include "ProjectFolder.h"
+#include "ProjectFolderRelinker.h"
 #include "AutoRemovingFile.h"
 #include "BasicImageView.h"
 #include "ContentBoxPropagator.h"
@@ -1567,43 +1570,58 @@ void MainWindow::fixedDpiSubmitted() {
 }
 
 void MainWindow::saveProjectTriggered() {
-  if (m_projectFile.isEmpty()) {
+  if (m_projectFile.isEmpty() || !m_projectSavedToFolder) {
     saveProjectAsTriggered();
     return;
   }
 
+  // Already saved to a project folder - just update the project file
   if (saveProjectWithFeedback(m_projectFile)) {
     updateWindowTitle();
   }
 }
 
 void MainWindow::saveProjectAsTriggered() {
-  // XXX: this function is duplicated in OutOfMemoryDialog.
-
-  QString projectDir;
-  if (!m_projectFile.isEmpty()) {
-    projectDir = QFileInfo(m_projectFile).absolutePath();
+  // Prompt for a folder location to save the project
+  QString startDir;
+  if (!m_projectFolderPath.isEmpty()) {
+    startDir = QFileInfo(m_projectFolderPath).absolutePath();
   } else {
     QSettings settings;
-    projectDir = settings.value("project/lastDir").toString();
+    startDir = settings.value("project/lastDir").toString();
   }
 
-  QString projectFile(
-      QFileDialog::getSaveFileName(this, QString(), projectDir, tr("Scan Tailor Projects") + " (*.ScanTailor)"));
-  if (projectFile.isEmpty()) {
-    return;
+  QString folderPath = QFileDialog::getExistingDirectory(
+      this, tr("Choose Project Folder Location"), startDir,
+      QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+  if (folderPath.isEmpty()) {
+    return;  // User cancelled
   }
 
-  if (!projectFile.endsWith(".ScanTailor", Qt::CaseInsensitive)) {
-    projectFile += ".ScanTailor";
+  // Create a subdirectory named after suggested project name
+  QString projectName = suggestProjectName();
+  QString projectFolderPath = QDir(folderPath).filePath(projectName);
+
+  // Check if folder already exists
+  if (QDir(projectFolderPath).exists()) {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, tr("Folder Exists"),
+        tr("A folder named '%1' already exists. Overwrite?").arg(projectName),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply != QMessageBox::Yes) {
+      return;
+    }
   }
 
-  if (saveProjectWithFeedback(projectFile)) {
-    m_projectFile = projectFile;
+  if (saveProjectToFolder(projectFolderPath)) {
+    m_projectFolderPath = projectFolderPath;
+    m_projectFile = ProjectFolder(projectFolderPath).projectFilePath();
+    m_projectSavedToFolder = true;
     updateWindowTitle();
 
     QSettings settings;
-    settings.setValue("project/lastDir", QFileInfo(m_projectFile).absolutePath());
+    settings.setValue("project/lastDir", folderPath);
 
     RecentProjects rp;
     rp.read();
@@ -2460,6 +2478,90 @@ bool MainWindow::saveProjectWithFeedback(const QString& projectFile) {
     return false;
   }
   return true;
+}
+
+bool MainWindow::saveProjectToFolder(const QString& folderPath) {
+  ProjectFolder projectFolder(folderPath);
+
+  // Create folder structure
+  if (!projectFolder.create()) {
+    QMessageBox::warning(this, tr("Error"), tr("Failed to create project folder structure."));
+    return false;
+  }
+
+  // Get all pages to copy originals
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  if (pages.numPages() == 0) {
+    QMessageBox::warning(this, tr("Error"), tr("No pages in project."));
+    return false;
+  }
+
+  // Build list of unique source files (handle multi-page files)
+  QMap<QString, QString> pathMapping;  // old path -> new path
+  QStringList sourceFiles;
+  for (const PageInfo& page : pages) {
+    const QString originalPath = page.imageId().filePath();
+    if (!pathMapping.contains(originalPath)) {
+      pathMapping[originalPath] = QString();  // Placeholder, will be filled during copy
+      sourceFiles.append(originalPath);
+    }
+  }
+
+  // Copy original images with progress dialog
+  QProgressDialog progress(tr("Copying original images..."), tr("Cancel"), 0, sourceFiles.size(), this);
+  progress.setWindowModality(Qt::WindowModal);
+  progress.setMinimumDuration(500);
+
+  int i = 0;
+  for (const QString& sourcePath : sourceFiles) {
+    if (progress.wasCanceled()) {
+      return false;
+    }
+
+    QString newPath = projectFolder.copyOriginal(sourcePath);
+    if (newPath.isEmpty()) {
+      QMessageBox::warning(this, tr("Error"), tr("Failed to copy file: %1").arg(sourcePath));
+      return false;
+    }
+    pathMapping[sourcePath] = newPath;
+    progress.setValue(++i);
+  }
+  progress.setValue(sourceFiles.size());
+
+  // Create relinker with the path mappings
+  auto relinker = std::make_shared<ProjectFolderRelinker>();
+  for (auto it = pathMapping.constBegin(); it != pathMapping.constEnd(); ++it) {
+    relinker->addMapping(it.key(), it.value());
+  }
+
+  // Apply relinking to update all paths
+  performRelinking(relinker);
+
+  // Update output directory to project folder's output directory
+  m_outFileNameGen.setOutDir(projectFolder.outputDir());
+
+  // Update thumbnail cache for new output directory
+  if (!projectFolder.outputDir().isEmpty()) {
+    m_thumbnailCache = Utils::createThumbnailCache(projectFolder.outputDir());
+  }
+
+  // Save the project file
+  return saveProjectWithFeedback(projectFolder.projectFilePath());
+}
+
+QString MainWindow::suggestProjectName() const {
+  // Use first input file name as base, or "Untitled"
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  if (pages.numPages() > 0) {
+    const PageInfo& firstPage = pages.pageAt(0);
+    QString baseName = QFileInfo(firstPage.imageId().filePath()).completeBaseName();
+    // Clean up the name - remove non-alphanumeric characters except underscore and hyphen
+    baseName.remove(QRegularExpression("[^a-zA-Z0-9_-]"));
+    if (!baseName.isEmpty()) {
+      return baseName + "_project";
+    }
+  }
+  return "Untitled_project";
 }
 
 /**
