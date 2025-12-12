@@ -90,6 +90,7 @@
     </property>
     <addaction name="actionNewProject"/>
     <addaction name="actionOpenProject"/>
+    <addaction name="actionImportPdf"/>
     <addaction name="separator"/>
     <addaction name="actionSaveProject"/>
     <addaction name="actionSaveProjectAs"/>
@@ -1102,6 +1103,17 @@ QToolButton:pressed {
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+O</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionImportPdf">
+   <property name="text">
+    <string>Import PDF...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+I</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>

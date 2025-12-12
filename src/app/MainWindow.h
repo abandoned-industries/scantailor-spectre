@@ -69,7 +69,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   Q_OBJECT
  public:
-  MainWindow();
+  explicit MainWindow(bool restoreGeometry = true);
 
   ~MainWindow() override;
 
@@ -82,6 +82,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
  signals:
   void projectClosed();
   void newProjectRequested();
+  void quitRequested();
 
  protected:
   bool eventFilter(QObject* obj, QEvent* ev) override;
@@ -218,9 +219,10 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void handleOutOfMemorySituation();
 
-  void quitApp();
-
   void reloadCurrentPage();
+
+ public slots:
+  void quitApp();
 
  private:
   class PageSelectionProviderImpl;
@@ -381,6 +383,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   int m_curFilter;
   int m_ignoreSelectionChanges;
   int m_ignorePageOrderingChanges;
+  bool m_restoreGeometry;
   bool m_debug;
   bool m_closing;
   bool m_quitting;  // True when user explicitly wants to quit (Cmd+Q or Quit menu)

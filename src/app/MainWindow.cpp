@@ -125,7 +125,7 @@ class MainWindow::PageSelectionProviderImpl : public PageSelectionProvider {
 };
 
 
-MainWindow::MainWindow()
+MainWindow::MainWindow(bool restoreGeometry)
     : m_pages(std::make_shared<ProjectPages>()),
       m_stages(std::make_shared<StageSequence>(m_pages, newPageSelectionAccessor())),
       m_workerThreadPool(std::make_unique<WorkerThreadPool>()),
@@ -134,6 +134,7 @@ MainWindow::MainWindow()
       m_curFilter(0),
       m_ignoreSelectionChanges(0),
       m_ignorePageOrderingChanges(0),
+      m_restoreGeometry(restoreGeometry),
       m_debug(false),
       m_closing(false),
       m_quitting(false),
@@ -266,6 +267,7 @@ MainWindow::MainWindow()
   connect(actionNextSelectedPageW, SIGNAL(triggered(bool)), this, SLOT(goNextSelectedPage()));
   connect(actionGotoPage, SIGNAL(triggered(bool)), this, SLOT(execGotoPageDialog()));
   connect(actionAbout, SIGNAL(triggered(bool)), this, SLOT(showAboutDialog()));
+  connect(actionImportPdf, &QAction::triggered, this, &MainWindow::importPdf);
   connect(&OutOfMemoryHandler::instance(), SIGNAL(outOfMemory()), SLOT(handleOutOfMemorySituation()));
   connect(prevPageBtn, &QToolButton::clicked, this, [this]() {
     if (filterSelectedBtn->isChecked()) {
@@ -359,12 +361,16 @@ MainWindow::MainWindow()
   updateWindowTitle();
   updateMainArea();
 
-  QSettings qSettings;
-  if (!qSettings.value("mainWindow/maximized", false).toBool()) {
-    const QVariant geom(qSettings.value("mainWindow/nonMaximizedGeometry"));
-    if (!restoreGeometry(geom.toByteArray())) {
-      resize(800, 550);  // A sensible value.
+  if (m_restoreGeometry) {
+    QSettings qSettings;
+    if (!qSettings.value("mainWindow/maximized", false).toBool()) {
+      const QVariant geom(qSettings.value("mainWindow/nonMaximizedGeometry"));
+      if (!QMainWindow::restoreGeometry(geom.toByteArray())) {
+        resize(800, 550);  // A sensible value.
+      }
     }
+  } else {
+    resize(800, 550);  // Default size for cascaded windows
   }
 
   m_maxLogicalThumbSizeUpdater.setSingleShot(true);
@@ -473,7 +479,8 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
   updateMainArea();
 
   // Resize window larger when loading a project with pages
-  if (m_pages->numImages() > 0) {
+  // Skip centering for cascaded windows (m_restoreGeometry == false means explicit positioning)
+  if (m_pages->numImages() > 0 && m_restoreGeometry) {
     resize(1200, 800);
     // Center on screen
     if (QScreen* screen = QGuiApplication::primaryScreen()) {
@@ -628,13 +635,31 @@ void MainWindow::timerEvent(QTimerEvent* const event) {
     if (!isMaximized()) {
       settings.setValue("mainWindow/nonMaximizedGeometry", saveGeometry());
     }
-    close();
 #ifdef Q_OS_MAC
-    // On macOS, explicitly quit since setQuitOnLastWindowClosed is false
+    // On macOS, coordinate quit across all windows
     if (m_quitting) {
-      QApplication::quit();
+      // First emit signal for AppController (if connected)
+      emit quitRequested();
+
+      // Also directly find and quit other MainWindows in case signal isn't connected
+      // (e.g., windows created directly by MainWindow::importPdf)
+      bool foundOther = false;
+      for (QWidget* widget : QApplication::topLevelWidgets()) {
+        MainWindow* other = qobject_cast<MainWindow*>(widget);
+        if (other && other != this && other->isVisible()) {
+          // Schedule on next event loop to avoid issues with current close
+          QTimer::singleShot(0, other, &MainWindow::quitApp);
+          foundOther = true;
+          break;  // One at a time
+        }
+      }
+      // If no other windows found, schedule app quit
+      if (!foundOther) {
+        QTimer::singleShot(0, qApp, &QApplication::quit);
+      }
     }
 #endif
+    close();
   }
 }
 
@@ -1930,10 +1955,6 @@ void MainWindow::newProject() {
 }
 
 void MainWindow::importPdf() {
-  if (!closeProjectInteractive()) {
-    return;
-  }
-
   QSettings settings;
   QString lastDir = settings.value("lastInputDir").toString();
   if (lastDir.isEmpty() || !QDir(lastDir).exists()) {
@@ -1949,6 +1970,35 @@ void MainWindow::importPdf() {
 
   // Save the directory for next time
   settings.setValue("lastInputDir", QFileInfo(pdfPath).absolutePath());
+
+#ifdef Q_OS_MAC
+  // On macOS, if we have a project loaded, import in a new window
+  if (isProjectLoaded()) {
+    auto* newWindow = new MainWindow(false);  // Skip geometry restore for cascading
+    newWindow->setAttribute(Qt::WA_DeleteOnClose, true);
+    // Cascade: offset new window by 22px (macOS title bar height)
+    const int cascade = 22;
+    QPoint newPos = pos() + QPoint(cascade, cascade);
+    QSize newSize = size();
+    // Check if window would go off screen, reset to top-left if so
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+      QRect screenGeom = screen->availableGeometry();
+      if (newPos.x() + newSize.width() > screenGeom.right() ||
+          newPos.y() + newSize.height() > screenGeom.bottom()) {
+        newPos = screenGeom.topLeft() + QPoint(cascade, cascade);
+      }
+    }
+    newWindow->setGeometry(newPos.x(), newPos.y(), newSize.width(), newSize.height());
+    newWindow->show();
+    newWindow->importPdfFile(pdfPath);
+    return;
+  }
+#else
+  if (!closeProjectInteractive()) {
+    return;
+  }
+#endif
 
   // Load PDF metadata to get page count and sizes
   std::vector<ImageFileInfo> files;
@@ -2033,10 +2083,6 @@ void MainWindow::createProjectFromFiles(const QString& inputDir,
 }
 
 void MainWindow::openProject() {
-  if (!closeProjectInteractive()) {
-    return;
-  }
-
   const QString projectDir(QSettings().value("project/lastDir").toString());
   const QString projectFile(QFileDialog::getOpenFileName(this, tr("Open Project"), projectDir,
                                                          tr("Scan Tailor Projects") + " (*.ScanTailor)"));
@@ -2044,6 +2090,35 @@ void MainWindow::openProject() {
     // Cancelled by user.
     return;
   }
+
+#ifdef Q_OS_MAC
+  // On macOS, if we have a project loaded, open in a new window
+  if (isProjectLoaded()) {
+    auto* newWindow = new MainWindow(false);  // Skip geometry restore for cascading
+    newWindow->setAttribute(Qt::WA_DeleteOnClose, true);
+    // Cascade: offset new window by 22px (macOS title bar height)
+    const int cascade = 22;
+    QPoint newPos = pos() + QPoint(cascade, cascade);
+    QSize newSize = size();
+    // Check if window would go off screen, reset to top-left if so
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+      QRect screenGeom = screen->availableGeometry();
+      if (newPos.x() + newSize.width() > screenGeom.right() ||
+          newPos.y() + newSize.height() > screenGeom.bottom()) {
+        newPos = screenGeom.topLeft() + QPoint(cascade, cascade);
+      }
+    }
+    newWindow->setGeometry(newPos.x(), newPos.y(), newSize.width(), newSize.height());
+    newWindow->show();
+    newWindow->openProject(projectFile);
+    return;
+  }
+#else
+  if (!closeProjectInteractive()) {
+    return;
+  }
+#endif
 
   openProject(projectFile);
 }
