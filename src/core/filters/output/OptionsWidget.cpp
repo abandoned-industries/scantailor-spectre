@@ -3,6 +3,7 @@
 
 #include "OptionsWidget.h"
 
+#include <QColorDialog>
 #include <QDebug>
 #include <QToolTip>
 #include <utility>
@@ -322,6 +323,53 @@ void OptionsWidget::equalizeIlluminationColorToggled(const bool checked) {
   m_colorParams.setColorCommonOptions(opt);
   m_settings->setColorParams(m_pageId, m_colorParams);
   emit reloadRequested();
+}
+
+void OptionsWidget::forceWhiteBalanceToggled(const bool checked) {
+  m_settings->setForceWhiteBalance(m_pageId, checked);
+  emit reloadRequested();
+}
+
+void OptionsWidget::pickPaperColorClicked() {
+  // Use native macOS color dialog which has a good eyedropper
+  QColor currentColor = m_settings->getManualWhiteBalanceColor(m_pageId);
+  if (!currentColor.isValid()) {
+    currentColor = QColor(240, 230, 210);  // Start with a typical yellowed paper color
+  }
+
+  QColor color = QColorDialog::getColor(currentColor, this, tr("Pick Paper Color"));
+  if (color.isValid()) {
+    qDebug() << "OptionsWidget: User picked paper color:" << color;
+    m_settings->setManualWhiteBalanceColor(m_pageId, color);
+    updatePaperColorSwatch();
+    emit reloadRequested();
+  }
+}
+
+void OptionsWidget::clearPaperColorClicked() {
+  m_settings->clearManualWhiteBalanceColor(m_pageId);
+  updatePaperColorSwatch();
+  emit reloadRequested();
+}
+
+void OptionsWidget::updatePaperColorSwatch() {
+  QColor color = m_settings->getManualWhiteBalanceColor(m_pageId);
+  if (color.isValid()) {
+    QString styleSheet = QString("background-color: rgb(%1, %2, %3);")
+                             .arg(color.red())
+                             .arg(color.green())
+                             .arg(color.blue());
+    paperColorSwatch->setStyleSheet(styleSheet);
+    paperColorSwatch->setToolTip(tr("Paper color: R=%1 G=%2 B=%3")
+                                     .arg(color.red())
+                                     .arg(color.green())
+                                     .arg(color.blue()));
+    clearPaperColorBtn->setEnabled(true);
+  } else {
+    paperColorSwatch->setStyleSheet("");
+    paperColorSwatch->setToolTip(tr("No paper color set"));
+    clearPaperColorBtn->setEnabled(false);
+  }
 }
 
 
@@ -696,6 +744,17 @@ void OptionsWidget::updateColorsDisplay() {
   equalizeIlluminationColorCB->setChecked(colorCommonOptions.normalizeIllumination());
   equalizeIlluminationColorCB->setVisible(colorMode != BLACK_AND_WHITE);
   equalizeIlluminationColorCB->setEnabled(isColorOrGrayscale || blackWhiteOptions.normalizeIllumination());
+  // Force white balance - only for color modes
+  forceWhiteBalanceCB->setChecked(m_settings->getForceWhiteBalance(m_pageId));
+  forceWhiteBalanceCB->setVisible(colorMode != BLACK_AND_WHITE);
+  // Paper color picker - only for color modes
+  const bool showPaperColorPicker = (colorMode != BLACK_AND_WHITE);
+  pickPaperColorBtn->setVisible(showPaperColorPicker);
+  paperColorSwatch->setVisible(showPaperColorPicker);
+  clearPaperColorBtn->setVisible(showPaperColorPicker);
+  if (showPaperColorPicker) {
+    updatePaperColorSwatch();
+  }
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
   morphologicalSmoothingCB->setChecked(blackWhiteOptions.isMorphologicalSmoothingEnabled());
@@ -1051,6 +1110,9 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(fillOffcutCB, SIGNAL(clicked(bool)), this, SLOT(fillOffcutToggled(bool)));
   CONNECT(equalizeIlluminationCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationToggled(bool)));
   CONNECT(equalizeIlluminationColorCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationColorToggled(bool)));
+  CONNECT(forceWhiteBalanceCB, SIGNAL(clicked(bool)), this, SLOT(forceWhiteBalanceToggled(bool)));
+  CONNECT(pickPaperColorBtn, SIGNAL(clicked()), this, SLOT(pickPaperColorClicked()));
+  CONNECT(clearPaperColorBtn, SIGNAL(clicked()), this, SLOT(clearPaperColorClicked()));
   CONNECT(savitzkyGolaySmoothingCB, SIGNAL(clicked(bool)), this, SLOT(savitzkyGolaySmoothingToggled(bool)));
   CONNECT(morphologicalSmoothingCB, SIGNAL(clicked(bool)), this, SLOT(morphologicalSmoothingToggled(bool)));
   CONNECT(splittingCB, SIGNAL(clicked(bool)), this, SLOT(splittingToggled(bool)));

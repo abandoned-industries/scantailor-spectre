@@ -182,7 +182,9 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
                                          params.outputDpi(), params.colorParams(), params.splittingOptions(),
                                          params.dewarpingOptions(), params.distortionModel(), params.depthPerception(),
                                          params.despeckleLevel(), params.pictureShapeOptions(),
-                                         m_settings->getOutputProcessingParams(m_pageId), params.isBlackOnWhite());
+                                         m_settings->getOutputProcessingParams(m_pageId), params.isBlackOnWhite(),
+                                         m_settings->getForceWhiteBalance(m_pageId),
+                                         m_settings->getManualWhiteBalanceColor(m_pageId));
 
   ZoneSet newPictureZones(m_settings->pictureZonesForPage(m_pageId));
   const ZoneSet newFillZones(m_settings->fillZonesForPage(m_pageId));

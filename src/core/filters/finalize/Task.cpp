@@ -75,7 +75,17 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
 
   // Apply white balance correction if enabled
   QImage imageForDetection = image;
-  if (m_settings->autoWhiteBalance()) {
+  const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
+
+  if (forceWB) {
+    // Force white balance: find brightest pixels and assume they should be white
+    qDebug() << "Finalize: Force white balance ENABLED for this page";
+    const QColor brightestColor = WhiteBalance::findBrightestPixels(image);
+    if (brightestColor.isValid() && WhiteBalance::hasSignificantCast(brightestColor)) {
+      imageForDetection = WhiteBalance::apply(image, brightestColor);
+      qDebug() << "Finalize: applied FORCED white balance, brightest pixels color was" << brightestColor;
+    }
+  } else if (m_settings->autoWhiteBalance()) {
     qDebug() << "Finalize: Auto white balance ENABLED, detecting paper color...";
     const QColor paperColor = WhiteBalance::detectPaperColor(image, contentBox);
     qDebug() << "Finalize: Detected paper color:" << paperColor

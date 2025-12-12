@@ -74,6 +74,12 @@ class ThumbnailPixmapCache::Item {
 
   mutable Status status;
 
+  /**
+   * Set to true when recreateThumbnail() is called while a load is in progress.
+   * When the load completes, the result is discarded and a reload is triggered.
+   */
+  mutable bool needsReload = false;
+
   Item(const ImageId& imageId, int precedingLoadAttempts, Status st);
 
   Item(const Item& other);
@@ -503,14 +509,12 @@ void ThumbnailPixmapCache::Impl::recreateThumbnail(const ImageId& imageId, const
       removeItemLocked(m_items.project<RemoveQueueTag>(kIt));
       break;
     case Item::QUEUED:
+      // Load hasn't started yet, will get the fresh file from disk.
       break;
     case Item::IN_PROGRESS:
-      // We have a small race condition in this case.
-      // We don't know if the other thread has already loaded
-      // the thumbnail or not.  In case it did, again we
-      // don't know if it loaded the old or new version.
-      // Well, let's just pretend the thumnail was loaded
-      // (or failed to load) before we wrote the new version.
+      // Background thread may have already loaded the old file.
+      // Mark for reload so processLoadResult will discard and re-queue.
+      kIt->needsReload = true;
       break;
   }
 }  // ThumbnailPixmapCache::Impl::recreateThumbnail
@@ -708,18 +712,32 @@ void ThumbnailPixmapCache::Impl::processLoadResult(LoadResultEvent* result) {
     item.completionHandlers.swap(completionHandlers);
 
     if (result->status() == ThumbnailLoadResult::LOADED) {
-      // Maybe remove an older item.
-      removeExcessLocked();
+      // Check if thumbnail was recreated while we were loading (stale data).
+      if (item.needsReload) {
+        item.needsReload = false;
+        item.pixmap = QPixmap();  // Clear stale pixmap
+        item.status = Item::QUEUED;
+        ++m_numQueuedItems;
+        // Move to front of load queue for immediate reload.
+        m_loadQueue.relocate(m_loadQueue.begin(), lqIt);
+        // Don't notify listeners - they'll get notified after reload.
+        completionHandlers.clear();
+        // Wake up background loader to process the re-queued item.
+        QCoreApplication::postEvent(&m_backgroundLoader, new QEvent(QEvent::User));
+      } else {
+        // Maybe remove an older item.
+        removeExcessLocked();
 
-      item.status = Item::LOADED;
-      ++m_numLoadedItems;
+        item.status = Item::LOADED;
+        ++m_numLoadedItems;
 
-      // Move this item after all other LOADED items in
-      // the remove queue.
-      m_removeQueue.relocate(m_endOfLoadedItems, rqIt);
+        // Move this item after all other LOADED items in
+        // the remove queue.
+        m_removeQueue.relocate(m_endOfLoadedItems, rqIt);
 
-      // Move to the end of load queue.
-      m_loadQueue.relocate(m_loadQueue.end(), lqIt);
+        // Move to the end of load queue.
+        m_loadQueue.relocate(m_loadQueue.end(), lqIt);
+      }
     } else if (result->status() == ThumbnailLoadResult::LOAD_FAILED) {
       // We keep items that failed to load, as they are cheap
       // to keep and helps us avoid trying to load them
