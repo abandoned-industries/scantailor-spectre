@@ -34,6 +34,19 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="autoWhiteBalanceCB">
+        <property name="text">
+         <string>Auto White Balance</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Correct color cast from yellowed paper before detecting color mode</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="thresholdLayout">
         <item>
          <widget class="QLabel" name="thresholdLabel">

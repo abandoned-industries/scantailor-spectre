@@ -108,6 +108,10 @@ class Settings {
 
   void setBlackOnWhite(const PageId& pageId, bool blackOnWhite);
 
+  // Auto white balance - corrects color cast from yellowed paper
+  bool autoWhiteBalance() const { return m_autoWhiteBalance; }
+  void setAutoWhiteBalance(bool enabled) { m_autoWhiteBalance = enabled; }
+
   /**
    * Force re-detection of color mode for a page using Apple Vision or fallback detector.
    * Clears any existing params and runs detection fresh.
@@ -146,6 +150,7 @@ class Settings {
   PropertySet m_defaultFillZoneProps;
   PerPageOutputProcessingParams m_perPageOutputProcessingParams;
   std::unordered_set<PageId> m_colorModeDetectedPages;  // Track pages that have had Vision color detection
+  bool m_autoWhiteBalance = true;  // Auto white balance enabled by default
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_SETTINGS_H_
