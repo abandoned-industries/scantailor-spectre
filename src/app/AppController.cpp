@@ -3,7 +3,10 @@
 
 #include "AppController.h"
 
+#include <QApplication>
 #include <QFileDialog>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QSettings>
 #include <QTimer>
 
@@ -20,9 +23,9 @@ void AppController::start() {
 }
 
 void AppController::openProject(const QString& path) {
-  showMainWindow();
-  if (m_mainWindow) {
-    m_mainWindow->openProject(path);
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->openProject(path);
   }
 }
 
@@ -38,26 +41,54 @@ void AppController::showStartupWindow() {
   m_startupWindow->activateWindow();
 }
 
-void AppController::showMainWindow() {
-  // Hide startup window
+MainWindow* AppController::createNewMainWindow() {
+  // Hide startup window when we have a main window
   if (m_startupWindow) {
     m_startupWindow->hide();
   }
 
-  if (!m_mainWindow) {
-    m_mainWindow = new MainWindow();
-    m_mainWindow->setAttribute(Qt::WA_DeleteOnClose, false);  // Don't delete, we manage it
-    connectMainWindow();
+  // Find existing visible window to cascade from
+  MainWindow* lastWindow = nullptr;
+  for (int i = m_mainWindows.size() - 1; i >= 0; --i) {
+    if (m_mainWindows[i] && m_mainWindows[i]->isVisible()) {
+      lastWindow = m_mainWindows[i];
+      break;
+    }
   }
+
+  // Create window - skip geometry restoration if we're going to cascade
+  MainWindow* window = new MainWindow(lastWindow == nullptr);
+  window->setAttribute(Qt::WA_DeleteOnClose, true);
+  m_mainWindows.append(window);
+  connectMainWindow(window);
 
   QSettings settings;
   if (settings.value("mainWindow/maximized", false).toBool()) {
-    QTimer::singleShot(0, m_mainWindow, &QMainWindow::showMaximized);
+    QTimer::singleShot(0, window, &QMainWindow::showMaximized);
   } else {
-    m_mainWindow->show();
+    if (lastWindow) {
+      // Cascade: offset from the last active window
+      const int cascade = 22;  // macOS title bar height
+      QPoint newPos = lastWindow->pos() + QPoint(cascade, cascade);
+      QSize newSize = lastWindow->size();
+
+      // Check if window would go off screen
+      QScreen* screen = QGuiApplication::primaryScreen();
+      if (screen) {
+        QRect screenGeom = screen->availableGeometry();
+        if (newPos.x() + newSize.width() > screenGeom.right() ||
+            newPos.y() + newSize.height() > screenGeom.bottom()) {
+          newPos = screenGeom.topLeft() + QPoint(cascade, cascade);
+        }
+      }
+      window->setGeometry(newPos.x(), newPos.y(), newSize.width(), newSize.height());
+    }
+    window->show();
   }
-  m_mainWindow->raise();
-  m_mainWindow->activateWindow();
+  window->raise();
+  window->activateWindow();
+
+  return window;
 }
 
 void AppController::connectStartupWindow() {
@@ -67,9 +98,35 @@ void AppController::connectStartupWindow() {
   connect(m_startupWindow, &StartupWindow::recentProjectRequested, this, &AppController::onRecentProjectRequested);
 }
 
-void AppController::connectMainWindow() {
-  connect(m_mainWindow, &MainWindow::projectClosed, this, &AppController::onMainWindowProjectClosed);
-  connect(m_mainWindow, &MainWindow::newProjectRequested, this, &AppController::onNewProjectFromMainWindow);
+void AppController::connectMainWindow(MainWindow* window) {
+  connect(window, &MainWindow::projectClosed, this, &AppController::onMainWindowProjectClosed);
+  connect(window, &MainWindow::newProjectRequested, this, &AppController::onNewProjectFromMainWindow);
+  connect(window, &MainWindow::quitRequested, this, &AppController::onQuitRequested);
+  connect(window, &QObject::destroyed, this, [this, window]() {
+    removeMainWindow(window);
+  });
+}
+
+void AppController::removeMainWindow(MainWindow* window) {
+  m_mainWindows.removeAll(window);
+
+  // If no more windows, either quit or show startup
+  if (!hasActiveMainWindows()) {
+    if (m_quitting) {
+      QApplication::quit();
+    } else {
+      showStartupWindow();
+    }
+  }
+}
+
+bool AppController::hasActiveMainWindows() const {
+  for (const auto& window : m_mainWindows) {
+    if (window && window->isVisible()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void AppController::onOpenProjectRequested() {
@@ -83,10 +140,10 @@ void AppController::onOpenProjectRequested() {
     return;
   }
 
-  // User selected a file - now show MainWindow and open the project
-  showMainWindow();
-  if (m_mainWindow) {
-    m_mainWindow->openProject(projectFile);
+  // User selected a file - create new MainWindow and open the project
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->openProject(projectFile);
   }
 }
 
@@ -109,10 +166,10 @@ void AppController::onImportPdfRequested() {
   // Save directory for next time
   settings.setValue("lastInputDir", QFileInfo(pdfFile).absolutePath());
 
-  // Show MainWindow and import the PDF
-  showMainWindow();
-  if (m_mainWindow) {
-    m_mainWindow->importPdfFile(pdfFile);
+  // Create new MainWindow and import the PDF
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->importPdfFile(pdfFile);
   }
 }
 
@@ -129,33 +186,53 @@ void AppController::onProjectCreationDone(ProjectCreationContext* context) {
     return;
   }
 
-  // Show MainWindow and create the project
-  showMainWindow();
-  if (m_mainWindow) {
-    m_mainWindow->createProjectFromFiles(QString(),  // inputDir not needed
-                                         context->outDir(), context->files(),
-                                         context->layoutDirection() == Qt::RightToLeft, false);
+  // Create new MainWindow and create the project
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->createProjectFromFiles(QString(),  // inputDir not needed
+                                   context->outDir(), context->files(),
+                                   context->layoutDirection() == Qt::RightToLeft, false);
   }
 }
 
 void AppController::onRecentProjectRequested(const QString& path) {
-  showMainWindow();
-  if (m_mainWindow) {
-    m_mainWindow->openProject(path);
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->openProject(path);
   }
 }
 
 void AppController::onMainWindowProjectClosed() {
-  if (m_mainWindow) {
-    m_mainWindow->hide();
+  MainWindow* window = qobject_cast<MainWindow*>(sender());
+  if (window) {
+    window->close();  // This will trigger destroyed signal and removeMainWindow
   }
-  showStartupWindow();
 }
 
 void AppController::onNewProjectFromMainWindow() {
   // User clicked "New Project" from MainWindow - show startup window
-  if (m_mainWindow) {
-    m_mainWindow->hide();
-  }
+  // Keep the existing window open with its current project
   showStartupWindow();
+}
+
+void AppController::onQuitRequested() {
+  m_quitting = true;  // Mark that we're in a quit sequence
+
+  // Schedule the quit chain to continue after the current window finishes closing.
+  // This ensures we don't have issues with the sender window still being in the
+  // widget list or event loop issues.
+  QTimer::singleShot(0, this, [this]() {
+    // Find the next visible MainWindow to close
+    for (QWidget* widget : QApplication::topLevelWidgets()) {
+      MainWindow* window = qobject_cast<MainWindow*>(widget);
+      if (window && window->isVisible()) {
+        // Connect this window's quitRequested signal so the chain continues
+        connect(window, &MainWindow::quitRequested, this, &AppController::onQuitRequested, Qt::UniqueConnection);
+        window->quitApp();  // This will trigger its save prompt
+        return;  // Wait for this window to finish before closing the next
+      }
+    }
+    // No more visible MainWindows - quit the application
+    QApplication::quit();
+  });
 }
