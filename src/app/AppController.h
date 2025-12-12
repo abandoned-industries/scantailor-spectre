@@ -6,6 +6,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QList>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -35,14 +36,18 @@ class AppController : public QObject {
   void onMainWindowProjectClosed();
   void onNewProjectFromMainWindow();
   void onProjectCreationDone(ProjectCreationContext* context);
+  void onQuitRequested();
 
  private:
-  void showMainWindow();
+  MainWindow* createNewMainWindow();
   void connectStartupWindow();
-  void connectMainWindow();
+  void connectMainWindow(MainWindow* window);
+  void removeMainWindow(MainWindow* window);
+  bool hasActiveMainWindows() const;
 
   QPointer<StartupWindow> m_startupWindow;
-  QPointer<MainWindow> m_mainWindow;
+  QList<QPointer<MainWindow>> m_mainWindows;
+  bool m_quitting = false;
 };
 
 #endif  // SCANTAILOR_APP_APPCONTROLLER_H_

@@ -30,7 +30,7 @@
        <item row="3" column="0" colspan="2">
         <widget class="QLabel" name="label_4">
          <property name="text">
-          <string>Scan Tailor is an interactive post-processing tool for scanned pages. It performs operations such as page splitting, skew correction, adding/removing margins, and others. You give it raw scans, and you get pages ready to be printed or assembled into a PDF or DJVU file.  Scanning and optical character recognition is out of scope of this project.</string>
+          <string>ScanTailor Spectre is a fork of ScanTailor focused on streamlined PDF processing workflows. It features automatic page detection, advanced white balance correction, intelligent binarization, and batch processing capabilities. Import PDFs directly, process them through the pipeline, and export back to PDF with minimal manual intervention.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -38,6 +38,16 @@
         </widget>
        </item>
        <item row="4" column="0" colspan="2">
+        <widget class="QLabel" name="label_vibe">
+         <property name="text">
+          <string>ScanTailor Spectre is heavily rewritten using vibe coding. It is an experiment with Claude Code Opus 4.5 and what we might be able to do with software in the future.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0" colspan="2">
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -82,7 +92,7 @@ font-weight: bold;</string>
           <string notr="true"/>
          </property>
          <property name="pixmap">
-          <pixmap resource="../resources/resources.qrc">:/appicon.svg</pixmap>
+          <pixmap resource="../resources/resources.qrc">:/scantailor-spectres.icns</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>

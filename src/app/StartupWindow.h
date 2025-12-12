@@ -5,6 +5,7 @@
 #define SCANTAILOR_APP_STARTUPWINDOW_H_
 
 #include <QCloseEvent>
+#include <QMenuBar>
 #include <QString>
 #include <QWidget>
 
@@ -26,8 +27,14 @@ class StartupWindow : public QWidget {
  protected:
   void closeEvent(QCloseEvent* event) override;
 
+ private slots:
+  void showAboutDialog();
+
  private:
   NewOpenProjectPanel* m_panel;
+#ifdef Q_OS_MAC
+  QMenuBar* m_menuBar = nullptr;
+#endif
 };
 
 #endif  // SCANTAILOR_APP_STARTUPWINDOW_H_
