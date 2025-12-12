@@ -287,6 +287,11 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     return false;
   }
 
+  // Signal that we're now saving the PDF (all pages processed)
+  if (progressCallback) {
+    progressCallback(totalPages, totalPages);
+  }
+
   HPDF_STATUS status = HPDF_SaveToFile(pdf, outputPdfPath.toUtf8().constData());
   HPDF_Free(pdf);
 
@@ -363,6 +368,11 @@ bool exportWithQt(const QStringList& imagePaths,
 
     const QRect targetRect(0, 0, pdfWriter.width(), pdfWriter.height());
     painter.drawImage(targetRect, image);
+  }
+
+  // Signal that we're now saving the PDF (all pages processed)
+  if (progressCallback) {
+    progressCallback(totalPages, totalPages);
   }
 
   if (!firstPage) {
