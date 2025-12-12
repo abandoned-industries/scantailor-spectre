@@ -2,47 +2,11 @@
 
 Current version: 1.1.0a74
 
-## 1. Fix App Icon for macOS
+## ~~1. Fix App Icon for macOS~~ ✓ DONE
 
-The icon needs to follow Apple's Big Sur+ guidelines:
-- Rounded rectangle (squircle) mask
-- White/light background that shows properly in Dock and app switcher
-- Current icon in `/private/tmp/icon_white/` has white background but not the rounded shape
-- Source icon location: `packaging/macos/scantailor.icns`
+## ~~2. Add New Filter Stage After Margins~~ ✓ DONE
 
-Apple's icon template: https://developer.apple.com/design/resources/
-
-## 2. Add New Filter Stage After Margins
-
-Create a new processing stage that runs after "Margins" (Page Layout):
-
-**Purpose:**
-- Run color mode detection (Apple Vision)
-- Apply second pass of margins adjustment
-- Move processing logic out of Output stage
-
-**Implementation:**
-- Add new filter in `src/core/filters/` (similar to existing filters like `page_layout`, `output`)
-- Register in `StageSequence.cpp`
-- Create Settings, Filter, Task, OptionsWidget, etc.
-- Stage name suggestion: "Finalize" or "Prepare"
-
-**Current filter order:**
-1. Fix Orientation
-2. Split Pages
-3. Deskew
-4. Select Content
-5. Margins (Page Layout)
-6. **[NEW STAGE HERE]**
-7. Output
-
-## 3. Simplify Output Stage to Export-Only
-
-After adding the new stage, Output becomes just file export:
-- PDF as default output format
-- Remove color mode detection from Output (moved to new stage)
-- Keep output format options (TIFF, JPEG, PDF)
-- Keep compression options
+## ~~3. Simplify Output Stage to Export-Only~~ ✓ DONE
 
 ## 4. Select Content Clips Photo Edges
 
@@ -60,13 +24,7 @@ The content box finder clips photos that extend to the page edge.
 
 **Key file:** `src/core/filters/select_content/ContentBoxFinder.cpp`
 
-## 5. Margins Filter Requires Double-Click
-
-User has to click the Margins filter twice to apply it.
-
-**To investigate:**
-- Check signal/slot connections in `src/core/filters/page_layout/OptionsWidget.cpp`
-- Verify filter switching logic in `MainWindow.cpp`
+## ~~5. Margins Filter Requires Double-Click~~ ✓ DONE
 
 ## 6. Metal Dilation Crash (Disabled)
 
