@@ -26,13 +26,14 @@ bool Utils::overwritingRename(const QString& from, const QString& to) {
 }
 
 QString Utils::richTextForLink(const QString& label, const QString& target) {
+  // Use inherit color to match surrounding text instead of default blue
   return QString::fromLatin1(
              "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\""
              "\"http://www.w3.org/TR/REC-html40/strict.dtd\">"
              "<html><head><meta name=\"qrichtext\" content=\"1\" />"
              "</head><body><p style=\"margin-top:0px; margin-bottom:0px;"
              "margin-left:0px; margin-right:0px; -qt-block-indent:0;"
-             "text-indent:0px;\"><a href=\"%1\">%2</a></p></body></html>")
+             "text-indent:0px;\"><a href=\"%1\" style=\"color: inherit; text-decoration: underline;\">%2</a></p></body></html>")
       .arg(target.toHtmlEscaped(), label.toHtmlEscaped());
 }
 

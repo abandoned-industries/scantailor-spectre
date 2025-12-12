@@ -176,13 +176,11 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   updateDpiDisplay();
   updateColorsDisplay();
   updateDewarpingDisplay();
-  updateProcessingDisplay();
 }
 
 void OptionsWidget::postUpdateUI() {
   auto block = m_connectionManager.getScopedBlock();
 
-  updateProcessingDisplay();
   m_dewarpingOptions = m_settings->getParams(m_pageId).dewarpingOptions();
   updateDewarpingDisplay();
 }
@@ -707,6 +705,8 @@ void OptionsWidget::updateColorsDisplay() {
   pictureShapeOptions->setVisible(pictureShapeVisible);
   thresholdOptions->setVisible(thresholdOptionsVisible);
   despecklePanel->setVisible(thresholdOptionsVisible && m_lastTab != TAB_DEWARPING);
+  // Color/grayscale operations only visible for those modes
+  colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING);
 
   splittingOptions->setVisible(splittingOptionsVisible);
   splittingCB->setChecked(m_splittingOptions.isSplitOutput());
@@ -1072,8 +1072,6 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(depthPerceptionSlider, SIGNAL(valueChanged(int)), this, SLOT(depthPerceptionChangedSlot(int)));
   CONNECT(&m_delayedReloadRequest, SIGNAL(timeout()), this, SLOT(sendReloadRequested()));
 
-  CONNECT(blackOnWhiteCB, SIGNAL(clicked(bool)), this, SLOT(blackOnWhiteToggled(bool)));
-  CONNECT(applyProcessingOptionsButton, SIGNAL(clicked()), this, SLOT(applyProcessingParamsClicked()));
 }
 
 #undef CONNECT
@@ -1086,46 +1084,4 @@ const DepthPerception& OptionsWidget::depthPerception() const {
   return m_depthPerception;
 }
 
-void OptionsWidget::blackOnWhiteToggled(bool value) {
-  m_settings->setBlackOnWhite(m_pageId, value);
-  OutputProcessingParams processingParams = m_settings->getOutputProcessingParams(m_pageId);
-  processingParams.setBlackOnWhiteSetManually(true);
-  m_settings->setOutputProcessingParams(m_pageId, processingParams);
-
-  emit reloadRequested();
-}
-
-void OptionsWidget::applyProcessingParamsClicked() {
-  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor);
-  dialog->setAttribute(Qt::WA_DeleteOnClose);
-  dialog->setWindowTitle(tr("Apply Processing Settings"));
-  connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
-          SLOT(applyProcessingParamsConfirmed(const std::set<PageId>&)));
-  dialog->show();
-}
-
-void OptionsWidget::applyProcessingParamsConfirmed(const std::set<PageId>& pages) {
-  for (const PageId& pageId : pages) {
-    m_settings->setBlackOnWhite(pageId, m_settings->getParams(m_pageId).isBlackOnWhite());
-    OutputProcessingParams processingParams = m_settings->getOutputProcessingParams(pageId);
-    processingParams.setBlackOnWhiteSetManually(true);
-    m_settings->setOutputProcessingParams(pageId, processingParams);
-  }
-
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
-  }
-
-  if (pages.find(m_pageId) != pages.end()) {
-    emit reloadRequested();
-  }
-}
-
-void OptionsWidget::updateProcessingDisplay() {
-  blackOnWhiteCB->setChecked(m_settings->getParams(m_pageId).isBlackOnWhite());
-}
 }  // namespace output

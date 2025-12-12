@@ -626,6 +626,12 @@ void MainWindow::timerEvent(QTimerEvent* const event) {
       settings.setValue("mainWindow/nonMaximizedGeometry", saveGeometry());
     }
     close();
+#ifdef Q_OS_MAC
+    // On macOS, explicitly quit since setQuitOnLastWindowClosed is false
+    if (m_quitting) {
+      QApplication::quit();
+    }
+#endif
   }
 }
 
