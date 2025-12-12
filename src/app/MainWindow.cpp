@@ -1249,6 +1249,11 @@ void MainWindow::startBatchProcessing() {
     return;
   }
 
+  // Export filter is control panel only - no batch processing
+  if (m_curFilter == m_stages->exportFilterIdx()) {
+    return;
+  }
+
   m_interactiveQueue->cancelAndClear();
 
   // Check if we're at Output but not all pages have their content sizes defined.
@@ -1702,10 +1707,20 @@ void MainWindow::exportToPdf() {
 
   // Progress callback
   auto progressCallback = [&progressDialog, &wasCancelled](int current, int total) -> bool {
-    progressDialog.setMaximum(total);
-    progressDialog.setValue(current);
-    progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
-    QCoreApplication::processEvents();
+    if (current >= total) {
+      // Entering save phase - prevent auto-close by increasing maximum
+      progressDialog.setMaximum(total + 1);
+      progressDialog.setValue(total);
+      progressDialog.setLabelText(tr("Saving PDF..."));
+      progressDialog.setCancelButton(nullptr);  // Can't cancel during save
+      progressDialog.repaint();
+      QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    } else {
+      progressDialog.setMaximum(total);
+      progressDialog.setValue(current);
+      progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
+      QCoreApplication::processEvents();
+    }
 
     if (progressDialog.wasCanceled()) {
       wasCancelled = true;
@@ -1831,10 +1846,20 @@ void MainWindow::exportToPdfFromFilter() {
 
   // Progress callback
   auto progressCallback = [&progressDialog, &wasCancelled](int current, int total) -> bool {
-    progressDialog.setMaximum(total);
-    progressDialog.setValue(current);
-    progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
-    QCoreApplication::processEvents();
+    if (current >= total) {
+      // Entering save phase - prevent auto-close by increasing maximum
+      progressDialog.setMaximum(total + 1);
+      progressDialog.setValue(total);
+      progressDialog.setLabelText(tr("Saving PDF..."));
+      progressDialog.setCancelButton(nullptr);  // Can't cancel during save
+      progressDialog.repaint();
+      QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    } else {
+      progressDialog.setMaximum(total);
+      progressDialog.setValue(current);
+      progressDialog.setLabelText(tr("Exporting page %1 of %2...").arg(current).arg(total));
+      QCoreApplication::processEvents();
+    }
 
     if (progressDialog.wasCanceled()) {
       wasCancelled = true;
