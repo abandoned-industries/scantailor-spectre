@@ -665,8 +665,13 @@ void despeckleImpl(BinaryImage& image,
 
   status.throwIfCancelled();
 
-  std::vector<Component> components(cmap.maxLabel() + 1);
-  std::vector<BoundingBox> boundingBoxes(cmap.maxLabel() + 1);
+  const uint32_t numComponents = cmap.maxLabel() + 1;
+  std::vector<Component> components;
+  components.reserve(numComponents);
+  components.resize(numComponents);
+  std::vector<BoundingBox> boundingBoxes;
+  boundingBoxes.reserve(numComponents);
+  boundingBoxes.resize(numComponents);
 
   const int width = image.width();
   const int height = image.height();
@@ -743,6 +748,8 @@ void despeckleImpl(BinaryImage& image,
 
   using Connections = std::unordered_map<Connection, uint32_t, Connection::hash>;  // conn -> sqdist
   Connections conns;
+  // Pre-reserve for expected connections (roughly 2-4 neighbors per component on average)
+  conns.reserve(numComponents * 3);
 
   voronoiDistances(cmap, distanceMatrix, conns);
 
@@ -832,6 +839,7 @@ void despeckleImpl(BinaryImage& image,
   // distance.
   // While at it, clear the bidirectional connection map.
   std::vector<TargetSourceConn> targetSource;
+  targetSource.reserve(conns.size() * 2);  // Each connection can produce up to 2 directional entries
   while (!conns.empty()) {
     const auto it(conns.begin());
     const uint32_t label1 = it->first.lesserLabel;
