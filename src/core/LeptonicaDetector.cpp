@@ -48,7 +48,8 @@ PIX* qImageToPix(const QImage& qimg) {
 /**
  * Check if a region of the image has high midtone concentration.
  * Used to detect embedded images/illustrations in otherwise B&W pages.
- * Returns true if any grid cell has >30% midtones.
+ * Returns true if any interior grid cell has >30% midtones.
+ * Skips edge cells which often contain page gutters, binding shadows, or margins.
  */
 bool hasHighMidtoneRegion(PIX* pix) {
   // Convert to grayscale for analysis
@@ -72,9 +73,10 @@ bool hasHighMidtoneRegion(PIX* pix) {
   l_uint32* pixData = pixGetData(gray);
   const int wpl = pixGetWpl(gray);
 
-  // Check each grid cell
-  for (int gy = 0; gy < gridSize; gy++) {
-    for (int gx = 0; gx < gridSize; gx++) {
+  // Check only interior grid cells (skip edges which often have margins/gutters)
+  // With 6x6 grid, check cells [1,1] through [4,4] (16 interior cells)
+  for (int gy = 1; gy < gridSize - 1; gy++) {
+    for (int gx = 1; gx < gridSize - 1; gx++) {
       int startX = gx * cellW;
       int startY = gy * cellH;
       int endX = (gx == gridSize - 1) ? w : startX + cellW;
@@ -135,17 +137,17 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
 
   l_int32 n = numaGetCount(histo);
   l_float32 total = 0;
-  l_float32 darks = 0;      // 0-60: black zone
-  l_float32 midtones = 0;   // 60-195: true midtone zone (indicates tonal content)
-  l_float32 lights = 0;     // 195-255: white zone
+  l_float32 darks = 0;      // 0-70: black zone (text)
+  l_float32 midtones = 0;   // 70-170: true midtone zone (indicates tonal content like photos)
+  l_float32 lights = 0;     // 170-255: white zone (paper, even if slightly yellowed)
 
   for (int i = 0; i < n; i++) {
     l_float32 val;
     numaGetFValue(histo, i, &val);
     total += val;
-    if (i <= 60) {
+    if (i <= 70) {
       darks += val;
-    } else if (i >= 195) {
+    } else if (i >= 170) {
       lights += val;
     } else {
       midtones += val;
@@ -166,14 +168,16 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
   float darkRatio = darks / total;
   float lightRatio = lights / total;
 
-  bool lowMidtones = midRatio < 0.15f;
+  // Increased from 15% to 40% to be more lenient with scanned text pages
+  // that have anti-aliasing, paper texture, and residual yellowing
+  bool lowMidtones = midRatio < 0.40f;
   bool bimodal = (darkRatio > 0.10f && lightRatio > 0.30f);  // Text on white
   bool extremelyLight = lightRatio > 0.70f;  // Nearly blank page
 
-  // For borderline cases (threshold-15% midtones), check for embedded images
+  // For borderline cases (threshold-40% midtones), check for embedded images
   // using region-based detection
   float thresholdFloat = midtoneThreshold / 100.0f;
-  if (midRatio >= thresholdFloat && midRatio < 0.15f) {
+  if (midRatio >= thresholdFloat && midRatio < 0.40f) {
     fprintf(stderr, "  Borderline case (%.1f%% midtones, threshold=%d%%), checking regions...\n",
             midRatio * 100, midtoneThreshold);
     if (hasHighMidtoneRegion(pix)) {
@@ -200,7 +204,8 @@ bool isGrayscale(PIX* pix, float* colorFraction) {
   l_int32 result = pixColorFraction(pix,
                                      20,    // darkthresh
                                      235,   // lightthresh
-                                     15,    // diffthresh - pixels with channel diff > 15 are "color"
+                                     25,    // diffthresh - pixels with channel diff > 25 are "color"
+                                             // (increased from 15 to be more tolerant of yellowed paper)
                                      4,     // factor (subsample for speed)
                                      &pixfract,   // fraction of pixels analyzed
                                      &colorfract); // fraction of those that are color
@@ -213,8 +218,9 @@ bool isGrayscale(PIX* pix, float* colorFraction) {
 
   if (colorFraction) *colorFraction = colorfract;
 
-  // If less than 5% of pixels have significant color, it's grayscale
-  return colorfract < 0.05f;
+  // If less than 10% of pixels have significant color, it's grayscale
+  // (increased from 5% to be more tolerant of yellowed paper after white balance)
+  return colorfract < 0.10f;
 }
 
 }  // namespace

@@ -105,6 +105,10 @@ class Settings {
   int jpegQuality() const { return m_jpegQuality; }
   void setJpegQuality(int quality) { m_jpegQuality = quality; }
 
+  // Auto white balance - corrects color cast from yellowed paper
+  bool autoWhiteBalance() const { return m_autoWhiteBalance; }
+  void setAutoWhiteBalance(bool enabled) { m_autoWhiteBalance = enabled; }
+
   // Get the effective output directory (user-chosen or temp)
   QString getEffectiveOutputDir(const QString& projectPath) const;
 
@@ -124,6 +128,9 @@ class Settings {
   OutputFormat m_outputFormat = OutputFormat::TIFF;
   TiffCompression m_tiffCompression = TiffCompression::LZW;
   int m_jpegQuality = 90;
+
+  // Auto white balance - enabled by default
+  bool m_autoWhiteBalance = true;
 };
 
 }  // namespace finalize
