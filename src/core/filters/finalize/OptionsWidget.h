@@ -5,6 +5,7 @@
 #define SCANTAILOR_FINALIZE_OPTIONSWIDGET_H_
 
 #include <memory>
+#include <set>
 
 #include "FilterOptionsWidget.h"
 #include "PageId.h"
@@ -42,6 +43,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::FinalizeOptionsWid
  private slots:
   void colorModeChanged(int index);
   void thresholdChanged(int value);
+  void applyToClicked();
+  void applyToConfirmed(const std::set<PageId>& pages);
   void clearCacheClicked();
   void clearAllCacheClicked();
   void preserveOutputChanged(bool checked);

@@ -386,7 +386,8 @@ void ImageViewBase::paintEvent(QPaintEvent* event) {
   QPainter painter(viewport());
 
   // Fill the background as Qt::WA_OpaquePaintEvent attribute is enabled.
-  painter.fillRect(viewport()->rect(), palette().color(backgroundRole()));
+  // Use Window color for consistent background across color schemes.
+  painter.fillRect(viewport()->rect(), palette().color(QPalette::Window));
 
   painter.save();
 
