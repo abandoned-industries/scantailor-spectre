@@ -32,7 +32,7 @@
         <item>
          <widget class="QLabel" name="maxDpiLabel">
           <property name="text">
-           <string>Max DPI:</string>
+           <string>Max Image DPI:</string>
           </property>
          </widget>
         </item>

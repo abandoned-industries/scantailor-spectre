@@ -9,6 +9,7 @@ static NSString* const kDefaultLibraryName = @"default";
 @implementation MetalContext {
     NSMutableDictionary<NSString*, id<MTLComputePipelineState>>* _pipelineCache;
     NSString* _deviceName;
+    dispatch_queue_t _syncQueue;  // Serial queue for thread-safe access
 }
 
 + (instancetype)shared {
@@ -25,6 +26,7 @@ static NSString* const kDefaultLibraryName = @"default";
     if (self) {
         _pipelineCache = [NSMutableDictionary dictionary];
         _deviceName = @"Not available";
+        _syncQueue = dispatch_queue_create("com.scantailor.metalcontext", DISPATCH_QUEUE_SERIAL);
 
         // Get default Metal device
         _device = MTLCreateSystemDefaultDevice();
@@ -75,34 +77,47 @@ static NSString* const kDefaultLibraryName = @"default";
     return _device != nil && _commandQueue != nil && _library != nil;
 }
 
+- (void)clearPipelineCache {
+    dispatch_sync(_syncQueue, ^{
+        [_pipelineCache removeAllObjects];
+    });
+}
+
 - (nullable id<MTLComputePipelineState>)pipelineStateForFunction:(NSString*)functionName {
     if (![self isAvailable]) {
         return nil;
     }
 
-    // Check cache first
-    id<MTLComputePipelineState> cached = _pipelineCache[functionName];
-    if (cached) {
-        return cached;
-    }
+    __block id<MTLComputePipelineState> result = nil;
 
-    // Create new pipeline state
-    id<MTLFunction> function = [_library newFunctionWithName:functionName];
-    if (!function) {
-        NSLog(@"MetalContext: Function '%@' not found in shader library", functionName);
-        return nil;
-    }
+    dispatch_sync(_syncQueue, ^{
+        // Check cache first
+        id<MTLComputePipelineState> cached = _pipelineCache[functionName];
+        if (cached) {
+            result = cached;
+            return;
+        }
 
-    NSError* error = nil;
-    id<MTLComputePipelineState> pipelineState = [_device newComputePipelineStateWithFunction:function error:&error];
-    if (error) {
-        NSLog(@"MetalContext: Failed to create pipeline state for '%@': %@", functionName, error);
-        return nil;
-    }
+        // Create new pipeline state
+        id<MTLFunction> function = [_library newFunctionWithName:functionName];
+        if (!function) {
+            NSLog(@"MetalContext: Function '%@' not found in shader library", functionName);
+            return;
+        }
 
-    // Cache for reuse
-    _pipelineCache[functionName] = pipelineState;
-    return pipelineState;
+        NSError* error = nil;
+        id<MTLComputePipelineState> pipelineState = [_device newComputePipelineStateWithFunction:function error:&error];
+        if (error) {
+            NSLog(@"MetalContext: Failed to create pipeline state for '%@': %@", functionName, error);
+            return;
+        }
+
+        // Cache for reuse
+        _pipelineCache[functionName] = pipelineState;
+        result = pipelineState;
+    });
+
+    return result;
 }
 
 @end
