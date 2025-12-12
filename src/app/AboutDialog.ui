@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>ScanTailor Advanced</string>
+   <string>ScanTailor Spectre</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -63,7 +63,7 @@
 font-weight: bold;</string>
          </property>
          <property name="text">
-          <string notr="true">ScanTailor Advanced</string>
+          <string notr="true">ScanTailor Spectre</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignBottom|Qt::AlignHCenter</set>
@@ -125,6 +125,23 @@ font-weight:bold;</string>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_spectre">
+             <property name="styleSheet">
+              <string notr="true">font-weight: bold;</string>
+             </property>
+             <property name="text">
+              <string>ScanTailor Spectre</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_spectre_authors">
+             <property name="text">
+              <string>Abandoned Industries &amp; Claude Code (Opus 4.5)</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QLabel" name="label_2">
              <property name="styleSheet">

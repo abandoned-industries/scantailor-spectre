@@ -84,12 +84,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void colorModeChanged(int idx);
 
-  void blackOnWhiteToggled(bool value);
-
-  void applyProcessingParamsClicked();
-
-  void applyProcessingParamsConfirmed(const std::set<PageId>& pages);
-
   void thresholdMethodChanged(int idx);
 
   void fillingColorChanged(int idx);
@@ -178,8 +172,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updateColorsDisplay();
 
   void updateDewarpingDisplay();
-
-  void updateProcessingDisplay();
 
   void addBinarizationOptionsWidget(BinarizationOptionsWidget* widget);
 
