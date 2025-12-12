@@ -47,6 +47,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::FinalizeOptionsWid
   void applyToConfirmed(const std::set<PageId>& pages);
   void clearCacheClicked();
   void clearAllCacheClicked();
+  void autoWhiteBalanceChanged(bool checked);
   void preserveOutputChanged(bool checked);
   void chooseOutputFolderClicked();
   void formatChanged(int index);

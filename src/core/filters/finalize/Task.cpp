@@ -19,6 +19,7 @@
 #include "Settings.h"
 #include "TaskStatus.h"
 #include "Thumbnail.h"
+#include "WhiteBalance.h"
 #include "filters/output/ColorParams.h"
 #include "filters/output/Settings.h"
 #include "filters/output/Task.h"
@@ -70,21 +71,43 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
   status.throwIfCancelled();
 
   const QImage& image = data.origImage();
+  const QRect contentBox = contentRectPhys.boundingRect().toRect().intersected(image.rect());
+
+  // Apply white balance correction if enabled
+  QImage imageForDetection = image;
+  if (m_settings->autoWhiteBalance()) {
+    qDebug() << "Finalize: Auto white balance ENABLED, detecting paper color...";
+    const QColor paperColor = WhiteBalance::detectPaperColor(image, contentBox);
+    qDebug() << "Finalize: Detected paper color:" << paperColor
+             << "valid:" << paperColor.isValid()
+             << "hasSignificantCast:" << WhiteBalance::hasSignificantCast(paperColor);
+    if (paperColor.isValid() && WhiteBalance::hasSignificantCast(paperColor)) {
+      imageForDetection = WhiteBalance::apply(image, paperColor);
+      qDebug() << "Finalize: applied white balance correction, paper color was" << paperColor;
+    } else {
+      qDebug() << "Finalize: NOT applying white balance - color invalid or no significant cast";
+    }
+  } else {
+    qDebug() << "Finalize: Auto white balance DISABLED";
+  }
 
   // Run color mode detection if not already done
   const std::unique_ptr<Params> existingParams = m_settings->getParams(m_pageId);
   if (!existingParams || !existingParams->isColorModeDetected()) {
+    qDebug() << "Finalize: Running color mode detection (not cached)";
     // Crop to content area for detection (avoids analyzing gutters/margins)
-    QRect cropRect = contentRectPhys.boundingRect().toRect().intersected(image.rect());
     fprintf(stderr, "Crop: img=%dx%d content=%d,%d %dx%d\n",
             image.width(), image.height(),
-            cropRect.x(), cropRect.y(), cropRect.width(), cropRect.height());
-    if (cropRect.isValid() && cropRect.width() > 100 && cropRect.height() > 100) {
-      detectColorMode(image.copy(cropRect));
+            contentBox.x(), contentBox.y(), contentBox.width(), contentBox.height());
+    if (contentBox.isValid() && contentBox.width() > 100 && contentBox.height() > 100) {
+      detectColorMode(imageForDetection.copy(contentBox));
     } else {
       // Fallback to full image if crop is too small
-      detectColorMode(image);
+      detectColorMode(imageForDetection);
     }
+  } else {
+    qDebug() << "Finalize: Skipping detection - already cached as"
+             << static_cast<int>(existingParams->colorMode());
   }
 
   // Mark as processed

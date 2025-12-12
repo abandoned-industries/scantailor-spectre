@@ -54,6 +54,7 @@
 
 #include "ColorParams.h"
 #include "DebugImages.h"
+#include "WhiteBalance.h"
 #include "DewarpingOptions.h"
 #include "Dpm.h"
 #include "EstimateBackground.h"
@@ -1230,6 +1231,11 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
   if (!m_blackOnWhite) {
     m_inputOrigImage.invertPixels();
   }
+
+  // NOTE: White balance correction in Output is disabled for now.
+  // It was causing page inversion issues by interfering with blackOnWhite detection.
+  // The white balance in Finalize filter handles color mode detection correctly.
+  // TODO: Re-enable output white balance with proper handling of grayscale conversion.
 
   // Determine if output should be color based on mode and input
   const ColorMode colorMode = m_colorParams.colorMode();
