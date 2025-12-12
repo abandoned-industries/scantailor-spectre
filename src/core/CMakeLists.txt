@@ -57,6 +57,7 @@ set(common_sources
     ImageLoader.cpp ImageLoader.h
     ImageTypeDetector.cpp ImageTypeDetector.h
     LeptonicaDetector.cpp LeptonicaDetector.h
+    WhiteBalance.cpp WhiteBalance.h
     AppleVisionDetector.h
     ErrorWidget.cpp ErrorWidget.h
     OrthogonalRotation.cpp OrthogonalRotation.h

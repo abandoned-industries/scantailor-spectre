@@ -40,6 +40,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   connect(applyToBtn, &QPushButton::clicked, this, &OptionsWidget::applyToClicked);
   connect(clearCacheBtn, &QPushButton::clicked, this, &OptionsWidget::clearCacheClicked);
   connect(clearAllCacheBtn, &QPushButton::clicked, this, &OptionsWidget::clearAllCacheClicked);
+  connect(autoWhiteBalanceCB, &QCheckBox::toggled, this, &OptionsWidget::autoWhiteBalanceChanged);
 
   // Output settings connections
   connect(preserveOutputCB, &QCheckBox::toggled, this, &OptionsWidget::preserveOutputChanged);
@@ -51,6 +52,10 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
 
   // Initialize threshold from settings
   thresholdSpinBox->setValue(m_settings->midtoneThreshold());
+
+  // Initialize auto white balance from settings
+  autoWhiteBalanceCB->setChecked(m_settings->autoWhiteBalance());
+
   qDebug() << "Finalize OptionsWidget: about to call updateOutputUI";
 
   // Initialize output settings UI
@@ -204,6 +209,23 @@ void OptionsWidget::clearAllCacheClicked() {
 
   emit invalidateAllThumbnails();
   emit reloadRequested();
+}
+
+void OptionsWidget::autoWhiteBalanceChanged(bool checked) {
+  m_settings->setAutoWhiteBalance(checked);
+
+  // Also sync to output::Settings so OutputGenerator uses the same setting
+  if (m_outputSettings) {
+    m_outputSettings->setAutoWhiteBalance(checked);
+  }
+
+  qDebug() << "Auto white balance changed to" << checked;
+
+  // Clear detection cache when white balance setting changes,
+  // since color mode detection depends on this
+  m_settings->clearDetectionCache();
+  emit invalidateAllThumbnails();
+  emit reloadRequested();  // Force re-detection of current page
 }
 
 void OptionsWidget::preserveOutputChanged(bool checked) {
