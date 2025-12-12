@@ -4,8 +4,9 @@
 #ifndef SCANTAILOR_APP_STARTUPWINDOW_H_
 #define SCANTAILOR_APP_STARTUPWINDOW_H_
 
-#include <QWidget>
+#include <QCloseEvent>
 #include <QString>
+#include <QWidget>
 
 class NewOpenProjectPanel;
 
@@ -21,6 +22,9 @@ class StartupWindow : public QWidget {
   void importPdfRequested();
   void importFolderRequested();
   void recentProjectRequested(const QString& path);
+
+ protected:
+  void closeEvent(QCloseEvent* event) override;
 
  private:
   NewOpenProjectPanel* m_panel;

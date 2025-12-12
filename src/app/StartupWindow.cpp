@@ -3,6 +3,8 @@
 
 #include "StartupWindow.h"
 
+#include <QApplication>
+#include <QShortcut>
 #include <QVBoxLayout>
 
 #include "NewOpenProjectPanel.h"
@@ -23,8 +25,20 @@ StartupWindow::StartupWindow(QWidget* parent) : QWidget(parent) {
   connect(m_panel, &NewOpenProjectPanel::importFolder, this, &StartupWindow::importFolderRequested);
   connect(m_panel, &NewOpenProjectPanel::openRecentProject, this, &StartupWindow::recentProjectRequested);
 
+#ifdef Q_OS_MAC
+  // Add Cmd+Q shortcut to quit the application
+  auto* quitShortcut = new QShortcut(QKeySequence::Quit, this);
+  connect(quitShortcut, &QShortcut::activated, qApp, &QApplication::quit);
+#endif
+
   // Set a reasonable size
   resize(500, 400);
 }
 
 StartupWindow::~StartupWindow() = default;
+
+void StartupWindow::closeEvent(QCloseEvent* event) {
+  // When the startup window is closed directly, quit the application
+  event->accept();
+  QApplication::quit();
+}
