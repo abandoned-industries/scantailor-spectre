@@ -1807,11 +1807,9 @@ void MainWindow::exportToPdfFromFilter() {
     }
 
     if (reply == QMessageBox::Yes) {
-      // Start batch processing from the output stage
-      // The user will need to trigger export again after processing completes
-      QMessageBox::information(
-          this, tr("Export to PDF"),
-          tr("Starting batch processing. Please click 'Export to PDF' again after processing completes."));
+      // Switch to Output filter and start batch processing
+      // Export filter has no batch processing, so we need to be in Output
+      filterList->selectRow(m_stages->outputFilterIdx());
       startBatchProcessing();
       return;
     }
