@@ -9,6 +9,7 @@
 #include "PageInfo.h"
 #include "filters/output/ColorParams.h"
 #include "filters/output/Settings.h"
+#include "filters/page_layout/ApplyDialog.h"
 
 namespace finalize {
 
@@ -36,6 +37,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
           &OptionsWidget::colorModeChanged);
   connect(thresholdSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this,
           &OptionsWidget::thresholdChanged);
+  connect(applyToBtn, &QPushButton::clicked, this, &OptionsWidget::applyToClicked);
   connect(clearCacheBtn, &QPushButton::clicked, this, &OptionsWidget::clearCacheClicked);
   connect(clearAllCacheBtn, &QPushButton::clicked, this, &OptionsWidget::clearAllCacheClicked);
 
@@ -132,6 +134,55 @@ void OptionsWidget::colorModeChanged(int index) {
 void OptionsWidget::thresholdChanged(int value) {
   m_settings->setMidtoneThreshold(value);
   qDebug() << "Midtone threshold changed to" << value << "%";
+}
+
+void OptionsWidget::applyToClicked() {
+  auto* dialog = new page_layout::ApplyDialog(this, m_pageId, m_pageSelectionAccessor);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->setWindowTitle(tr("Apply Color Mode"));
+  connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this, SLOT(applyToConfirmed(const std::set<PageId>&)));
+  dialog->show();
+}
+
+void OptionsWidget::applyToConfirmed(const std::set<PageId>& pages) {
+  const ColorMode mode = m_settings->getColorMode(m_pageId);
+
+  for (const PageId& pageId : pages) {
+    m_settings->setColorMode(pageId, mode);
+
+    // Also update output::Settings so the output filter uses this mode
+    if (m_outputSettings) {
+      output::ColorParams colorParams;
+      output::ColorMode outputMode;
+      switch (mode) {
+        case ColorMode::BlackAndWhite:
+          outputMode = output::BLACK_AND_WHITE;
+          break;
+        case ColorMode::Grayscale:
+          outputMode = output::GRAYSCALE;
+          break;
+        case ColorMode::Color:
+        default:
+          outputMode = output::COLOR;
+          break;
+      }
+      colorParams.setColorMode(outputMode);
+      colorParams.setColorModeUserSet(true);
+      m_outputSettings->setColorParams(pageId, colorParams);
+    }
+  }
+
+  if (pages.size() > 1) {
+    emit invalidateAllThumbnails();
+  } else {
+    for (const PageId& pageId : pages) {
+      emit invalidateThumbnail(pageId);
+    }
+  }
+
+  if (pages.find(m_pageId) != pages.end()) {
+    emit reloadRequested();
+  }
 }
 
 void OptionsWidget::clearCacheClicked() {
