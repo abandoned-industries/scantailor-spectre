@@ -237,7 +237,7 @@ QGroupBox::title {
 }
 
 QGraphicsView, ImageViewBase, QFrame#imageViewFrame {
-  background-color: #939393;
+  background-color: #c8c8c8;
   background-attachment: scroll;
   border: none;
 }
