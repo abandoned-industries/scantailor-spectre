@@ -54,7 +54,20 @@ static std::vector<float> computeGaussianWeights(float sigma) {
 }
 
 bool metalGaussBlurAvailable(void) {
-    return [[MetalContext shared] isAvailable];
+    // Disabled due to crashes when app is backgrounded and GPU resources are purged.
+    // CPU fallback is fast enough for most use cases.
+    return false;
+    // return [[MetalContext shared] isAvailable];
+}
+
+// Serial queue for thread-safe Metal operations
+static dispatch_queue_t getMetalQueue(void) {
+    static dispatch_queue_t queue = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        queue = dispatch_queue_create("com.scantailor.metalblur", DISPATCH_QUEUE_SERIAL);
+    });
+    return queue;
 }
 
 bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
@@ -84,6 +97,9 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
         return false;
     }
 
+    // Serialize all Metal operations to avoid driver-level race conditions
+    __block bool result = false;
+    dispatch_sync(getMetalQueue(), ^{
     @autoreleasepool {
         id<MTLDevice> device = ctx.device;
         id<MTLCommandQueue> commandQueue = ctx.commandQueue;
@@ -94,7 +110,8 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
 
         if (!hBlurPipeline || !vBlurPipeline) {
             NSLog(@"MetalGaussBlur: Failed to get pipeline states");
-            return false;
+            result = false;
+            return;
         }
 
         // Create texture descriptor for grayscale images
@@ -112,7 +129,8 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
 
         if (!inputTexture || !tempTexture || !outputTexture) {
             NSLog(@"MetalGaussBlur: Failed to create textures");
-            return false;
+            result = false;
+            return;
         }
 
         // Copy input data to texture (convert uint8 -> float)
@@ -147,7 +165,8 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
         id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
         if (!commandBuffer) {
             NSLog(@"MetalGaussBlur: Failed to create command buffer");
-            return false;
+            result = false;
+            return;
         }
 
         // Calculate thread group size
@@ -204,7 +223,8 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
 
         if (commandBuffer.status == MTLCommandBufferStatusError) {
             NSLog(@"MetalGaussBlur: Command buffer error: %@", commandBuffer.error);
-            return false;
+            result = false;
+            return;
         }
 
         // Read back results (convert float -> uint8)
@@ -224,6 +244,8 @@ bool metalGaussBlur(uint8_t* data, int width, int height, int stride,
             }
         }
 
-        return true;
+        result = true;
     }
+    });  // end dispatch_sync
+    return result;
 }

@@ -45,7 +45,8 @@ const char* metalDeviceName(void);
 @property (nonatomic, readonly, nullable) id<MTLLibrary> library;
 
 - (BOOL)isAvailable;
-- (nullable id<MTLComputePipelineState>)pipelineStateForFunction:(NSString*)functionName;
+- (void)clearPipelineCache;
+- (nullable id<MTLComputePipelineState>)pipelineStateForFunction:(nonnull NSString*)functionName;
 
 @end
 #endif
