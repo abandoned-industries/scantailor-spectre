@@ -72,15 +72,9 @@ NewOpenProjectPanel::NewOpenProjectPanel(QWidget* parent) : QWidget(parent) {
   // Spacer between actions and recent section
   mainLayout->addSpacing(20);
 
-  // Recent section label - regular weight, secondary color
-  QFont sectionFont;
-  sectionFont.setPointSize(13);
-
-  auto* recentLabel = new QLabel(tr("Recent"), this);
-  recentLabel->setFont(sectionFont);
-  QPalette recentPal = recentLabel->palette();
-  recentPal.setColor(QPalette::WindowText, palette().color(QPalette::PlaceholderText));
-  recentLabel->setPalette(recentPal);
+  // Recent section label - same style as action labels
+  auto* recentLabel = new QLabel(tr("Recent Projects"), this);
+  recentLabel->setFont(actionFont);
   mainLayout->addWidget(recentLabel);
 
   // Recent projects container
@@ -90,12 +84,9 @@ NewOpenProjectPanel::NewOpenProjectPanel(QWidget* parent) : QWidget(parent) {
   m_recentLayout->setSpacing(4);
   mainLayout->addWidget(m_recentContainer);
 
-  // "No recent projects" label - tertiary color
+  // "No recent projects" label - same font as actions
   m_noRecentLabel = new QLabel(tr("No recent projects"), m_recentContainer);
-  m_noRecentLabel->setFont(sectionFont);
-  QPalette noRecentPal = m_noRecentLabel->palette();
-  noRecentPal.setColor(QPalette::WindowText, palette().color(QPalette::Disabled, QPalette::WindowText));
-  m_noRecentLabel->setPalette(noRecentPal);
+  m_noRecentLabel->setFont(actionFont);
   m_recentLayout->addWidget(m_noRecentLabel);
 
   // Push everything to the top
@@ -129,12 +120,14 @@ void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
   auto* label = new ClickableLabel(baseName, m_recentContainer);
   label->setToolTip(filePath);
 
+  // Same font as action labels
   QFont font;
-  font.setPointSize(13);
+  font.setPointSize(15);
+  font.setWeight(QFont::DemiBold);
   label->setFont(font);
 
-  // Secondary color for recent items
-  label->setTextColor(palette().color(QPalette::PlaceholderText));
+  // Slightly lighter color for recent projects
+  label->setTextColor(QColor(80, 80, 80));
 
   m_recentLayout->addWidget(label);
 
