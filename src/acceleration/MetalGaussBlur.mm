@@ -10,7 +10,9 @@
 #import <vector>
 
 // Minimum image dimension to use GPU (below this, CPU is faster due to overhead)
-static const int MIN_GPU_DIMENSION = 256;
+// On Apple Silicon with unified memory, GPU overhead is very low, so we can use
+// GPU acceleration for smaller images than on discrete GPU systems.
+static const int MIN_GPU_DIMENSION = 64;
 
 // Minimum sigma to apply blur (below this, blur is imperceptible)
 static const float MIN_SIGMA = 0.5f;
