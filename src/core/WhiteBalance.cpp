@@ -16,11 +16,9 @@ const int MIN_MARGIN_SIZE = 20;
 const double MIN_MARGIN_COVERAGE = 0.05;  // 5%
 
 // Brightness threshold for "paper-like" pixels (0-255)
-// Lowered from 200 to catch yellowed/darker paper
 const int BRIGHT_THRESHOLD = 160;
 
 // Maximum saturation for "neutral" pixels (0-255 scale)
-// Increased from 40 to allow yellowed paper which has higher saturation
 const int MAX_SATURATION = 60;
 
 // Number of pixels to sample for margin/neutral detection
@@ -179,7 +177,9 @@ QColor WhiteBalance::detectPaperColor(const QImage& image, const QRect& contentB
     return QColor();
   }
 
-  // Strategy 1: Sample from margins if available
+  // Only sample from margins - this is the safest approach.
+  // Sampling from the full image risks picking up content colors
+  // (e.g., sepia engravings, colored backgrounds) as "paper".
   if (hasSignificantMargins(image, contentBox)) {
     QColor marginColor = sampleMarginColor(image, contentBox);
     if (marginColor.isValid()) {
@@ -188,14 +188,7 @@ QColor WhiteBalance::detectPaperColor(const QImage& image, const QRect& contentB
     }
   }
 
-  // Strategy 2: Find neutral pixels in the image
-  QColor neutralColor = findNeutralPixels(image);
-  if (neutralColor.isValid()) {
-    qDebug() << "WhiteBalance: detected paper color from neutral pixels:" << neutralColor;
-    return neutralColor;
-  }
-
-  qDebug() << "WhiteBalance: could not detect paper color";
+  qDebug() << "WhiteBalance: no margins available, skipping auto white balance";
   return QColor();
 }
 
@@ -213,6 +206,82 @@ bool WhiteBalance::hasSignificantCast(const QColor& paperColor, int threshold) {
   const int maxDev = std::max({std::abs(r - avg), std::abs(g - avg), std::abs(b - avg)});
 
   return maxDev >= threshold;
+}
+
+QColor WhiteBalance::findBrightestPixels(const QImage& image) {
+  if (image.isNull()) {
+    return QColor();
+  }
+
+  // Collect bright content pixels (not pure white from margins)
+  struct PixelSample {
+    int r, g, b;
+    int brightness;
+  };
+  std::vector<PixelSample> samples;
+  samples.reserve(SAMPLE_COUNT);
+
+  // Sample random pixels, excluding pure white and very dark
+  for (int i = 0; i < SAMPLE_COUNT * 10; ++i) {
+    const int x = rand() % image.width();
+    const int y = rand() % image.height();
+    const QRgb pixel = image.pixel(x, y);
+    const int r = qRed(pixel);
+    const int g = qGreen(pixel);
+    const int b = qBlue(pixel);
+    const int brightness = (r + g + b) / 3;
+
+    // Skip very dark pixels (content, not paper)
+    if (brightness < 150) {
+      continue;
+    }
+
+    // Skip near-pure-white pixels (margins, already correct)
+    // These would mask the color cast we want to fix
+    if (r > 250 && g > 250 && b > 250) {
+      continue;
+    }
+
+    samples.push_back({r, g, b, brightness});
+
+    if (samples.size() >= SAMPLE_COUNT) {
+      break;
+    }
+  }
+
+  if (samples.size() < 10) {
+    qDebug() << "WhiteBalance: not enough bright content pixels found";
+    return QColor();
+  }
+
+  // Sort by brightness (descending) and keep top 20%
+  std::sort(samples.begin(), samples.end(),
+            [](const PixelSample& a, const PixelSample& b) { return a.brightness > b.brightness; });
+
+  const size_t keepCount = std::max(size_t(10), samples.size() / 5);
+
+  // Get median of the brightest content pixels
+  std::vector<int> rValues, gValues, bValues;
+  rValues.reserve(keepCount);
+  gValues.reserve(keepCount);
+  bValues.reserve(keepCount);
+
+  for (size_t i = 0; i < keepCount; ++i) {
+    rValues.push_back(samples[i].r);
+    gValues.push_back(samples[i].g);
+    bValues.push_back(samples[i].b);
+  }
+
+  std::sort(rValues.begin(), rValues.end());
+  std::sort(gValues.begin(), gValues.end());
+  std::sort(bValues.begin(), bValues.end());
+
+  const size_t mid = rValues.size() / 2;
+  QColor result(rValues[mid], gValues[mid], bValues[mid]);
+
+  qDebug() << "WhiteBalance: brightest content pixels color:" << result
+           << "from" << samples.size() << "samples";
+  return result;
 }
 
 QImage WhiteBalance::apply(const QImage& image, const QColor& paperColor) {
