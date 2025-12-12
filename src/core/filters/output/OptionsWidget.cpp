@@ -387,7 +387,8 @@ void OptionsWidget::changeDpiButtonClicked() {
 }
 
 void OptionsWidget::applyColorsButtonClicked() {
-  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor);
+  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
+                                       m_colorParams.colorMode(), m_settings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this, SLOT(applyColorsConfirmed(const std::set<PageId>&)));
   dialog->show();
@@ -414,9 +415,16 @@ void OptionsWidget::dpiChanged(const std::set<PageId>& pages, const Dpi& dpi) {
 }
 
 void OptionsWidget::applyColorsConfirmed(const std::set<PageId>& pages) {
+  // Get current page's white balance settings to apply to other pages
+  const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
+  const QColor wbColor = m_settings->getManualWhiteBalanceColor(m_pageId);
+
   for (const PageId& pageId : pages) {
     m_settings->setColorParams(pageId, m_colorParams);
     m_settings->setPictureShapeOptions(pageId, m_pictureShapeOptions);
+    // Also apply white balance settings
+    m_settings->setForceWhiteBalance(pageId, forceWB);
+    m_settings->setManualWhiteBalanceColor(pageId, wbColor);
   }
 
   if (pages.size() > 1) {
@@ -433,7 +441,8 @@ void OptionsWidget::applyColorsConfirmed(const std::set<PageId>& pages) {
 }
 
 void OptionsWidget::applySplittingButtonClicked() {
-  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor);
+  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
+                                       m_colorParams.colorMode(), m_settings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->setWindowTitle(tr("Apply Splitting Settings"));
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
@@ -515,7 +524,8 @@ void OptionsWidget::handleDespeckleLevelChange(const double level, const bool de
 }
 
 void OptionsWidget::applyDespeckleButtonClicked() {
-  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor);
+  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
+                                       m_colorParams.colorMode(), m_settings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->setWindowTitle(tr("Apply Despeckling Level"));
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
@@ -591,7 +601,8 @@ void OptionsWidget::dewarpingChanged(const std::set<PageId>& pages, const Dewarp
 }  // OptionsWidget::dewarpingChanged
 
 void OptionsWidget::applyDepthPerceptionButtonClicked() {
-  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor);
+  auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
+                                       m_colorParams.colorMode(), m_settings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->setWindowTitle(tr("Apply Depth Perception"));
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
