@@ -31,86 +31,39 @@
      <property name="flat">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QHBoxLayout" name="horizontalLayout_dpi">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
-         <spacer name="horizontalSpacer_5">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="dpiLabel">
-          <property name="frameShape">
-           <enum>QFrame::NoFrame</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Plain</enum>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_6">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
+       <widget class="QLabel" name="dpiLabel">
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Plain</enum>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_4">
-        <item>
-         <spacer name="horizontalSpacer_7">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="changeDpiButton">
-          <property name="text">
-           <string>Change ...</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_8">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
+       <spacer name="horizontalSpacer_dpi">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>1</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="changeDpiButton">
+        <property name="text">
+         <string>Change ...</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -408,7 +361,7 @@
          <string notr="true"/>
         </property>
         <property name="title">
-         <string>Color operations</string>
+         <string>Color/grayscale operations</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -1389,99 +1342,6 @@
         </item>
         <item>
          <spacer name="horizontalSpacer_16">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="CollapsibleGroupBox" name="processingOptionsPanel">
-     <property name="title">
-      <string>Processing</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_17">
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_24">
-        <item>
-         <spacer name="horizontalSpacer_47">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <layout class="QVBoxLayout" name="verticalLayout_16">
-          <item>
-           <widget class="QCheckBox" name="blackOnWhiteCB">
-            <property name="toolTip">
-             <string>This option should be enabled when the page has dark content on light background and disabled if vice versa in order to correct processing algorithms.</string>
-            </property>
-            <property name="text">
-             <string>Black on white mode</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_46">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_21">
-        <item>
-         <spacer name="horizontalSpacer_40">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>1</width>
-            <height>1</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="applyProcessingOptionsButton">
-          <property name="text">
-           <string>Apply To ...</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_45">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
