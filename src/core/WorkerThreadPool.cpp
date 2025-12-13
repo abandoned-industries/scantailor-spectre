@@ -57,6 +57,10 @@ void WorkerThreadPool::submitTask(const BackgroundTaskPtr& task) {
         }
       } catch (const std::bad_alloc&) {
         OutOfMemoryHandler::instance().handleOutOfMemorySituation();
+      } catch (const std::exception& e) {
+        qWarning() << "Exception in worker thread:" << e.what();
+      } catch (...) {
+        qWarning() << "Unknown exception in worker thread";
       }
     }
 
