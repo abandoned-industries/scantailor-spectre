@@ -625,6 +625,12 @@ void MainWindow::timerEvent(QTimerEvent* const event) {
     // On macOS, only close window if user explicitly chose to quit (Cmd+Q or Quit menu)
     // Otherwise emit projectClosed signal so AppController can show startup window
     if (!m_quitting) {
+      m_closing = true;  // Set before emitting so subsequent close() is accepted immediately
+      QSettings settings;
+      settings.setValue("mainWindow/maximized", isMaximized());
+      if (!isMaximized()) {
+        settings.setValue("mainWindow/nonMaximizedGeometry", saveGeometry());
+      }
       emit projectClosed();
       return;
     }
