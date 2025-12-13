@@ -58,7 +58,13 @@ void Filter::selected() {
 
       QtConcurrent::run([settings, pageId, imagePath]() {
         // This runs in a background thread from the global thread pool
-        settings->getParamsOrDetect(pageId, imagePath);
+        try {
+          settings->getParamsOrDetect(pageId, imagePath);
+        } catch (const std::exception& e) {
+          qWarning() << "Exception in background color detection for" << imagePath << ":" << e.what();
+        } catch (...) {
+          qWarning() << "Unknown exception in background color detection for" << imagePath;
+        }
       });
     }
   }
