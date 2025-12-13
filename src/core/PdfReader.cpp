@@ -7,12 +7,19 @@
 #include <QFile>
 #include <QIODevice>
 #include <QImage>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QPainter>
 #include <QPdfDocument>
 #include <QSizeF>
 
 #include "Dpi.h"
 #include "ImageMetadata.h"
+
+// Global mutex to serialize PDF operations.
+// QtPdf (Chromium-based PDF renderer) is not thread-safe and will crash
+// if multiple threads attempt to load/render PDFs concurrently.
+static QMutex s_pdfMutex;
 
 bool PdfReader::checkMagic(const QByteArray& data) {
   // PDF files start with "%PDF-"
@@ -61,6 +68,8 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
     return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
   }
 
+  QMutexLocker lock(&s_pdfMutex);
+
   QPdfDocument doc;
   if (doc.load(filePath) != QPdfDocument::Error::None) {
     qDebug() << "PdfReader: Failed to load PDF:" << filePath;
@@ -92,6 +101,8 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 }
 
 QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
+  QMutexLocker lock(&s_pdfMutex);
+
   QPdfDocument doc;
   if (doc.load(filePath) != QPdfDocument::Error::None) {
     qDebug() << "PdfReader: Failed to load PDF for rendering:" << filePath;
