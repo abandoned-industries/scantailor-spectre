@@ -31,16 +31,37 @@ StartupWindow::StartupWindow(QWidget* parent) : QWidget(parent) {
   connect(m_panel, &NewOpenProjectPanel::openRecentProject, this, &StartupWindow::recentProjectRequested);
 
 #ifdef Q_OS_MAC
-  // Create a menu bar for the About menu (macOS puts About in app menu automatically)
-  m_menuBar = new QMenuBar(nullptr);  // nullptr makes it a global menu bar on macOS
+  // Create a menu bar (nullptr makes it a global menu bar on macOS)
+  m_menuBar = new QMenuBar(nullptr);
+
+  // File menu
+  auto* fileMenu = m_menuBar->addMenu(tr("&File"));
+
+  auto* importPdfAction = fileMenu->addAction(tr("Import PDF..."));
+  importPdfAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I));
+  connect(importPdfAction, &QAction::triggered, this, &StartupWindow::importPdfRequested);
+
+  auto* importFolderAction = fileMenu->addAction(tr("Import Folder..."));
+  connect(importFolderAction, &QAction::triggered, this, &StartupWindow::importFolderRequested);
+
+  fileMenu->addSeparator();
+
+  auto* openProjectAction = fileMenu->addAction(tr("Open Project..."));
+  openProjectAction->setShortcut(QKeySequence::Open);
+  connect(openProjectAction, &QAction::triggered, this, &StartupWindow::openProjectRequested);
+
+  fileMenu->addSeparator();
+
+  auto* quitAction = fileMenu->addAction(tr("Quit"));
+  quitAction->setShortcut(QKeySequence::Quit);
+  quitAction->setMenuRole(QAction::QuitRole);
+  connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
+
+  // Help menu with About
   auto* helpMenu = m_menuBar->addMenu(tr("&Help"));
   auto* aboutAction = helpMenu->addAction(tr("About ScanTailor Spectre"));
   aboutAction->setMenuRole(QAction::AboutRole);  // This moves it to the app menu on macOS
   connect(aboutAction, &QAction::triggered, this, &StartupWindow::showAboutDialog);
-
-  // Add Cmd+Q shortcut to quit the application
-  auto* quitShortcut = new QShortcut(QKeySequence::Quit, this);
-  connect(quitShortcut, &QShortcut::activated, qApp, &QApplication::quit);
 #endif
 
   // Set a reasonable size
