@@ -17,6 +17,8 @@
 #include <QScreen>
 #include <QFileInfo>
 #include <QFileSystemModel>
+#include <QTextStream>
+#include <QDateTime>
 #include <QFormLayout>
 #include <QLabel>
 #include <QMessageBox>
@@ -25,6 +27,7 @@
 #include <QScrollBar>
 #include <QSortFilterProxyModel>
 #include <QStackedLayout>
+#include <set>
 #include <QtWidgets/QInputDialog>
 #include <boost/lambda/lambda.hpp>
 #include <memory>
@@ -99,6 +102,11 @@
 #include "filters/page_split/Settings.h"
 #include "filters/page_split/Task.h"
 #include "BatchProcessingSummaryDialog.h"
+#include "ContentCoverageSummaryDialog.h"
+#include "PageSizeWarningDialog.h"
+#include "filters/select_content/Settings.h"
+#include "filters/page_layout/Settings.h"
+#include "filters/select_content/Params.h"
 #include "filters/select_content/CacheDrivenTask.h"
 #include "filters/select_content/Task.h"
 #include "ui_AboutDialog.h"
@@ -1515,8 +1523,14 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
         return;
       }
 
-      // Check if we just finished processing the Page Split filter
+      // Check if we just finished processing certain filters
       const bool wasPageSplitBatch = (m_curFilter == m_stages->pageSplitFilterIdx());
+      const bool wasSelectContentBatch = (m_curFilter == m_stages->selectContentFilterIdx());
+      const bool wasPageLayoutBatch = (m_curFilter == m_stages->pageLayoutFilterIdx());
+
+      qDebug() << "filterResult: batch complete, m_curFilter:" << m_curFilter
+               << "pageLayoutFilterIdx:" << m_stages->pageLayoutFilterIdx()
+               << "wasPageLayoutBatch:" << wasPageLayoutBatch;
 
       stopBatchProcessing();
 
@@ -1541,6 +1555,16 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
       // Show batch processing summary for Page Split filter
       if (wasPageSplitBatch) {
         showBatchProcessingSummary();
+      }
+
+      // Show content coverage summary for Select Content filter
+      if (wasSelectContentBatch) {
+        showContentCoverageSummary();
+      }
+
+      // Show page size warning for Margins filter (if mixed page sizes detected)
+      if (wasPageLayoutBatch) {
+        showPageSizeWarning();
       }
 
       if (m_selectedPage.get(getCurrentView()) == m_thumbSequence->lastPage().id()) {
@@ -3133,6 +3157,7 @@ void MainWindow::showBatchProcessingSummary() {
   int splitPages = 0;
   int singlePages = 0;
   std::vector<BatchProcessingSummaryDialog::PageSummary> singlePageList;
+  std::vector<BatchProcessingSummaryDialog::PageSummary> splitPageList;
 
   // Track which ImageIds we've seen to avoid counting the same image twice
   std::set<ImageId> seenImages;
@@ -3158,21 +3183,24 @@ void MainWindow::showBatchProcessingSummary() {
       isSplit = (layout.type() == page_split::PageLayout::TWO_PAGES);
     }
 
+    BatchProcessingSummaryDialog::PageSummary summary;
+    summary.imageId = imageId;
+    summary.fileName = QFileInfo(imageId.filePath()).fileName();
+    summary.pageNumber = totalImages;
+    summary.isSplit = isSplit;
+
     if (isSplit) {
       splitPages++;
+      splitPageList.push_back(summary);
     } else {
       singlePages++;
-      BatchProcessingSummaryDialog::PageSummary summary;
-      summary.imageId = imageId;
-      summary.fileName = QFileInfo(imageId.filePath()).fileName();
-      summary.isSplit = false;
       singlePageList.push_back(summary);
     }
   }
 
   // Create and show the dialog
   auto* dialog = new BatchProcessingSummaryDialog(this);
-  dialog->setSummary(totalImages, splitPages, singlePages, singlePageList);
+  dialog->setSummary(totalImages, splitPages, singlePages, singlePageList, splitPageList);
 
   connect(dialog, &BatchProcessingSummaryDialog::jumpToPage,
           this, &MainWindow::jumpToPageFromSummary);
@@ -3180,6 +3208,10 @@ void MainWindow::showBatchProcessingSummary() {
           this, &MainWindow::forceTwoPageForImages);
   connect(dialog, &BatchProcessingSummaryDialog::forceTwoPageAll,
           this, &MainWindow::forceTwoPageForImages);
+  connect(dialog, &BatchProcessingSummaryDialog::forceSinglePageSelected,
+          this, &MainWindow::forceSinglePageForImages);
+  connect(dialog, &BatchProcessingSummaryDialog::forceSinglePageAll,
+          this, &MainWindow::forceSinglePageForImages);
 
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->show();
@@ -3233,6 +3265,452 @@ void MainWindow::forceTwoPageForImages(const std::vector<ImageId>& imageIds) {
 
   // Refresh the current view if we're on Page Split filter
   if (m_curFilter == m_stages->pageSplitFilterIdx()) {
+    updateMainArea();
+  }
+}
+
+void MainWindow::forceSinglePageForImages(const std::vector<ImageId>& imageIds) {
+  if (imageIds.empty() || !m_stages) {
+    return;
+  }
+
+  // Build a set of PageIds from the image IDs
+  std::set<PageId> pageIds;
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  for (const PageInfo& pageInfo : pages) {
+    for (const ImageId& imageId : imageIds) {
+      if (pageInfo.id().imageId() == imageId) {
+        pageIds.insert(pageInfo.id());
+      }
+    }
+  }
+
+  if (pageIds.empty()) {
+    return;
+  }
+
+  // Set layout type to SINGLE_PAGE_UNCUT for all the selected pages
+  m_stages->pageSplitFilter()->settings()->setLayoutTypeFor(
+      page_split::SINGLE_PAGE_UNCUT, pageIds);
+
+  // Invalidate thumbnails for these pages to trigger re-processing
+  for (const PageId& pageId : pageIds) {
+    m_thumbSequence->invalidateThumbnail(pageId);
+  }
+
+  // Refresh the current view if we're on Page Split filter
+  if (m_curFilter == m_stages->pageSplitFilterIdx()) {
+    updateMainArea();
+  }
+}
+
+void MainWindow::showContentCoverageSummary() {
+  if (!m_stages || !m_pages) {
+    return;
+  }
+
+  // Get the select_content settings
+  auto selectContentSettings = m_stages->selectContentFilter()->settings();
+  if (!selectContentSettings) {
+    return;
+  }
+
+  // Get all pages and calculate coverage ratios
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  std::vector<ContentCoverageSummaryDialog::PageSummary> allPages;
+  int pageNumber = 0;
+
+  for (const PageInfo& pageInfo : pages) {
+    const PageId& pageId = pageInfo.id();
+    pageNumber++;
+
+    std::unique_ptr<select_content::Params> params(selectContentSettings->getPageParams(pageId));
+    if (!params) {
+      continue;
+    }
+
+    const QRectF& contentRect = params->contentRect();
+    const QRectF& pageRect = params->pageRect();
+
+    // Skip pages with invalid rects
+    if (!contentRect.isValid() || !pageRect.isValid()) {
+      continue;
+    }
+
+    // Skip pages where content detection is disabled (already preserved layout)
+    if (params->contentDetectionMode() == MODE_DISABLED) {
+      continue;
+    }
+
+    double pageArea = pageRect.width() * pageRect.height();
+    double contentArea = contentRect.width() * contentRect.height();
+    double coverageRatio = (pageArea > 0) ? (contentArea / pageArea) : 1.0;
+
+    ContentCoverageSummaryDialog::PageSummary summary;
+    summary.pageId = pageId;
+    summary.fileName = QFileInfo(pageId.imageId().filePath()).fileName();
+    summary.pageNumber = pageNumber;
+    summary.coverageRatio = coverageRatio;
+    allPages.push_back(summary);
+  }
+
+  // Only show dialog if there are pages to display
+  if (allPages.empty()) {
+    return;
+  }
+
+  // Create and show the dialog
+  auto* dialog = new ContentCoverageSummaryDialog(this);
+  dialog->setSummary(static_cast<int>(allPages.size()), allPages, 0.5);
+
+  connect(dialog, &ContentCoverageSummaryDialog::jumpToPage,
+          this, &MainWindow::jumpToPageFromContentSummary);
+  connect(dialog, &ContentCoverageSummaryDialog::preserveLayoutSelected,
+          this, &MainWindow::preserveLayoutForPages);
+  connect(dialog, &ContentCoverageSummaryDialog::preserveLayoutAll,
+          this, &MainWindow::preserveLayoutForPages);
+
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
+  dialog->raise();
+  dialog->activateWindow();
+}
+
+void MainWindow::jumpToPageFromContentSummary(const PageId& pageId) {
+  if (!m_thumbSequence) {
+    return;
+  }
+
+  goToPage(pageId);
+}
+
+void MainWindow::preserveLayoutForPages(const std::vector<PageId>& pageIds) {
+  if (pageIds.empty() || !m_stages) {
+    return;
+  }
+
+  auto selectContentSettings = m_stages->selectContentFilter()->settings();
+  if (!selectContentSettings) {
+    return;
+  }
+
+  // For each page, set content detection mode to DISABLED and set content rect to page rect
+  for (const PageId& pageId : pageIds) {
+    std::unique_ptr<select_content::Params> params(selectContentSettings->getPageParams(pageId));
+    if (!params) {
+      continue;
+    }
+
+    // Set content detection mode to DISABLED (preserves original page layout)
+    params->setContentDetectionMode(MODE_DISABLED);
+
+    // Set content rect to match page rect (full page)
+    params->setContentRect(params->pageRect());
+
+    // Save the updated params
+    selectContentSettings->setPageParams(pageId, *params);
+
+    // Invalidate thumbnail to show the change
+    if (m_thumbSequence) {
+      m_thumbSequence->invalidateThumbnail(pageId);
+    }
+  }
+
+  // Refresh the current view if we're on Select Content filter
+  if (m_curFilter == m_stages->selectContentFilterIdx()) {
+    updateMainArea();
+  }
+}
+
+void MainWindow::showPageSizeWarning() {
+  // File-based debug logging that doesn't depend on terminal capture
+  static int callCount = 0;
+  ++callCount;
+  QFile debugFile("/tmp/st_pagesizewarning.log");
+  debugFile.open(QIODevice::Append | QIODevice::Text);
+  QTextStream debugOut(&debugFile);
+  debugOut << "\n=== showPageSizeWarning call #" << callCount << " at " << QDateTime::currentDateTime().toString() << " ===\n";
+
+  qDebug() << "showPageSizeWarning: CALLED";
+
+  if (!m_stages || !m_pages) {
+    qDebug() << "showPageSizeWarning: m_stages or m_pages null, returning";
+    debugOut << "EARLY RETURN: m_stages or m_pages null\n";
+    return;
+  }
+
+  // Get the page_layout settings
+  auto pageLayoutSettings = m_stages->pageLayoutFilter()->settings();
+  if (!pageLayoutSettings) {
+    debugOut << "EARLY RETURN: pageLayoutSettings null\n";
+    return;
+  }
+
+  // Get the aggregate size first (needed for spread detection)
+  QSizeF aggSize = pageLayoutSettings->getAggregateHardSizeMM();
+  debugOut << "aggSize: " << aggSize.width() << " x " << aggSize.height() << "\n";
+
+  // Check if we have valid aggregate size - if not, data hasn't been populated yet
+  if (!aggSize.isValid() || aggSize.isEmpty()) {
+    qDebug() << "showPageSizeWarning: aggregate size invalid/empty, skipping dialog"
+             << "aggSize:" << aggSize.width() << "x" << aggSize.height();
+    debugOut << "EARLY RETURN: aggSize invalid/empty\n";
+    return;
+  }
+
+  // Get outlier pages (default threshold 1.3 = 30% deviation)
+  auto outlierPages = pageLayoutSettings->getOutlierPages(1.3);
+  debugOut << "getOutlierPages returned: " << outlierPages.size() << " outliers\n";
+
+  qDebug() << "showPageSizeWarning: getOutlierPages returned" << outlierPages.size() << "outliers"
+           << "aggregate:" << aggSize.width() << "x" << aggSize.height();
+
+  // Get median size - if no outliers, we still need to check for spreads
+  double medianWidthMM = 0;
+  double medianHeightMM = 0;
+
+  if (!outlierPages.empty()) {
+    medianWidthMM = outlierPages[0].medianWidthMM;
+    medianHeightMM = outlierPages[0].medianHeightMM;
+  } else {
+    // No outliers - try to get median some other way or use aggregate
+    // For now, estimate based on typical page ratio vs aggregate
+    // If aggregate width is ~2x a typical portrait page, it's likely spreads
+    double aspectRatio = aggSize.height() > 0 ? aggSize.width() / aggSize.height() : 1.0;
+    debugOut << "No outliers. aspectRatio: " << aspectRatio << "\n";
+    if (aspectRatio > 1.3) {  // Landscape/spread-like aspect ratio
+      medianWidthMM = aggSize.width() / 2.0;  // Estimate half width as typical
+      medianHeightMM = aggSize.height();
+    } else {
+      // Can't determine - don't show dialog
+      qDebug() << "showPageSizeWarning: no outliers and no spread detected, not showing dialog";
+      debugOut << "EARLY RETURN: no outliers and aspectRatio <= 1.3\n";
+      return;
+    }
+  }
+
+  // Check if this looks like a spread situation (aggregate ~2x median width)
+  double widthRatio = (medianWidthMM > 0) ? (aggSize.width() / medianWidthMM) : 1.0;
+  bool likelySpreads = (widthRatio > 1.8 && widthRatio < 2.2);
+  debugOut << "widthRatio: " << widthRatio << " likelySpreads: " << likelySpreads << "\n";
+
+  // Only show dialog if there are outlier pages OR it looks like spreads
+  if (outlierPages.empty() && !likelySpreads) {
+    qDebug() << "showPageSizeWarning: no outliers and no spread detected, not showing dialog";
+    debugOut << "EARLY RETURN: no outliers and not likelySpreads\n";
+    return;
+  }
+  debugOut << "Proceeding to show dialog...\n";
+  debugOut << "medianWidthMM: " << medianWidthMM << " medianHeightMM: " << medianHeightMM << "\n";
+  debugOut.flush();
+
+  qDebug() << "showPageSizeWarning: showing dialog, likelySpreads:" << likelySpreads
+           << "widthRatio:" << widthRatio
+           << "median:" << medianWidthMM << "x" << medianHeightMM;
+
+  // Get all pages to count them and assign page numbers
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+
+  debugOut << "PageSequence has " << pages.numPages() << " pages\n";
+  qDebug() << "showPageSizeWarning: PageSequence has" << pages.numPages() << "pages";
+
+  // Convert to dialog's OutlierInfo format
+  // Match by ImageId rather than full PageId to handle sub-page differences
+  std::vector<PageSizeWarningDialog::OutlierInfo> dialogOutliers;
+  int matchCount = 0;
+  for (const auto& outlier : outlierPages) {
+    // Find this outlier's page number in the sequence
+    int pageNumber = 0;
+    bool found = false;
+    for (const PageInfo& pageInfo : pages) {
+      pageNumber++;
+      // Match by ImageId to be more flexible with sub-page differences
+      if (pageInfo.id().imageId() == outlier.pageId.imageId()) {
+        found = true;
+        break;
+      }
+    }
+
+    if (found) {
+      matchCount++;
+      PageSizeWarningDialog::OutlierInfo info;
+      info.pageId = outlier.pageId;
+      info.fileName = QFileInfo(outlier.pageId.imageId().filePath()).fileName();
+      info.pageNumber = pageNumber;
+      info.hardWidthMM = outlier.hardWidthMM;
+      info.hardHeightMM = outlier.hardHeightMM;
+      info.medianWidthMM = outlier.medianWidthMM;
+      info.medianHeightMM = outlier.medianHeightMM;
+      info.deviationRatio = outlier.deviationRatio;
+      info.isLarger = outlier.isLarger;
+      info.setsAggregateWidth = outlier.setsAggregateWidth;
+      info.setsAggregateHeight = outlier.setsAggregateHeight;
+      dialogOutliers.push_back(info);
+    }
+  }
+
+  debugOut << "Matched " << matchCount << " outliers -> dialogOutliers.size()=" << dialogOutliers.size() << "\n";
+  qDebug() << "showPageSizeWarning: matched" << matchCount << "outliers to page sequence"
+           << "dialogOutliers size:" << dialogOutliers.size();
+
+  // Create and show the dialog
+  auto* dialog = new PageSizeWarningDialog(this);
+
+  debugOut << "likelySpreads=" << likelySpreads << " dialogOutliers.empty()=" << dialogOutliers.empty() << "\n";
+  // When likelySpreads is true, ALWAYS use spread mode - it's more accurate than area-based outlier detection
+  if (likelySpreads) {
+    debugOut << "SPREAD MODE: getting unsplit spread pages...\n";
+    // Spread mode - get only unsplit spread pages (not all pages)
+    auto unsplitSpreads = pageLayoutSettings->getUnsplitSpreadPages();
+
+    debugOut << "getUnsplitSpreadPages returned " << unsplitSpreads.size() << " pages\n";
+    if (unsplitSpreads.empty()) {
+      // No unsplit spreads found, don't show dialog
+      debugOut << "EARLY RETURN: unsplitSpreads is empty\n";
+      debugOut.flush();
+      qDebug() << "showPageSizeWarning: likelySpreads but no unsplit pages found";
+      delete dialog;
+      return;
+    }
+
+    // Convert to dialog format and assign page numbers
+    // For spread pages, we need to:
+    // 1. Deduplicate by ImageId (since Settings may have LEFT_PAGE and RIGHT_PAGE entries for same image)
+    // 2. Use IMAGE_VIEW to get correct image numbers (not sub-page numbers)
+
+    // Get image-based page sequence for correct numbering
+    const PageSequence imagePages = m_pages->toPageSequence(IMAGE_VIEW);
+
+    // Track which ImageIds we've already added to avoid duplicates
+    std::set<ImageId> seenImageIds;
+    std::vector<PageSizeWarningDialog::OutlierInfo> spreadPages;
+
+    for (const auto& spread : unsplitSpreads) {
+      // Skip if we've already processed this image
+      if (seenImageIds.count(spread.pageId.imageId())) {
+        continue;
+      }
+      seenImageIds.insert(spread.pageId.imageId());
+
+      // Find this spread's image number in the sequence
+      int imageNum = 0;
+      bool found = false;
+      for (const PageInfo& pageInfo : imagePages) {
+        imageNum++;
+        if (pageInfo.id().imageId() == spread.pageId.imageId()) {
+          found = true;
+          break;
+        }
+      }
+
+      if (found) {
+        PageSizeWarningDialog::OutlierInfo info;
+        info.pageId = spread.pageId;
+        info.fileName = QFileInfo(spread.pageId.imageId().filePath()).fileName();
+        info.pageNumber = imageNum;  // Use image number, not sub-page number
+        info.hardWidthMM = spread.hardWidthMM;
+        info.hardHeightMM = spread.hardHeightMM;
+        info.medianWidthMM = spread.medianWidthMM;
+        info.medianHeightMM = spread.medianHeightMM;
+        info.deviationRatio = spread.deviationRatio;
+        info.isLarger = spread.isLarger;
+        info.setsAggregateWidth = spread.setsAggregateWidth;
+        info.setsAggregateHeight = spread.setsAggregateHeight;
+        spreadPages.push_back(info);
+      }
+    }
+
+    debugOut << "Matched " << spreadPages.size() << " spread pages from unsplitSpreads(" << unsplitSpreads.size() << ")\n";
+    qDebug() << "showPageSizeWarning: found" << spreadPages.size() << "unsplit spread pages"
+             << "(from" << unsplitSpreads.size() << "returned by Settings)";
+
+    if (spreadPages.empty()) {
+      // No unsplit spreads matched to page sequence - don't show dialog
+      debugOut << "EARLY RETURN: spreadPages is empty after matching\n";
+      debugOut.flush();
+      qDebug() << "showPageSizeWarning: no unsplit spreads matched to page sequence, not showing dialog";
+      delete dialog;
+      return;
+    }
+
+    dialog->setSpreadPages(pages.numPages(),
+                            medianWidthMM, medianHeightMM,
+                            aggSize.width(), aggSize.height(),
+                            spreadPages);
+
+    connect(dialog, &PageSizeWarningDialog::goToPageSplitStage,
+            this, &MainWindow::goToPageSplitFromWarning);
+  } else {
+    // Outlier mode
+    dialog->setOutlierPages(pages.numPages(),
+                            medianWidthMM, medianHeightMM,
+                            aggSize.width(), aggSize.height(),
+                            dialogOutliers, 1.3);
+  }
+
+  connect(dialog, &PageSizeWarningDialog::jumpToPage,
+          this, &MainWindow::jumpToPageFromPageSizeWarning);
+  connect(dialog, &PageSizeWarningDialog::detachPagesFromSizing,
+          this, &MainWindow::disableAlignmentForPages);
+
+  debugOut << "SHOWING DIALOG via dialog->show()\n";
+  debugOut.flush();
+  debugFile.close();
+
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
+  dialog->raise();
+  dialog->activateWindow();
+}
+
+void MainWindow::jumpToPageFromPageSizeWarning(const PageId& pageId) {
+  if (!m_thumbSequence || !m_pages) {
+    return;
+  }
+
+  // Find the actual PageId in the current view that matches this ImageId
+  // (the stored PageId may have different sub-page info)
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  for (const PageInfo& pageInfo : pages) {
+    if (pageInfo.id().imageId() == pageId.imageId()) {
+      goToPage(pageInfo.id());
+      return;
+    }
+  }
+
+  // Fallback to original pageId if no match found
+  goToPage(pageId);
+}
+
+void MainWindow::goToPageSplitFromWarning() {
+  if (!m_stages) {
+    return;
+  }
+
+  // Switch to the Page Split filter (stage 2)
+  filterList->selectRow(m_stages->pageSplitFilterIdx());
+}
+
+void MainWindow::disableAlignmentForPages(const std::vector<PageId>& pageIds) {
+  if (pageIds.empty() || !m_stages) {
+    return;
+  }
+
+  auto pageLayoutSettings = m_stages->pageLayoutFilter()->settings();
+  if (!pageLayoutSettings) {
+    return;
+  }
+
+  // Disable alignment for all specified pages
+  pageLayoutSettings->disableAlignmentForPages(pageIds);
+
+  // Invalidate all thumbnails since aggregate size might change
+  if (m_thumbSequence) {
+    m_thumbSequence->invalidateAllThumbnails();
+  }
+
+  // Refresh the current view if we're on Margins filter
+  if (m_curFilter == m_stages->pageLayoutFilterIdx()) {
     updateMainArea();
   }
 }
