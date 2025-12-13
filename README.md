@@ -1,5 +1,8 @@
 # ScanTailor Spectre
 
+<img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/3ef37c0f-aa6f-452b-8d13-2f5bf7c8b193" />
+
+
 **Version 2.0a5** | macOS (Apple Silicon)
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through an 8-stage workflow, and export a polished PDF.
