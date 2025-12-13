@@ -352,6 +352,22 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void forceTwoPageForImages(const std::vector<ImageId>& imageIds);
 
+  void forceSinglePageForImages(const std::vector<ImageId>& imageIds);
+
+  void showContentCoverageSummary();
+
+  void jumpToPageFromContentSummary(const PageId& pageId);
+
+  void preserveLayoutForPages(const std::vector<PageId>& pageIds);
+
+  void showPageSizeWarning();
+
+  void jumpToPageFromPageSizeWarning(const PageId& pageId);
+
+  void goToPageSplitFromWarning();
+
+  void disableAlignmentForPages(const std::vector<PageId>& pageIds);
+
   QSizeF m_maxLogicalThumbSize;
   std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<StageSequence> m_stages;

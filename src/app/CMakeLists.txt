@@ -29,7 +29,9 @@ set(gui_only_sources
     main.cpp
     StatusBarPanel.cpp StatusBarPanel.h
     DefaultParamsDialog.cpp DefaultParamsDialog.h
-    BatchProcessingSummaryDialog.cpp BatchProcessingSummaryDialog.h)
+    BatchProcessingSummaryDialog.cpp BatchProcessingSummaryDialog.h
+    ContentCoverageSummaryDialog.cpp ContentCoverageSummaryDialog.h
+    PageSizeWarningDialog.cpp PageSizeWarningDialog.h)
 
 set(gui_only_ui_files
     AboutDialog.ui
