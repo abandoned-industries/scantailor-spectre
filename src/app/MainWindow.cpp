@@ -670,18 +670,25 @@ void MainWindow::timerEvent(QTimerEvent* const event) {
 }
 
 MainWindow::SavePromptResult MainWindow::promptProjectSave() {
-  QMessageBox msgBox(QMessageBox::Question, tr("Save Project"), tr("Save the project?"),
-                     QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel, this);
-  msgBox.setDefaultButton(QMessageBox::Yes);
+  QMessageBox msgBox(this);
+  msgBox.setIcon(QMessageBox::NoIcon);
+  msgBox.setWindowTitle(tr("Save Project"));
+  msgBox.setText(tr("Do you want to save the changes to this project?"));
+  msgBox.setInformativeText(tr("Your changes will be lost if you don't save them."));
 
-  switch (msgBox.exec()) {
-    case QMessageBox::Yes:
-      return SAVE;
-    case QMessageBox::No:
-      return DONT_SAVE;
-    default:
-      return CANCEL;
+  QPushButton* saveButton = msgBox.addButton(tr("Save"), QMessageBox::AcceptRole);
+  QPushButton* dontSaveButton = msgBox.addButton(tr("Don't Save"), QMessageBox::DestructiveRole);
+  msgBox.addButton(QMessageBox::Cancel);
+  msgBox.setDefaultButton(saveButton);
+
+  msgBox.exec();
+
+  if (msgBox.clickedButton() == saveButton) {
+    return SAVE;
+  } else if (msgBox.clickedButton() == dontSaveButton) {
+    return DONT_SAVE;
   }
+  return CANCEL;
 }
 
 bool MainWindow::compareFiles(const QString& fpath1, const QString& fpath2) {
@@ -1600,19 +1607,20 @@ void MainWindow::fixedDpiSubmitted() {
   }
 }
 
-void MainWindow::saveProjectTriggered() {
+bool MainWindow::saveProjectTriggered() {
   if (m_projectFile.isEmpty() || !m_projectSavedToFolder) {
-    saveProjectAsTriggered();
-    return;
+    return saveProjectAsTriggered();
   }
 
   // Already saved to a project folder - just update the project file
   if (saveProjectWithFeedback(m_projectFile)) {
     updateWindowTitle();
+    return true;
   }
+  return false;
 }
 
-void MainWindow::saveProjectAsTriggered() {
+bool MainWindow::saveProjectAsTriggered() {
   // Prompt for a folder location to save the project
   QString startDir;
   if (!m_projectFolderPath.isEmpty()) {
@@ -1627,7 +1635,7 @@ void MainWindow::saveProjectAsTriggered() {
       QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
   if (folderPath.isEmpty()) {
-    return;  // User cancelled
+    return false;  // User cancelled
   }
 
   // Create a subdirectory named after suggested project name
@@ -1641,7 +1649,7 @@ void MainWindow::saveProjectAsTriggered() {
         tr("A folder named '%1' already exists. Overwrite?").arg(projectName),
         QMessageBox::Yes | QMessageBox::No);
     if (reply != QMessageBox::Yes) {
-      return;
+      return false;
     }
   }
 
@@ -1658,7 +1666,9 @@ void MainWindow::saveProjectAsTriggered() {
     rp.read();
     rp.setMostRecent(m_projectFile);
     rp.write();
+    return true;
   }
+  return false;
 }  // MainWindow::saveProjectAsTriggered
 
 void MainWindow::exportToPdf() {
@@ -2414,8 +2424,10 @@ bool MainWindow::closeProjectInteractive() {
   if (m_projectFile.isEmpty()) {
     switch (promptProjectSave()) {
       case SAVE:
-        saveProjectTriggered();
-        // fall through
+        if (!saveProjectTriggered()) {
+          return false;  // User cancelled save dialog
+        }
+        break;
       case DONT_SAVE:
         break;
       case CANCEL:
@@ -2436,8 +2448,10 @@ bool MainWindow::closeProjectInteractive() {
     QFile::remove(backupFilePath);
     switch (promptProjectSave()) {
       case SAVE:
-        saveProjectTriggered();
-        // fall through
+        if (!saveProjectTriggered()) {
+          return false;  // User cancelled save dialog
+        }
+        break;
       case DONT_SAVE:
         break;
       case CANCEL:
