@@ -5,7 +5,9 @@
 
 #include <DeviationProvider.h>
 
+#include <QDebug>
 #include <QMutex>
+#include <algorithm>
 #include <boost/foreach.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -138,6 +140,8 @@ class Settings::Impl {
 
   AggregateSizeChanged setPageAlignment(const PageId& pageId, const Alignment& alignment);
 
+  void disableAlignmentForPages(const std::vector<PageId>& pageIds);
+
   AggregateSizeChanged setContentSizeMM(const PageId& pageId, const QSizeF& contentSizeMm);
 
   void invalidateContentSize(const PageId& pageId);
@@ -147,6 +151,12 @@ class Settings::Impl {
   QSizeF getAggregateHardSizeMMLocked() const;
 
   QSizeF getAggregateHardSizeMM(const PageId& pageId, const QSizeF& hardSizeMm, const Alignment& alignment) const;
+
+  std::vector<Settings::PageSizeInfo> getPagesWithExcessiveSoftMargins(double threshold) const;
+
+  std::vector<Settings::OutlierPageInfo> getOutlierPages(double deviationThreshold) const;
+
+  std::vector<Settings::OutlierPageInfo> getUnsplitSpreadPages() const;
 
   bool isPageAutoMarginsEnabled(const PageId& pageId);
 
@@ -258,6 +268,10 @@ Settings::AggregateSizeChanged Settings::setPageAlignment(const PageId& pageId, 
   return m_impl->setPageAlignment(pageId, alignment);
 }
 
+void Settings::disableAlignmentForPages(const std::vector<PageId>& pageIds) {
+  m_impl->disableAlignmentForPages(pageIds);
+}
+
 Settings::AggregateSizeChanged Settings::setContentSizeMM(const PageId& pageId, const QSizeF& contentSizeMm) {
   return m_impl->setContentSizeMM(pageId, contentSizeMm);
 }
@@ -274,6 +288,18 @@ QSizeF Settings::getAggregateHardSizeMM(const PageId& pageId,
                                         const QSizeF& hardSizeMm,
                                         const Alignment& alignment) const {
   return m_impl->getAggregateHardSizeMM(pageId, hardSizeMm, alignment);
+}
+
+std::vector<Settings::PageSizeInfo> Settings::getPagesWithExcessiveSoftMargins(double threshold) const {
+  return m_impl->getPagesWithExcessiveSoftMargins(threshold);
+}
+
+std::vector<Settings::OutlierPageInfo> Settings::getOutlierPages(double deviationThreshold) const {
+  return m_impl->getOutlierPages(deviationThreshold);
+}
+
+std::vector<Settings::OutlierPageInfo> Settings::getUnsplitSpreadPages() const {
+  return m_impl->getUnsplitSpreadPages();
 }
 
 bool Settings::isPageAutoMarginsEnabled(const PageId& pageId) {
@@ -546,6 +572,26 @@ Settings::AggregateSizeChanged Settings::Impl::setPageAlignment(const PageId& pa
   }
 }
 
+void Settings::Impl::disableAlignmentForPages(const std::vector<PageId>& pageIds) {
+  const QMutexLocker locker(&m_mutex);
+
+  // Create a null alignment (not aligned with others)
+  Alignment nullAlignment;
+  nullAlignment.setNull(true);
+
+  for (const PageId& pageId : pageIds) {
+    const Container::iterator it(m_items.find(pageId));
+    if (it == m_items.end()) {
+      const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, m_invalidSize, nullAlignment,
+                      m_autoMarginsDefault);
+      m_items.insert(it, item);
+    } else {
+      m_items.modify(it, ModifyAlignment(nullAlignment));
+    }
+    m_deviationProvider.addOrUpdate(pageId);
+  }
+}
+
 Settings::AggregateSizeChanged Settings::Impl::setContentSizeMM(const PageId& pageId, const QSizeF& contentSizeMm) {
   const QMutexLocker locker(&m_mutex);
 
@@ -689,5 +735,267 @@ bool Settings::Impl::isShowingMiddleRectEnabled() const {
 
 void Settings::Impl::enableShowingMiddleRect(const bool state) {
   m_showMiddleRect = state;
+}
+
+std::vector<Settings::PageSizeInfo> Settings::Impl::getPagesWithExcessiveSoftMargins(double threshold) const {
+  std::vector<Settings::PageSizeInfo> result;
+
+  const QMutexLocker locker(&m_mutex);
+
+  if (m_items.empty()) {
+    return result;
+  }
+
+  // Get aggregate size
+  const QSizeF aggSize = getAggregateHardSizeMMLocked();
+  if (aggSize.isEmpty()) {
+    return result;
+  }
+
+  const double aggArea = aggSize.width() * aggSize.height();
+
+  // Iterate over all pages
+  for (const Item& item : m_unorderedItems) {
+    if (!item.alignedWithOthers()) {
+      continue;  // Pages not aligned don't get soft margins
+    }
+
+    const double hardWidth = item.hardWidthMM();
+    const double hardHeight = item.hardHeightMM();
+    const double hardArea = hardWidth * hardHeight;
+
+    if (hardArea <= 0) {
+      continue;
+    }
+
+    // Soft margin ratio is the proportion of the final page that would be soft margins
+    // Final page = aggArea, hard content = hardArea, soft margins = aggArea - hardArea
+    const double softMarginRatio = (aggArea - hardArea) / aggArea;
+
+    if (softMarginRatio >= threshold) {
+      Settings::PageSizeInfo info;
+      info.pageId = item.pageId;
+      info.hardWidthMM = hardWidth;
+      info.hardHeightMM = hardHeight;
+      info.softMarginRatio = softMarginRatio;
+      result.push_back(info);
+    }
+  }
+
+  // Sort by soft margin ratio descending (worst offenders first)
+  std::sort(result.begin(), result.end(), [](const Settings::PageSizeInfo& a, const Settings::PageSizeInfo& b) {
+    return a.softMarginRatio > b.softMarginRatio;
+  });
+
+  return result;
+}
+
+std::vector<Settings::OutlierPageInfo> Settings::Impl::getOutlierPages(double deviationThreshold) const {
+  std::vector<Settings::OutlierPageInfo> result;
+
+  const QMutexLocker locker(&m_mutex);
+
+  if (m_items.empty()) {
+    qDebug() << "getOutlierPages: m_items is empty";
+    return result;
+  }
+
+  // Collect all aligned page sizes (area = width * height)
+  std::vector<double> widths;
+  std::vector<double> heights;
+  std::vector<const Item*> alignedItems;
+
+  int skippedNotAligned = 0;
+  int skippedInvalidSize = 0;
+  for (const Item& item : m_unorderedItems) {
+    if (!item.alignedWithOthers()) {
+      skippedNotAligned++;
+      continue;  // Skip pages not aligned
+    }
+    const double w = item.hardWidthMM();
+    const double h = item.hardHeightMM();
+    if (w <= 0 || h <= 0) {
+      skippedInvalidSize++;
+      continue;
+    }
+    widths.push_back(w);
+    heights.push_back(h);
+    alignedItems.push_back(&item);
+  }
+
+  qDebug() << "getOutlierPages: total items:" << m_items.size()
+           << "aligned:" << alignedItems.size()
+           << "skippedNotAligned:" << skippedNotAligned
+           << "skippedInvalidSize:" << skippedInvalidSize;
+
+  if (alignedItems.size() < 2) {
+    qDebug() << "getOutlierPages: Not enough aligned items (<2)";
+    return result;  // Need at least 2 pages to find outliers
+  }
+
+  // Calculate median width and height
+  std::sort(widths.begin(), widths.end());
+  std::sort(heights.begin(), heights.end());
+
+  const size_t n = widths.size();
+  double medianWidth, medianHeight;
+  if (n % 2 == 0) {
+    medianWidth = (widths[n / 2 - 1] + widths[n / 2]) / 2.0;
+    medianHeight = (heights[n / 2 - 1] + heights[n / 2]) / 2.0;
+  } else {
+    medianWidth = widths[n / 2];
+    medianHeight = heights[n / 2];
+  }
+
+  // Get aggregate size to identify which pages set it
+  const QSizeF aggSize = getAggregateHardSizeMMLocked();
+  const double aggWidth = aggSize.width();
+  const double aggHeight = aggSize.height();
+
+  qDebug() << "getOutlierPages: medianWidth:" << medianWidth << "medianHeight:" << medianHeight
+           << "aggWidth:" << aggWidth << "aggHeight:" << aggHeight
+           << "minWidth:" << widths.front() << "maxWidth:" << widths.back()
+           << "minHeight:" << heights.front() << "maxHeight:" << heights.back();
+
+  // Find outlier pages (deviation from median)
+  int outlierCount = 0;
+  for (const Item* item : alignedItems) {
+    const double w = item->hardWidthMM();
+    const double h = item->hardHeightMM();
+    const double area = w * h;
+    const double medianArea = medianWidth * medianHeight;
+
+    // Calculate deviation ratio (how much larger or smaller)
+    const double deviationRatio = area / medianArea;
+
+    // Check if this is an outlier (either much larger or much smaller)
+    const bool isLarger = deviationRatio > 1.0;
+    const bool isOutlier = isLarger ? (deviationRatio >= deviationThreshold)
+                                     : (deviationRatio <= 1.0 / deviationThreshold);
+
+    if (isOutlier) {
+      outlierCount++;
+      Settings::OutlierPageInfo info;
+      info.pageId = item->pageId;
+      info.hardWidthMM = w;
+      info.hardHeightMM = h;
+      info.medianWidthMM = medianWidth;
+      info.medianHeightMM = medianHeight;
+      info.deviationRatio = deviationRatio;
+      info.isLarger = isLarger;
+      // Check if this page sets the aggregate size (within tolerance)
+      info.setsAggregateWidth = (std::abs(w - aggWidth) < 0.01);
+      info.setsAggregateHeight = (std::abs(h - aggHeight) < 0.01);
+      result.push_back(info);
+    }
+  }
+
+  qDebug() << "getOutlierPages: found" << outlierCount << "outliers with threshold" << deviationThreshold;
+
+  // Sort by deviation (largest outliers first - both bigger and smaller extremes)
+  std::sort(result.begin(), result.end(), [](const Settings::OutlierPageInfo& a, const Settings::OutlierPageInfo& b) {
+    // Sort by how far from 1.0 the deviation is
+    const double devA = a.deviationRatio > 1.0 ? a.deviationRatio : 1.0 / a.deviationRatio;
+    const double devB = b.deviationRatio > 1.0 ? b.deviationRatio : 1.0 / b.deviationRatio;
+    return devA > devB;
+  });
+
+  return result;
+}
+
+std::vector<Settings::OutlierPageInfo> Settings::Impl::getUnsplitSpreadPages() const {
+  std::vector<Settings::OutlierPageInfo> result;
+
+  const QMutexLocker locker(&m_mutex);
+
+  if (m_items.empty()) {
+    return result;
+  }
+
+  // Collect all page widths to find the median (typical single page width)
+  std::vector<double> widths;
+  std::vector<const Item*> allItems;
+
+  for (const Item& item : m_unorderedItems) {
+    if (!item.alignedWithOthers()) {
+      continue;
+    }
+    const double w = item.hardWidthMM();
+    if (w <= 0) {
+      continue;
+    }
+    widths.push_back(w);
+    allItems.push_back(&item);
+  }
+
+  if (widths.size() < 2) {
+    return result;
+  }
+
+  // Sort widths to find median
+  std::vector<double> sortedWidths = widths;
+  std::sort(sortedWidths.begin(), sortedWidths.end());
+
+  const size_t n = sortedWidths.size();
+  double medianWidth;
+  if (n % 2 == 0) {
+    medianWidth = (sortedWidths[n / 2 - 1] + sortedWidths[n / 2]) / 2.0;
+  } else {
+    medianWidth = sortedWidths[n / 2];
+  }
+
+  // Also get aggregate width
+  const QSizeF aggSize = getAggregateHardSizeMMLocked();
+  const double aggWidth = aggSize.width();
+
+  // Check if aggregate width suggests spreads (aggregate ~2x median)
+  const double aggToMedianRatio = medianWidth > 0 ? (aggWidth / medianWidth) : 1.0;
+  const bool aggLooksSpreads = (aggToMedianRatio > 1.8 && aggToMedianRatio < 2.2);
+
+  if (!aggLooksSpreads) {
+    // Aggregate doesn't look like spreads are involved
+    return result;
+  }
+
+  // The expected single-page width is approximately half the aggregate
+  const double expectedSinglePageWidth = aggWidth / 2.0;
+
+  qDebug() << "getUnsplitSpreadPages: aggWidth:" << aggWidth
+           << "medianWidth:" << medianWidth
+           << "expectedSinglePageWidth:" << expectedSinglePageWidth;
+
+  // Find pages whose width is close to the aggregate (i.e., unsplit spreads)
+  // Pages that are properly split will have width close to expectedSinglePageWidth
+  for (size_t i = 0; i < allItems.size(); ++i) {
+    const Item* item = allItems[i];
+    const double w = item->hardWidthMM();
+    const double h = item->hardHeightMM();
+
+    // Check if this page's width is close to aggregate width (unsplit spread)
+    // rather than close to expected single page width (properly split)
+    const double widthRatioToAgg = w / aggWidth;
+    const double widthRatioToSingle = w / expectedSinglePageWidth;
+
+    // If width is within 10% of aggregate width, it's likely an unsplit spread
+    const bool looksLikeSpread = (widthRatioToAgg > 0.9 && widthRatioToAgg < 1.1);
+
+    if (looksLikeSpread) {
+      Settings::OutlierPageInfo info;
+      info.pageId = item->pageId;
+      info.hardWidthMM = w;
+      info.hardHeightMM = h;
+      info.medianWidthMM = expectedSinglePageWidth;  // Expected single page width
+      info.medianHeightMM = h;  // Height stays the same
+      info.deviationRatio = widthRatioToSingle;  // How much wider than a single page
+      info.isLarger = true;
+      info.setsAggregateWidth = (std::abs(w - aggWidth) < 0.01);
+      info.setsAggregateHeight = (std::abs(h - aggSize.height()) < 0.01);
+      result.push_back(info);
+    }
+  }
+
+  qDebug() << "getUnsplitSpreadPages: found" << result.size() << "unsplit spread pages";
+
+  return result;
 }
 }  // namespace page_layout

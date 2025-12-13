@@ -64,7 +64,19 @@ Corrects pages that are upside-down or rotated. Auto-detection handles most case
 
 ### Stage 2: Split Pages
 
-Separates book spreads (two pages per scan) into individual pages. The split line is auto-detected but can be adjusted manually. A helpful dialog tells you the results. You can force ScanTailor to split pages it didn’t identify as split at this point and you can also inspect the pages by clicking on them in the dialog that shows up after the stage.   
+Separates book spreads (two pages per scan) into individual pages. The split line is auto-detected but can be adjusted manually.
+
+After batch processing, a summary dialog appears with two toggle buttons:
+- **Not Split (X)** - Pages kept as single pages (may need to be split)
+- **Split (Y)** - Pages that were split (may have been split incorrectly)
+
+Double-click any page to jump to it for inspection. Use the action buttons to force changes:
+- In "Not Split" view: **Force Two-Page** makes pages split
+- In "Split" view: **Force Single Page** makes pages unsplit
+
+**Visual indicators in the list:**
+- Gray strikethrough = page was visited/jumped to
+- Dark green strikethrough = action was taken (force split or unsplit)   
 
 ### Stage 3: Deskew
 
@@ -106,7 +118,23 @@ This excludes:
 - Book margins you want to remove
 - Fingers or page holders
 
-Auto detection is not always perfect, especially with images or decorative elements. Sort by "Order by completeness" to review pages that may need manual adjustment. 
+Auto detection is not always perfect, especially with images or decorative elements. Sort by "Order by completeness" to review pages that may need manual adjustment.
+
+#### Content Coverage Summary
+
+After batch processing, a summary dialog appears showing pages grouped by content coverage:
+- **Low Coverage** - Pages where detected content covers less than the threshold percentage of the page area. These may have intentional layout (chapter titles, short paragraphs) that shouldn't be centered.
+- **Normal Coverage** - Pages where content fills most of the page area.
+
+Use the **Coverage threshold** slider (20%-80%) to adjust what counts as "low coverage."
+
+**Actions for low coverage pages:**
+- **Jump to Selected** - Navigate to a page for manual inspection
+- **Preserve Layout (Selected/All)** - Disable content detection for these pages, keeping their original layout intact
+
+**Visual indicators:**
+- Gray strikethrough = page was visited/jumped to
+- Dark green strikethrough = action was taken (preserve layout)
 
 ### Stage 5: Margins
 
