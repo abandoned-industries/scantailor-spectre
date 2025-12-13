@@ -1,6 +1,7 @@
 # ScanTailor Spectre
 
-<img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/3ef37c0f-aa6f-452b-8d13-2f5bf7c8b193" />
+<img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
+
 
 
 **Version 2.0a5** | macOS (Apple Silicon)
