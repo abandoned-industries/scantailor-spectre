@@ -21,6 +21,41 @@
 // if multiple threads attempt to load/render PDFs concurrently.
 static QMutex s_pdfMutex;
 
+// Shared QPdfDocument instance - reusing the same instance avoids
+// crashes that occur when creating/destroying QPdfDocument objects
+// from multiple threads, even with mutex protection.
+static QPdfDocument* s_pdfDoc = nullptr;
+static QString s_loadedFilePath;
+
+static QPdfDocument& getSharedPdfDoc() {
+  if (!s_pdfDoc) {
+    s_pdfDoc = new QPdfDocument();
+  }
+  return *s_pdfDoc;
+}
+
+static bool ensurePdfLoaded(const QString& filePath) {
+  QPdfDocument& doc = getSharedPdfDoc();
+
+  // If already loaded, return success
+  if (s_loadedFilePath == filePath && doc.status() == QPdfDocument::Status::Ready) {
+    return true;
+  }
+
+  // Close any previously loaded document
+  doc.close();
+  s_loadedFilePath.clear();
+
+  // Load the new document
+  if (doc.load(filePath) != QPdfDocument::Error::None) {
+    qDebug() << "PdfReader: Failed to load PDF:" << filePath;
+    return false;
+  }
+
+  s_loadedFilePath = filePath;
+  return true;
+}
+
 bool PdfReader::checkMagic(const QByteArray& data) {
   // PDF files start with "%PDF-"
   return data.size() >= 5 && data.startsWith("%PDF-");
@@ -70,12 +105,11 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 
   QMutexLocker lock(&s_pdfMutex);
 
-  QPdfDocument doc;
-  if (doc.load(filePath) != QPdfDocument::Error::None) {
-    qDebug() << "PdfReader: Failed to load PDF:" << filePath;
+  if (!ensurePdfLoaded(filePath)) {
     return ImageMetadataLoader::GENERIC_ERROR;
   }
 
+  QPdfDocument& doc = getSharedPdfDoc();
   const int pageCount = doc.pageCount();
   if (pageCount <= 0) {
     qDebug() << "PdfReader: PDF has no pages:" << filePath;
@@ -103,11 +137,12 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   QMutexLocker lock(&s_pdfMutex);
 
-  QPdfDocument doc;
-  if (doc.load(filePath) != QPdfDocument::Error::None) {
+  if (!ensurePdfLoaded(filePath)) {
     qDebug() << "PdfReader: Failed to load PDF for rendering:" << filePath;
     return QImage();
   }
+
+  QPdfDocument& doc = getSharedPdfDoc();
 
   if (pageNum < 0 || pageNum >= doc.pageCount()) {
     qDebug() << "PdfReader: Invalid page number:" << pageNum << "for PDF with" << doc.pageCount() << "pages";
