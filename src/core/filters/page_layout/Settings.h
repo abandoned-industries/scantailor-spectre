@@ -7,11 +7,11 @@
 #include <DeviationProvider.h>
 
 #include <memory>
+#include <vector>
 
 #include "Margins.h"
 #include "NonCopyable.h"
-
-class PageId;
+#include "PageId.h"
 class Margins;
 class PageSequence;
 class AbstractRelinker;
@@ -28,6 +28,37 @@ class Settings {
 
  public:
   enum AggregateSizeChanged { AGGREGATE_SIZE_UNCHANGED, AGGREGATE_SIZE_CHANGED };
+
+  struct PageSizeInfo {
+    PageId pageId;
+    double hardWidthMM;
+    double hardHeightMM;
+    double softMarginRatio;  // How much of the page would be soft margins (0.0 to 1.0)
+
+    PageSizeInfo() = default;
+    PageSizeInfo(const PageSizeInfo&) = default;
+    PageSizeInfo(PageSizeInfo&&) = default;
+    PageSizeInfo& operator=(const PageSizeInfo&) = default;
+    PageSizeInfo& operator=(PageSizeInfo&&) = default;
+  };
+
+  struct OutlierPageInfo {
+    PageId pageId;
+    double hardWidthMM;
+    double hardHeightMM;
+    double medianWidthMM;     // The median page width for comparison
+    double medianHeightMM;    // The median page height for comparison
+    double deviationRatio;    // How much larger/smaller than median (>1.0 = larger, <1.0 = smaller)
+    bool isLarger;            // True if this page is larger than median (causing aggregate size increase)
+    bool setsAggregateWidth;  // True if this page sets the aggregate width
+    bool setsAggregateHeight; // True if this page sets the aggregate height
+
+    OutlierPageInfo() = default;
+    OutlierPageInfo(const OutlierPageInfo&) = default;
+    OutlierPageInfo(OutlierPageInfo&&) = default;
+    OutlierPageInfo& operator=(const OutlierPageInfo&) = default;
+    OutlierPageInfo& operator=(OutlierPageInfo&&) = default;
+  };
 
   Settings();
 
@@ -119,6 +150,16 @@ class Settings {
   AggregateSizeChanged setPageAlignment(const PageId& pageId, const Alignment& alignment);
 
   /**
+   * \brief Disables alignment for multiple pages.
+   *
+   * This sets the alignment to null for each specified page, meaning they
+   * will not be aligned with other pages and won't contribute to the
+   * aggregate size calculation.
+   * \param pageIds The list of pages to disable alignment for.
+   */
+  void disableAlignmentForPages(const std::vector<PageId>& pageIds);
+
+  /**
    * \brief Sets content size in millimeters for the specified page.
    *
    * The content size comes from the "Select Content" filter.
@@ -140,6 +181,40 @@ class Settings {
    * the size and alignment of a specified page have changed.
    */
   QSizeF getAggregateHardSizeMM(const PageId& pageId, const QSizeF& hardSizeMm, const Alignment& alignment) const;
+
+  /**
+   * \brief Returns pages where soft margins would exceed the given threshold.
+   *
+   * Used to detect pages with very different sizes that cause excessive soft margins.
+   * \param threshold Soft margin ratio threshold (0.0 to 1.0). Pages with soft margin
+   *                  ratio above this are returned. Default 0.3 means >30% soft margins.
+   * \return List of pages with their size info, sorted by soft margin ratio descending.
+   */
+  std::vector<PageSizeInfo> getPagesWithExcessiveSoftMargins(double threshold = 0.3) const;
+
+  /**
+   * \brief Returns outlier pages whose size differs significantly from the median.
+   *
+   * Used to identify pages that cause margin issues by being much larger or smaller
+   * than most other pages. The user's problematic case is typically when a cover page
+   * is larger than all body pages, causing the cover to set the aggregate size.
+   *
+   * \param deviationThreshold Pages with area ratio > this threshold (or < 1/threshold)
+   *                           compared to median are considered outliers. Default 1.3 means
+   *                           pages 30% larger or smaller than median.
+   * \return List of outlier pages, sorted by deviation (largest outliers first).
+   */
+  std::vector<OutlierPageInfo> getOutlierPages(double deviationThreshold = 1.3) const;
+
+  /**
+   * \brief Returns pages that appear to be unsplit two-page spreads.
+   *
+   * Identifies pages whose width is approximately 2x the median width,
+   * suggesting they are facing-page spreads that weren't split.
+   *
+   * \return List of spread pages with their size info.
+   */
+  std::vector<OutlierPageInfo> getUnsplitSpreadPages() const;
 
   bool isPageAutoMarginsEnabled(const PageId& pageId);
 

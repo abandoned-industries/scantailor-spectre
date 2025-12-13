@@ -68,6 +68,8 @@ class Filter : public AbstractFilter {
 
   OptionsWidget* optionsWidget();
 
+  std::shared_ptr<Settings> settings() const { return m_settings; }
+
  private:
   void writePageSettings(QDomDocument& doc, QDomElement& filterEl, const PageId& pageId, int numericId) const;
 
