@@ -195,9 +195,9 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void fixedDpiSubmitted();
 
-  void saveProjectTriggered();
+  bool saveProjectTriggered();
 
-  void saveProjectAsTriggered();
+  bool saveProjectAsTriggered();
 
   void exportToPdf();
 
