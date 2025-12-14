@@ -1,118 +1,156 @@
-# CLAUDE.md - ScanTailor Advanced macOS Port
+# CLAUDE.md - ScanTailor Spectre Architecture
 
-## Project Goal
+## Overview
 
-Add native Apple Silicon (ARM64) macOS support to ScanTailor Advanced, producing a self-contained `.app` bundle that can be distributed as a DMG without requiring Homebrew or any other dependencies for end users.
+ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs through an 8-stage processing pipeline. Fork of ScanTailor Advanced with PDF import/export, intelligent color detection, and native Apple Silicon support.
 
-## Current State
-
-- ScanTailor Advanced v1.0.19 is the latest release (GPL-3.0 license)
-- CMakeLists.txt has Windows packaging via CPack/NSIS but no macOS bundle support
-- The existing third-party macOS build (yb85/scantailor-advanced-osx) only produces x64 binaries and has a broken Fish shell bundler script
-- The app builds fine on macOS but produces only a command-line binary, not an .app bundle
-
-## Tasks
-
-### 1. Add macOS Bundle Support to CMakeLists.txt
-
-Modify the main `CMakeLists.txt` to:
-- Set `MACOSX_BUNDLE TRUE` for the scantailor target when building on Apple
-- Configure bundle metadata (name, identifier, icon, version)
-- Run `macdeployqt` as a post-build step to copy Qt frameworks into the bundle
-- Handle code signing (ad-hoc for local builds)
-
-Key CMake variables/properties needed:
-```cmake
-MACOSX_BUNDLE
-MACOSX_BUNDLE_BUNDLE_NAME
-MACOSX_BUNDLE_GUI_IDENTIFIER
-MACOSX_BUNDLE_ICON_FILE
-MACOSX_BUNDLE_INFO_PLIST
-```
-
-### 2. Create Packaging Directory Structure
+## Directory Structure
 
 ```
-packaging/
-└── macos/
-    ├── BUILD.md           # Build instructions for developers
-    ├── Info.plist.in      # Bundle metadata template (CMake configures this)
-    ├── scantailor.icns    # App icon (convert from existing or create)
-    └── create-dmg.sh      # Script to create distributable DMG
+src/
+├── app/                    # Main application (MainWindow, dialogs, startup)
+├── core/                   # Core processing logic
+│   └── filters/            # The 8 filter stages (see below)
+├── imageproc/              # Image processing algorithms (binarize, despeckle, etc.)
+├── dewarping/              # Book page flattening algorithms
+├── math/                   # Splines, matrices, linear algebra
+├── foundation/             # Utilities, data structures
+└── acceleration/           # Metal GPU shaders (macOS)
 ```
 
-### 3. Write BUILD.md
+## The 8 Filter Stages
 
-Document the build process for Apple Silicon Macs:
-- Required dependencies (Qt6, Boost, libtiff, libpng, libjpeg, zlib)
-- How to install them via Homebrew (for developers only)
-- CMake configuration and build commands
-- How to create a release DMG
+Each filter lives in `src/core/filters/{stage}/` with consistent structure:
 
-### 4. Optional: GitHub Actions Workflow
+| Stage | Directory | Purpose |
+|-------|-----------|---------|
+| 1 | `fix_orientation/` | Rotate pages (90° increments) |
+| 2 | `page_split/` | Separate two-page spreads |
+| 3 | `deskew/` | Straighten tilted scans |
+| 4 | `select_content/` | Define page/content boundaries |
+| 5 | `page_layout/` | Set margins and alignment |
+| 6 | `finalize/` | Choose color mode (B&W/Gray/Color) - **NEW** |
+| 7 | `output/` | Apply image processing (binarize, despeckle, dewarp) |
+| 8 | `export_/` | Create final PDF - **NEW** |
 
-Add `.github/workflows/macos-build.yml` to automatically build ARM64 releases.
+### Filter Architecture Pattern
 
-## Build Dependencies
+Every filter follows the same structure:
+```
+filters/{stage}/
+├── Filter.cpp/h          # Main filter class (extends AbstractFilter)
+├── Task.cpp/h            # Background processing task
+├── CacheDrivenTask.cpp/h # Fast path using cached results
+├── Settings.cpp/h        # Parameter storage
+├── OptionsWidget.cpp/h   # Qt UI controls
+├── ImageView.cpp/h       # Image display with overlays
+└── Thumbnail.cpp/h       # Preview for thumbnail strip
+```
 
-These are needed at compile time (via Homebrew for developers):
-- qt6 (Qt6 framework - UI)
-- boost (C++ libraries)
-- libtiff
-- libpng  
-- jpeg
-- zlib (usually included with macOS)
-- cmake (build system)
+## Key Classes
 
-## Key Files to Examine
+### Core Infrastructure
+- **AbstractFilter** (`src/core/AbstractFilter.h`) - Base class for all 8 filters
+- **StageSequence** (`src/core/StageSequence.h`) - Orchestrates filter pipeline
+- **ProjectPages** (`src/core/ProjectPages.h`) - Manages image collection
+- **BackgroundExecutor** (`src/core/BackgroundExecutor.h`) - Thread pool for async tasks
+- **MainWindow** (`src/app/MainWindow.cpp`) - Main UI, implements FilterUiInterface
 
-- `CMakeLists.txt` - main build configuration
-- `src/app/` - likely contains main() and app initialization
-- `version.h.in` - version template
-- `resources/` - icons and other assets (if exists)
+### Image Processing
+- **Binarize** (`src/imageproc/Binarize.h`) - B&W conversion (Sauvola, global threshold)
+- **Despeckle** (`src/core/Despeckle.h`) - Noise removal
+- **WhiteBalance** (`src/core/WhiteBalance.h`) - Color correction
+- **CylindricalSurfaceDewarper** (`src/dewarping/`) - Page flattening
 
-## Technical Notes
+### I/O
+- **PdfReader** (`src/core/PdfReader.h`) - PDF import
+- **PdfExporter** (`src/core/PdfExporter.h`) - PDF export with quality presets
+- **ProjectReader/Writer** (`src/core/`) - .ScanTailor project files (XML)
 
-### macdeployqt
-Qt provides `macdeployqt` tool that:
-- Copies Qt frameworks into the .app bundle
-- Rewrites library paths using `install_name_tool`
-- Makes the bundle self-contained
+### Apple-Specific
+- **AppleVisionDetector** (`src/core/AppleVisionDetector.h`) - Vision framework for auto color detection
+- **MetalContext/MetalGaussBlur/MetalMorphology** (`src/acceleration/`) - GPU acceleration
 
-Typical usage:
+## Processing Flow
+
+```
+Input (PDF/Images)
+    ↓
+ProjectPages (image collection)
+    ↓
+Stage 1-5: Geometry corrections
+    ↓
+Stage 6: Color mode decision (AppleVisionDetector)
+    ↓
+Stage 7: Image processing → TIFF/PNG output
+    ↓
+Stage 8: PdfExporter → Final PDF
+```
+
+Each page flows through filters independently. Results are cached in project folder.
+
+## Coordinate Systems (ImageViewBase)
+
+The image view manages transforms between:
+1. **Image coords** - Original pixels
+2. **Virtual coords** - After geometric transforms
+3. **Widget coords** - Screen pixels
+
+Key transforms: `m_imageToVirtual`, `m_virtualToWidget`
+
+## Build Commands
+
 ```bash
-macdeployqt ScanTailor.app -always-overwrite
-```
+# Install dependencies
+brew install qt6 boost libtiff libpng jpeg cmake
 
-### Code Signing
-For distribution outside the App Store:
-- Ad-hoc signing works for local use: `codesign --force --deep --sign - ScanTailor.app`
-- Proper distribution needs a Developer ID certificate
-
-### Universal Binary (optional future work)
-Could build for both ARM64 and x86_64:
-```cmake
-set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-```
-
-## Future Enhancement: PDF Import
-
-ScanTailor expects individual image files as input. A useful addition would be a preprocessing step to split PDFs into images. This could be:
-- A separate helper tool bundled with the app
-- Integration into ScanTailor's file loading (more complex, requires adding PDF library dependency like poppler or PDFium)
-
-For now, focus on getting the basic macOS build working first.
-
-## Commands Reference
-
-### Building (once dependencies installed)
-```bash
+# Build
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) ..
 make -j$(sysctl -n hw.ncpu)
+
+# Bundle Qt frameworks
+macdeployqt "ScanTailor Spectre.app" -always-overwrite
+
+# Sign
+codesign --force --deep --options runtime --sign "Developer ID Application: ..." "ScanTailor Spectre.app"
+
+# Notarize
+xcrun notarytool submit app.zip --keychain-profile "notary" --wait
+xcrun stapler staple "ScanTailor Spectre.app"
+
+# Create DMG
+hdiutil create -volname "ScanTailor Spectre" -srcfolder "ScanTailor Spectre.app" -ov -format UDZO ScanTailor-Spectre.dmg
 ```
 
-### Creating DMG
-```bash
-hdiutil create -volname "ScanTailor Advanced" -srcfolder "ScanTailor Advanced.app" -ov -format UDZO ScanTailor-Advanced.dmg
-```
+## Adding a New Filter
+
+1. Create directory `src/core/filters/myfilter/`
+2. Implement: Filter, Task, CacheDrivenTask, Settings, OptionsWidget, ImageView, Thumbnail
+3. Add to StageSequence in `src/core/StageSequence.cpp`
+4. Update CMakeLists.txt in filters directory
+5. Add UI integration in MainWindow
+
+## Common Modifications
+
+### Adjust binarization
+`src/imageproc/Binarize.cpp` - Sauvola algorithm parameters
+
+### Change color detection
+`src/core/AppleVisionDetector.mm` - Vision framework analysis
+
+### Modify PDF export
+`src/core/PdfExporter.cpp` - Quality presets, compression
+
+### Add image filter
+`src/imageproc/` - Add new algorithm, integrate in output filter
+
+## Dependencies
+
+- Qt6 (UI framework)
+- Boost (C++ utilities)
+- libtiff, libpng, libjpeg (image formats)
+- libharu (PDF generation)
+- leptonica (image processing)
+- Metal framework (GPU, macOS only)
+- Vision framework (content detection, macOS only)
