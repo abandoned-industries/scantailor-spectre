@@ -65,9 +65,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   thresholdMethodBox->addItem(tr("Mean"), T_MEAN);
   thresholdMethodBox->addItem(tr("Grain"), T_GRAIN);
 
-  fillingColorBox->addItem(tr("Background"), FILL_BACKGROUND);
-  fillingColorBox->addItem(tr("White"), FILL_WHITE);
-  fillingColorBox->addItem(tr("Black"), FILL_BLACK);
+  // Filling color radio buttons are set up in UI - White is default
 
   QPointer<BinarizationOptionsWidget> otsuBinarizationOptionsWidget = new OtsuBinarizationOptionsWidget(m_settings);
   QPointer<BinarizationOptionsWidget> sauvolaBinarizationOptionsWidget
@@ -246,8 +244,13 @@ void OptionsWidget::thresholdMethodChanged(int idx) {
   emit reloadRequested();
 }
 
-void OptionsWidget::fillingColorChanged(int idx) {
-  const FillingColor color = (FillingColor) fillingColorBox->itemData(idx).toInt();
+void OptionsWidget::fillingColorChanged() {
+  // Determine color from radio buttons
+  FillingColor color = FILL_WHITE;
+  if (fillBackgroundRB->isChecked()) {
+    color = FILL_BACKGROUND;
+  }
+
   ColorCommonOptions colorCommonOptions(m_colorParams.colorCommonOptions());
   colorCommonOptions.setFillingColor(color);
   m_colorParams.setColorCommonOptions(colorCommonOptions);
@@ -797,8 +800,12 @@ void OptionsWidget::updateColorsDisplay() {
   thresholdMethodBox->setCurrentIndex((int) blackWhiteOptions.getBinarizationMethod());
   binarizationOptions->setCurrentIndex((int) blackWhiteOptions.getBinarizationMethod());
 
-  fillingOptions->setVisible(colorMode != BLACK_AND_WHITE);
-  fillingColorBox->setCurrentIndex((int) colorCommonOptions.getFillingColor());
+  // Set radio buttons based on filling color (visible for non-B&W modes)
+  const FillingColor fillingColor = colorCommonOptions.getFillingColor();
+  fillWhiteRB->setChecked(fillingColor == FILL_WHITE || fillingColor == FILL_BLACK);
+  fillBackgroundRB->setChecked(fillingColor == FILL_BACKGROUND);
+  fillWhiteRB->setVisible(colorMode != BLACK_AND_WHITE);
+  fillBackgroundRB->setVisible(colorMode != BLACK_AND_WHITE);
 
   colorSegmentationCB->setVisible(thresholdOptionsVisible);
   segmenterOptionsWidget->setVisible(thresholdOptionsVisible);
@@ -1100,7 +1107,8 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(changeDpiButton, SIGNAL(clicked()), this, SLOT(changeDpiButtonClicked()));
   CONNECT(colorModeSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(colorModeChanged(int)));
   CONNECT(thresholdMethodBox, SIGNAL(currentIndexChanged(int)), this, SLOT(thresholdMethodChanged(int)));
-  CONNECT(fillingColorBox, SIGNAL(currentIndexChanged(int)), this, SLOT(fillingColorChanged(int)));
+  CONNECT(fillWhiteRB, SIGNAL(clicked()), this, SLOT(fillingColorChanged()));
+  CONNECT(fillBackgroundRB, SIGNAL(clicked()), this, SLOT(fillingColorChanged()));
   CONNECT(pictureShapeSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(pictureShapeChanged(int)));
   CONNECT(pictureShapeSensitivitySB, SIGNAL(valueChanged(int)), this, SLOT(pictureShapeSensitivityChanged(int)));
   CONNECT(higherSearchSensitivityCB, SIGNAL(clicked(bool)), this, SLOT(higherSearchSensivityToggled(bool)));
