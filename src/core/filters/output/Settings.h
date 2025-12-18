@@ -161,7 +161,7 @@ class Settings {
   PerPageOutputProcessingParams m_perPageOutputProcessingParams;
   std::unordered_set<PageId> m_colorModeDetectedPages;  // Track pages that have had Vision color detection
   bool m_autoWhiteBalance = true;  // Auto white balance enabled by default
-  std::unordered_set<PageId> m_forceWhiteBalancePages;  // Pages with force WB enabled
+  std::unordered_set<PageId> m_forceWhiteBalanceDisabled;  // Pages with force WB explicitly disabled (default is ON)
   std::unordered_map<PageId, QColor> m_manualWhiteBalanceColors;  // User-picked paper colors per page
 };
 }  // namespace output
