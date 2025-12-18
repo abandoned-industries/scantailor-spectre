@@ -202,10 +202,9 @@ bool isGrayscale(PIX* pix, float* colorFraction) {
   // diffthresh: minimum R-G, R-B, G-B difference to count as "color"
   // factor: subsampling factor for speed
   l_int32 result = pixColorFraction(pix,
-                                     20,    // darkthresh
-                                     235,   // lightthresh
-                                     25,    // diffthresh - pixels with channel diff > 25 are "color"
-                                             // (increased from 15 to be more tolerant of yellowed paper)
+                                     10,    // darkthresh - lowered from 20 to include dark photos
+                                     240,   // lightthresh - raised from 235 to include more highlights
+                                     18,    // diffthresh - lowered from 25 to detect muted colors (browns, tans)
                                      4,     // factor (subsample for speed)
                                      &pixfract,   // fraction of pixels analyzed
                                      &colorfract); // fraction of those that are color
@@ -218,9 +217,9 @@ bool isGrayscale(PIX* pix, float* colorFraction) {
 
   if (colorFraction) *colorFraction = colorfract;
 
-  // If less than 10% of pixels have significant color, it's grayscale
-  // (increased from 5% to be more tolerant of yellowed paper after white balance)
-  return colorfract < 0.10f;
+  // If less than 3% of analyzed pixels have significant color, it's grayscale
+  // Lowered from 10% to catch photos with muted colors and dark backgrounds
+  return colorfract < 0.03f;
 }
 
 }  // namespace
