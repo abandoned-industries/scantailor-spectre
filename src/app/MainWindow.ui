@@ -1055,7 +1055,7 @@ QToolButton:pressed {
   </action>
   <action name="actionSaveProjectAs">
    <property name="text">
-    <string>Save Project As ...</string>
+    <string>Duplicate Project...</string>
    </property>
    <property name="shortcut">
     <string notr="true"/>

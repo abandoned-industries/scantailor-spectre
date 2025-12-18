@@ -137,17 +137,17 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
 
   l_int32 n = numaGetCount(histo);
   l_float32 total = 0;
-  l_float32 darks = 0;      // 0-70: black zone (text)
-  l_float32 midtones = 0;   // 70-170: true midtone zone (indicates tonal content like photos)
-  l_float32 lights = 0;     // 170-255: white zone (paper, even if slightly yellowed)
+  l_float32 darks = 0;      // 0-79: black zone (text + dark edges)
+  l_float32 midtones = 0;   // 80-149: true midtone zone (photos, illustrations)
+  l_float32 lights = 0;     // 150-255: white zone (paper, including off-white/grayish)
 
   for (int i = 0; i < n; i++) {
     l_float32 val;
     numaGetFValue(histo, i, &val);
     total += val;
-    if (i <= 70) {
+    if (i <= 79) {
       darks += val;
-    } else if (i >= 170) {
+    } else if (i >= 150) {
       lights += val;
     } else {
       midtones += val;
@@ -162,22 +162,21 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
   if (midtoneRatio) *midtoneRatio = midRatio;
 
   // B&W if:
-  // 1. Less than 15% of pixels in true midtone zone (60-195)
-  // 2. At least 30% in darks AND at least 30% in lights (bimodal)
+  // 1. Less than 45% of pixels in true midtone zone (80-149)
+  // 2. At least 10% in darks AND at least 30% in lights (bimodal)
   //    OR at least 70% in one extreme (mostly white or mostly black page)
   float darkRatio = darks / total;
   float lightRatio = lights / total;
 
-  // Increased from 15% to 40% to be more lenient with scanned text pages
-  // that have anti-aliasing, paper texture, and residual yellowing
-  bool lowMidtones = midRatio < 0.40f;
+  // 45% threshold - tolerant of anti-aliasing, paper texture, yellowing
+  bool lowMidtones = midRatio < 0.45f;
   bool bimodal = (darkRatio > 0.10f && lightRatio > 0.30f);  // Text on white
   bool extremelyLight = lightRatio > 0.70f;  // Nearly blank page
 
-  // For borderline cases (threshold-40% midtones), check for embedded images
+  // For borderline cases (threshold-45% midtones), check for embedded images
   // using region-based detection
   float thresholdFloat = midtoneThreshold / 100.0f;
-  if (midRatio >= thresholdFloat && midRatio < 0.40f) {
+  if (midRatio >= thresholdFloat && midRatio < 0.45f) {
     fprintf(stderr, "  Borderline case (%.1f%% midtones, threshold=%d%%), checking regions...\n",
             midRatio * 100, midtoneThreshold);
     if (hasHighMidtoneRegion(pix)) {

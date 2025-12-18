@@ -43,8 +43,6 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   connect(autoWhiteBalanceCB, &QCheckBox::toggled, this, &OptionsWidget::autoWhiteBalanceChanged);
 
   // Output settings connections
-  connect(preserveOutputCB, &QCheckBox::toggled, this, &OptionsWidget::preserveOutputChanged);
-  connect(chooseOutputFolderBtn, &QPushButton::clicked, this, &OptionsWidget::chooseOutputFolderClicked);
   connect(formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &OptionsWidget::formatChanged);
   connect(compressionCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
           &OptionsWidget::compressionChanged);
@@ -228,39 +226,6 @@ void OptionsWidget::autoWhiteBalanceChanged(bool checked) {
   emit reloadRequested();  // Force re-detection of current page
 }
 
-void OptionsWidget::preserveOutputChanged(bool checked) {
-  m_settings->setPreserveOutput(checked);
-  chooseOutputFolderBtn->setEnabled(checked);
-
-  if (!checked) {
-    outputPathLabel->setText(tr("Using temporary folder"));
-    // Switch back to temp directory (empty string signals this)
-    emit outputDirectoryChanged(QString());
-  } else if (m_settings->outputPath().isEmpty()) {
-    outputPathLabel->setText(tr("No folder selected"));
-  } else {
-    // Preserve enabled and we have a path - switch to it
-    emit outputDirectoryChanged(m_settings->outputPath());
-  }
-  qDebug() << "Preserve output changed to" << checked;
-}
-
-void OptionsWidget::chooseOutputFolderClicked() {
-  const QString dir = QFileDialog::getExistingDirectory(this, tr("Choose Output Folder"),
-                                                        m_settings->outputPath().isEmpty()
-                                                            ? QDir::homePath()
-                                                            : m_settings->outputPath());
-  if (!dir.isEmpty()) {
-    m_settings->setOutputPath(dir);
-    outputPathLabel->setText(dir);
-    qDebug() << "Output folder set to" << dir;
-    // Notify that output directory changed (if preserve is enabled, this is the new effective dir)
-    if (m_settings->preserveOutput()) {
-      emit outputDirectoryChanged(dir);
-    }
-  }
-}
-
 void OptionsWidget::formatChanged(int index) {
   const OutputFormat format = static_cast<OutputFormat>(formatCombo->itemData(index).toInt());
   m_settings->setOutputFormat(format);
@@ -285,23 +250,9 @@ void OptionsWidget::jpegQualityChanged(int value) {
 
 void OptionsWidget::updateOutputUI() {
   // Block signals while updating UI
-  const bool preserveBlocked = preserveOutputCB->blockSignals(true);
   const bool formatBlocked = formatCombo->blockSignals(true);
   const bool compressionBlocked = compressionCombo->blockSignals(true);
   const bool qualityBlocked = jpegQualitySlider->blockSignals(true);
-
-  // Update checkbox
-  preserveOutputCB->setChecked(m_settings->preserveOutput());
-  chooseOutputFolderBtn->setEnabled(m_settings->preserveOutput());
-
-  // Update path label
-  if (!m_settings->preserveOutput()) {
-    outputPathLabel->setText(tr("Using temporary folder"));
-  } else if (m_settings->outputPath().isEmpty()) {
-    outputPathLabel->setText(tr("No folder selected"));
-  } else {
-    outputPathLabel->setText(m_settings->outputPath());
-  }
 
   // Update format combo
   const int formatIndex = formatCombo->findData(static_cast<int>(m_settings->outputFormat()));
@@ -323,7 +274,6 @@ void OptionsWidget::updateOutputUI() {
   updateFormatOptions();
 
   // Restore signal blocking
-  preserveOutputCB->blockSignals(preserveBlocked);
   formatCombo->blockSignals(formatBlocked);
   compressionCombo->blockSignals(compressionBlocked);
   jpegQualitySlider->blockSignals(qualityBlocked);

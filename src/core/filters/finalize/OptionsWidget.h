@@ -48,8 +48,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::FinalizeOptionsWid
   void clearCacheClicked();
   void clearAllCacheClicked();
   void autoWhiteBalanceChanged(bool checked);
-  void preserveOutputChanged(bool checked);
-  void chooseOutputFolderClicked();
   void formatChanged(int index);
   void compressionChanged(int index);
   void jpegQualityChanged(int value);
