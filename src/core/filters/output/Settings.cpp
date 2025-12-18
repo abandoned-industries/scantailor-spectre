@@ -433,15 +433,18 @@ void Settings::setBlackOnWhite(const PageId& pageId, const bool blackOnWhite) {
 void Settings::setForceWhiteBalance(const PageId& pageId, bool force) {
   const QMutexLocker locker(&m_mutex);
   if (force) {
-    m_forceWhiteBalancePages.insert(pageId);
+    // Default is ON, so remove from disabled set
+    m_forceWhiteBalanceDisabled.erase(pageId);
   } else {
-    m_forceWhiteBalancePages.erase(pageId);
+    // Explicitly disable for this page
+    m_forceWhiteBalanceDisabled.insert(pageId);
   }
 }
 
 bool Settings::getForceWhiteBalance(const PageId& pageId) const {
   const QMutexLocker locker(&m_mutex);
-  return m_forceWhiteBalancePages.count(pageId) > 0;
+  // Default is ON - return false only if explicitly disabled
+  return m_forceWhiteBalanceDisabled.count(pageId) == 0;
 }
 
 void Settings::setManualWhiteBalanceColor(const PageId& pageId, const QColor& color) {
