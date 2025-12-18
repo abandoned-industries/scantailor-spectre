@@ -426,6 +426,16 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
   m_pages = pages;
   m_projectFile = projectFilePath;
 
+  // When opening an existing project (projectReader exists), mark it as saved
+  if (projectReader && !projectFilePath.isEmpty()) {
+    m_projectSavedToFolder = true;
+    m_projectFolderPath = QFileInfo(projectFilePath).absolutePath();
+  } else if (projectFilePath.isEmpty()) {
+    // New project that hasn't been saved yet
+    m_projectSavedToFolder = false;
+    m_projectFolderPath.clear();
+  }
+
   if (projectReader) {
     m_selectedPage = projectReader->selectedPage();
   }

@@ -10,7 +10,9 @@
 ProjectFolder::ProjectFolder(const QString& folderPath) : m_basePath(folderPath) {}
 
 QString ProjectFolder::projectFilePath() const {
-  return QDir(m_basePath).filePath("project.ScanTailor");
+  // Use folder name as project file name (e.g., "MyProject" folder -> "MyProject.ScanTailor")
+  QString folderName = QFileInfo(m_basePath).fileName();
+  return QDir(m_basePath).filePath(folderName + ".ScanTailor");
 }
 
 QString ProjectFolder::originalsDir() const {
@@ -76,5 +78,14 @@ QString ProjectFolder::copyOriginal(const QString& sourcePath) {
 
 bool ProjectFolder::isValidProjectFolder(const QString& path) {
   QDir dir(path);
-  return dir.exists() && dir.exists("project.ScanTailor");
+  if (!dir.exists()) {
+    return false;
+  }
+  // Check for project file matching folder name
+  QString folderName = QFileInfo(path).fileName();
+  if (dir.exists(folderName + ".ScanTailor")) {
+    return true;
+  }
+  // Also accept legacy "project.ScanTailor" for backwards compatibility
+  return dir.exists("project.ScanTailor");
 }
