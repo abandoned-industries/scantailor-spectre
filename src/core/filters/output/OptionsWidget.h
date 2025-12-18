@@ -86,7 +86,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void thresholdMethodChanged(int idx);
 
-  void fillingColorChanged(int idx);
+  void fillingColorChanged();
 
   void pictureShapeChanged(int idx);
 
