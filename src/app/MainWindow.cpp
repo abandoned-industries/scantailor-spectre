@@ -27,6 +27,7 @@
 #include <QScrollBar>
 #include <QSortFilterProxyModel>
 #include <QStackedLayout>
+#include <QStandardPaths>
 #include <set>
 #include <QtWidgets/QInputDialog>
 #include <boost/lambda/lambda.hpp>
@@ -1645,26 +1646,46 @@ bool MainWindow::saveProjectTriggered() {
 }
 
 bool MainWindow::saveProjectAsTriggered() {
-  // Prompt for a folder location to save the project
+  // Get suggested project name and starting directory
+  QString suggestedName = suggestProjectName();
+
   QString startDir;
   if (!m_projectFolderPath.isEmpty()) {
     startDir = QFileInfo(m_projectFolderPath).absolutePath();
   } else {
     QSettings settings;
     startDir = settings.value("project/lastDir").toString();
+    if (startDir.isEmpty()) {
+      startDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    }
   }
 
-  QString folderPath = QFileDialog::getExistingDirectory(
-      this, tr("Choose Project Folder Location"), startDir,
-      QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+  // Use a save file dialog - user picks location and names the folder in one step
+  QString projectFolderPath = QFileDialog::getSaveFileName(
+      this, tr("Save Project"),
+      QDir(startDir).filePath(suggestedName),
+      QString(),  // No filter - we're creating a folder
+      nullptr,
+      QFileDialog::ShowDirsOnly);
 
-  if (folderPath.isEmpty()) {
+  if (projectFolderPath.isEmpty()) {
     return false;  // User cancelled
   }
 
-  // Create a subdirectory named after suggested project name
-  QString projectName = suggestProjectName();
-  QString projectFolderPath = QDir(folderPath).filePath(projectName);
+  // Extract project name from the path
+  QString projectName = QFileInfo(projectFolderPath).fileName();
+
+  // Clean up name - remove characters that are problematic for filenames
+  projectName.remove(QRegularExpression("[<>:\"/\\\\|?*]"));
+
+  if (projectName.isEmpty()) {
+    QMessageBox::warning(this, tr("Invalid Name"), tr("Please enter a valid project name."));
+    return false;
+  }
+
+  // Reconstruct path with cleaned name
+  QString parentDir = QFileInfo(projectFolderPath).absolutePath();
+  projectFolderPath = QDir(parentDir).filePath(projectName);
 
   // Check if folder already exists
   if (QDir(projectFolderPath).exists()) {
@@ -1684,7 +1705,7 @@ bool MainWindow::saveProjectAsTriggered() {
     updateWindowTitle();
 
     QSettings settings;
-    settings.setValue("project/lastDir", folderPath);
+    settings.setValue("project/lastDir", parentDir);
 
     RecentProjects rp;
     rp.read();
