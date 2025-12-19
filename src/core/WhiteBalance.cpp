@@ -23,6 +23,38 @@ const int MAX_SATURATION = 60;
 
 // Number of pixels to sample for margin/neutral detection
 const int SAMPLE_COUNT = 1000;
+
+// Helper: compute a simple local variance proxy (average absolute diff to 3x3 mean).
+int localVarianceScore(const QImage& image, const int x, const int y) {
+  const int w = image.width();
+  const int h = image.height();
+  const int x0 = std::max(0, x - 1);
+  const int x1 = std::min(w - 1, x + 1);
+  const int y0 = std::max(0, y - 1);
+  const int y1 = std::min(h - 1, y + 1);
+
+  int sumR = 0, sumG = 0, sumB = 0, count = 0;
+  for (int yy = y0; yy <= y1; ++yy) {
+    const QRgb* line = reinterpret_cast<const QRgb*>(image.scanLine(yy));
+    for (int xx = x0; xx <= x1; ++xx) {
+      const QRgb p = line[xx];
+      sumR += qRed(p);
+      sumG += qGreen(p);
+      sumB += qBlue(p);
+      ++count;
+    }
+  }
+  const int meanR = sumR / count;
+  const int meanG = sumG / count;
+  const int meanB = sumB / count;
+
+  int diffSum = 0;
+  const QRgb center = image.pixel(x, y);
+  diffSum += std::abs(qRed(center) - meanR);
+  diffSum += std::abs(qGreen(center) - meanG);
+  diffSum += std::abs(qBlue(center) - meanB);
+  return diffSum / 3;  // average per channel
+}
 }  // namespace
 
 bool WhiteBalance::hasSignificantMargins(const QImage& image, const QRect& contentBox) {
@@ -213,7 +245,7 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
     return QColor();
   }
 
-  // Collect bright content pixels (not pure white from margins)
+  // Collect bright, low-saturation, low-variance pixels (prefer paper-like areas)
   struct PixelSample {
     int r, g, b;
     int brightness;
@@ -221,8 +253,8 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
   std::vector<PixelSample> samples;
   samples.reserve(SAMPLE_COUNT);
 
-  // Sample random pixels, excluding pure white and very dark
-  for (int i = 0; i < SAMPLE_COUNT * 10; ++i) {
+  // Sample random pixels, excluding pure white and very dark, and require low saturation / low variance
+  for (int i = 0; i < SAMPLE_COUNT * 20 && samples.size() < SAMPLE_COUNT; ++i) {
     const int x = rand() % image.width();
     const int y = rand() % image.height();
     const QRgb pixel = image.pixel(x, y);
@@ -232,7 +264,7 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
     const int brightness = (r + g + b) / 3;
 
     // Skip very dark pixels (content, not paper)
-    if (brightness < 150) {
+    if (brightness < 170) {
       continue;
     }
 
@@ -242,11 +274,20 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
       continue;
     }
 
-    samples.push_back({r, g, b, brightness});
-
-    if (samples.size() >= SAMPLE_COUNT) {
-      break;
+    const int maxC = std::max({r, g, b});
+    const int minC = std::min({r, g, b});
+    const int saturation = maxC - minC;
+    if (saturation > 40) {  // prefer low-sat bright areas
+      continue;
     }
+
+    // Require locally uniform area to avoid shiny highlights
+    const int varScore = localVarianceScore(image, x, y);
+    if (varScore > 20) {
+      continue;
+    }
+
+    samples.push_back({r, g, b, brightness});
   }
 
   if (samples.size() < 10) {
@@ -279,6 +320,13 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
   const size_t mid = rValues.size() / 2;
   QColor result(rValues[mid], gValues[mid], bValues[mid]);
 
+  // If our "brightest" sample is still too dark, it's likely not paper; skip.
+  const int brightness = (result.red() + result.green() + result.blue()) / 3;
+  if (brightness < 180) {
+    qDebug() << "WhiteBalance: brightest sample too dark for forced WB, skipping";
+    return QColor();
+  }
+
   qDebug() << "WhiteBalance: brightest content pixels color:" << result
            << "from" << samples.size() << "samples";
   return result;
@@ -304,23 +352,18 @@ QImage WhiteBalance::apply(const QImage& image, const QColor& paperColor) {
     return image;
   }
 
-  // Calculate correction multipliers
-  // We want to make paperColor become neutral gray
-  // The target neutral value is the average of the paper RGB
-  const float targetNeutral = (paperR + paperG + paperB) / 3.0f;
+  // Target a near-white neutral value so paper brightens toward white.
+  const float targetNeutral = 245.0f;
 
   float rMult = targetNeutral / paperR;
   float gMult = targetNeutral / paperG;
   float bMult = targetNeutral / paperB;
 
-  // Normalize so the brightest channel doesn't clip too much
-  // This prevents over-brightening
-  const float maxMult = std::max({rMult, gMult, bMult});
-  if (maxMult > 1.0f) {
-    rMult /= maxMult;
-    gMult /= maxMult;
-    bMult /= maxMult;
-  }
+  // Clamp multipliers to a reasonable range to prevent extreme shifts.
+  auto clampGain = [](float v) { return std::clamp(v, 0.2f, 6.0f); };
+  rMult = clampGain(rMult);
+  gMult = clampGain(gMult);
+  bMult = clampGain(bMult);
 
   qDebug() << "WhiteBalance: applying correction - R*" << rMult << "G*" << gMult << "B*" << bMult;
 

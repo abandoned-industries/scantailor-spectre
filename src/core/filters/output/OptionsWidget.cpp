@@ -757,6 +757,7 @@ void OptionsWidget::updateColorsDisplay() {
   equalizeIlluminationCB->setVisible(!isColorOrGrayscale);
   equalizeIlluminationColorCB->setChecked(colorCommonOptions.normalizeIllumination());
   equalizeIlluminationColorCB->setVisible(colorMode != BLACK_AND_WHITE);
+  // Allow illumination equalization in Color / Grayscale / Mixed as well (previously disabled in pure Color).
   equalizeIlluminationColorCB->setEnabled(isColorOrGrayscale || blackWhiteOptions.normalizeIllumination());
   // Force white balance - only for color modes
   forceWhiteBalanceCB->setChecked(m_settings->getForceWhiteBalance(m_pageId));

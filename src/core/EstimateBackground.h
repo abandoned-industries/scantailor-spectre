@@ -12,6 +12,7 @@ class QPolygonF;
 namespace imageproc {
 class PolynomialSurface;
 class GrayImage;
+class BinaryImage;
 }  // namespace imageproc
 
 /**
@@ -44,6 +45,7 @@ class GrayImage;
 imageproc::PolynomialSurface estimateBackground(const imageproc::GrayImage& input,
                                                 const QPolygonF& areaToConsider,
                                                 const TaskStatus& status,
-                                                DebugImages* dbg = nullptr);
+                                                DebugImages* dbg = nullptr,
+                                                const imageproc::BinaryImage* mask = nullptr);
 
 #endif
