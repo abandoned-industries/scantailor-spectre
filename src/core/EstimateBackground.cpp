@@ -13,8 +13,10 @@
 #include <PolynomialLine.h>
 #include <PolynomialSurface.h>
 #include <RasterOpGeneric.h>
+#include <RasterOp.h>
 #include <Scale.h>
 #include <SeedFill.h>
+#include <BinaryThreshold.h>
 #include <Transform.h>
 
 #include <QDebug>
@@ -141,7 +143,8 @@ static void morphologicalPreprocessingInPlace(GrayImage& image, DebugImages* dbg
 imageproc::PolynomialSurface estimateBackground(const GrayImage& input,
                                                 const QPolygonF& areaToConsider,
                                                 const TaskStatus& status,
-                                                DebugImages* dbg) {
+                                                DebugImages* dbg,
+                                                const BinaryImage* userMask) {
   QSize reducedSize(input.size());
   reducedSize.scale(300, 300, Qt::KeepAspectRatio);
   GrayImage background(scaleToGray(GrayImage(input), reducedSize));
@@ -167,6 +170,14 @@ imageproc::PolynomialSurface estimateBackground(const GrayImage& input,
     QTransform xform;
     xform.scale((double) reducedSize.width() / input.width(), (double) reducedSize.height() / input.height());
     PolygonRasterizer::fillExcept(mask, WHITE, xform.map(areaToConsider), Qt::WindingFill);
+  }
+
+  if (userMask && (userMask->size() == input.size()) && !userMask->isNull()) {
+    // Downscale user mask to reducedSize and AND with existing mask.
+    GrayImage userMaskGray(userMask->toQImage());
+    GrayImage maskGray(scaleToGray(userMaskGray, reducedSize));
+    BinaryImage downscaledUserMask(maskGray, BinaryThreshold(1));
+    rasterOp<RopAnd<RopSrc, RopDst>>(mask, downscaledUserMask);
   }
 
   if (dbg) {

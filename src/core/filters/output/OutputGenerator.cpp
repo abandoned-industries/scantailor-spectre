@@ -479,6 +479,50 @@ void reserveBlackAndWhite(QImage& img, const BinaryImage& mask) {
   }
 }
 
+void flattenBackgroundToPaper(QImage& img, const BinaryImage& contentMask, const QColor& paperColor) {
+  if (!paperColor.isValid()) {
+    return;
+  }
+
+  QImage work = img.convertToFormat(QImage::Format_ARGB32);
+  const int w = work.width();
+  const int h = work.height();
+  const uint32_t* maskLine = contentMask.data();
+  const int maskStride = contentMask.wordsPerLine();
+  const uint32_t msb = uint32_t(1) << 31;
+  QRgb* line = reinterpret_cast<QRgb*>(work.bits());
+  const int stride = work.bytesPerLine() / 4;
+
+  const int targetR = paperColor.red();
+  const int targetG = paperColor.green();
+  const int targetB = paperColor.blue();
+
+  for (int y = 0; y < h; ++y, line += stride, maskLine += maskStride) {
+    for (int x = 0; x < w; ++x) {
+      if (!(maskLine[x >> 5] & (msb >> (x & 31)))) {
+        continue;  // outside content area
+      }
+      const QRgb p = line[x];
+      const int r = qRed(p);
+      const int g = qGreen(p);
+      const int b = qBlue(p);
+      const int maxC = std::max({r, g, b});
+      const int minC = std::min({r, g, b});
+      const int saturation = maxC - minC;
+      const int brightness = (r + g + b) / 3;
+
+      // Only adjust bright, low-saturation pixels (background-like)
+      if (brightness < 170 || saturation > 45) {
+        continue;
+      }
+
+      line[x] = qRgb(targetR, targetG, targetB);
+    }
+  }
+
+  img = work.convertToFormat(img.format());
+}
+
 template <typename MixedPixel>
 void fillExcept(QImage& image, const BinaryImage& bwMask, const QColor& color) {
   auto* imageLine = reinterpret_cast<MixedPixel*>(image.bits());
@@ -1226,20 +1270,20 @@ void OutputGenerator::Processor::updateBlackOnWhite(const FilterData& input) {
 void OutputGenerator::Processor::initFilterData(const FilterData& input) {
   updateBlackOnWhite(input);
 
-  m_inputGrayImage = m_blackOnWhite ? input.grayImage() : input.grayImage().inverted();
-  m_inputOrigImage = input.origImage();
-  if (!m_blackOnWhite) {
-    m_inputOrigImage.invertPixels();
-  }
-
   // Determine if output should be color based on mode and input
   const ColorMode colorMode = m_colorParams.colorMode();
+
+  // Start from the true source image (non-inverted). Apply WB before any black-on-white inversion.
+  QImage wbOrigImage = input.origImage();
+  QColor wbAppliedColor;
 
   // Apply white balance correction for color modes
   // Priority: 1) Manual picked color, 2) Force WB (auto-detect brightest), 3) None
   if (colorMode == COLOR || colorMode == COLOR_GRAYSCALE || colorMode == MIXED) {
     const QColor manualWBColor = m_settings->getManualWhiteBalanceColor(m_pageId);
     const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
+    const QColor marginColor
+        = WhiteBalance::detectPaperColor(wbOrigImage, m_contentAreaInOriginalCs.boundingRect().toRect());
 
     fprintf(stderr, "OutputGenerator: colorMode=%d forceWB=%d manualWB=%d page=%s\n",
             colorMode, forceWB, manualWBColor.isValid(), m_pageId.imageId().filePath().toUtf8().constData());
@@ -1247,23 +1291,50 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
     if (manualWBColor.isValid()) {
       // User picked a paper color - use it directly
       qDebug() << "OutputGenerator: Applying manual white balance with color:" << manualWBColor;
-      m_inputOrigImage = WhiteBalance::apply(m_inputOrigImage, manualWBColor);
+      wbOrigImage = WhiteBalance::apply(wbOrigImage, manualWBColor);
+      wbAppliedColor = manualWBColor;
       qDebug() << "OutputGenerator: APPLIED manual white balance";
     } else if (forceWB) {
-      // Auto-detect brightest pixels and use them as paper color
-      qDebug() << "OutputGenerator: Applying force white balance...";
-      const QColor brightestColor = WhiteBalance::findBrightestPixels(m_inputOrigImage);
-      qDebug() << "OutputGenerator: Detected brightest color:" << brightestColor
-               << "valid:" << brightestColor.isValid()
-               << "hasCast:" << WhiteBalance::hasSignificantCast(brightestColor);
-      if (brightestColor.isValid() && WhiteBalance::hasSignificantCast(brightestColor)) {
-        m_inputOrigImage = WhiteBalance::apply(m_inputOrigImage, brightestColor);
+      // Prefer margin-based paper detection; fallback to brightest pixels (paper-like) if needed.
+      QColor wbColor = marginColor;
+      if (!wbColor.isValid()) {
+        qDebug() << "OutputGenerator: force WB - no margin color, using brightest paper-like pixels";
+        wbColor = WhiteBalance::findBrightestPixels(wbOrigImage);
+      } else {
+        qDebug() << "OutputGenerator: force WB using margin-detected paper color:" << wbColor;
+      }
+
+      if (wbColor.isValid() && WhiteBalance::hasSignificantCast(wbColor)) {
+        wbOrigImage = WhiteBalance::apply(wbOrigImage, wbColor);
+        wbAppliedColor = wbColor;
         qDebug() << "OutputGenerator: APPLIED forced white balance";
       } else {
         qDebug() << "OutputGenerator: NOT applying - color invalid or no cast";
       }
+    } else if (marginColor.isValid() && WhiteBalance::hasSignificantCast(marginColor)) {
+      // Auto WB (non-force) can benefit from margin color if it shows a cast.
+      qDebug() << "OutputGenerator: Auto WB using margin-detected paper color:" << marginColor;
+      wbOrigImage = WhiteBalance::apply(wbOrigImage, marginColor);
+      wbAppliedColor = marginColor;
+      qDebug() << "OutputGenerator: APPLIED auto white balance (margin)";
     }
   }
+
+  // If we have a paper color (manual / margin / brightest), nudge background-like pixels inside content to it.
+  if (wbAppliedColor.isValid()) {
+    BinaryImage contentMask(input.origImage().size(), BLACK);
+    PolygonRasterizer::fill(contentMask, WHITE, m_contentAreaInOriginalCs, Qt::WindingFill);
+    flattenBackgroundToPaper(wbOrigImage, contentMask, wbAppliedColor);
+  }
+
+  // Assign processed originals and apply inversion only after WB, if needed.
+  m_inputOrigImage = wbOrigImage;
+  m_inputGrayImage = input.grayImage();
+  if (!m_blackOnWhite) {
+    m_inputOrigImage.invertPixels();
+    m_inputGrayImage = m_inputGrayImage.inverted();
+  }
+
   if (colorMode == GRAYSCALE) {
     // Force grayscale output regardless of input
     m_colorOriginal = false;
@@ -1272,7 +1343,7 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
     m_colorOriginal = true;
   } else {
     // Auto-detect for COLOR_GRAYSCALE and other modes
-    m_colorOriginal = !m_inputOrigImage.allGray();
+    m_colorOriginal = !wbOrigImage.allGray();
   }
 }
 
@@ -1921,7 +1992,37 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
                                                                 const QTransform& xform,
                                                                 const QRect& targetRect,
                                                                 GrayImage* background) const {
-  GrayImage toBeNormalized = transformToGray(input, xform, targetRect, OutsidePixels::assumeWeakNearest());
+  // Build a mask of likely-background (paper-like) pixels to avoid using photo regions.
+  QImage colorInput = transform(input, xform, targetRect, OutsidePixels::assumeWeakNearest());
+  BinaryImage bgMask(colorInput.size(), BLACK);
+  {
+    const int w = colorInput.width();
+    const int h = colorInput.height();
+    for (int y = 0; y < h; ++y) {
+      const QRgb* line = reinterpret_cast<const QRgb*>(colorInput.constScanLine(y));
+      uint32_t* maskLine = bgMask.data() + y * bgMask.wordsPerLine();
+      for (int x = 0; x < w; ++x) {
+        const QRgb p = line[x];
+        const int r = qRed(p);
+        const int g = qGreen(p);
+        const int b = qBlue(p);
+        const int maxC = std::max({r, g, b});
+        const int minC = std::min({r, g, b});
+        const int saturation = maxC - minC;
+        const int brightness = (r + g + b) / 3;
+        // Paper-like: reasonably bright and low saturation.
+        if (brightness > 140 && saturation < 50) {
+          maskLine[x >> 5] |= (uint32_t(1) << (31 - (x & 31)));
+        }
+      }
+    }
+  }
+
+  GrayImage toBeNormalized(GrayImage(toGrayscale(colorInput)));
+  if (m_dbg) {
+    m_dbg->add(toBeNormalized, "toBeNormalized_color");
+    m_dbg->add(bgMask, "paper_like_mask");
+  }
   if (m_dbg) {
     m_dbg->add(toBeNormalized, "toBeNormalized");
   }
@@ -1931,7 +2032,8 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
   QPolygonF transformedConsiderationArea = xform.map(areaToConsider);
   transformedConsiderationArea.translate(-targetRect.topLeft());
 
-  const PolynomialSurface bgPs = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg);
+  const PolynomialSurface bgPs
+      = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg, &bgMask);
   m_status.throwIfCancelled();
 
   GrayImage bgImg(bgPs.render(toBeNormalized.size()));
