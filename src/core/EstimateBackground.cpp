@@ -144,7 +144,8 @@ imageproc::PolynomialSurface estimateBackground(const GrayImage& input,
                                                 const QPolygonF& areaToConsider,
                                                 const TaskStatus& status,
                                                 DebugImages* dbg,
-                                                const BinaryImage* userMask) {
+                                                const BinaryImage* userMask,
+                                                double minMaskCoverage) {
   QSize reducedSize(input.size());
   reducedSize.scale(300, 300, Qt::KeepAspectRatio);
   GrayImage background(scaleToGray(GrayImage(input), reducedSize));
@@ -178,6 +179,13 @@ imageproc::PolynomialSurface estimateBackground(const GrayImage& input,
     GrayImage maskGray(scaleToGray(userMaskGray, reducedSize));
     BinaryImage downscaledUserMask(maskGray, BinaryThreshold(1));
     rasterOp<RopAnd<RopSrc, RopDst>>(mask, downscaledUserMask);
+    if (minMaskCoverage > 0.0) {
+      const double coverage = static_cast<double>(mask.countBlackPixels()) / (mask.width() * mask.height());
+      if (coverage < minMaskCoverage) {
+        // Not enough paper-like pixels; fall back to original mask.
+        mask.fill(WHITE);
+      }
+    }
   }
 
   if (dbg) {

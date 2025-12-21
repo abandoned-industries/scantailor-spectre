@@ -279,20 +279,66 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="forceWhiteBalanceCB">
-             <property name="toolTip">
-              <string>Find brightest pixels and assume they should be white. Use for pages with color cast but no clear margins.</string>
-             </property>
-             <property name="text">
-              <string>Force white balance</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="pickPaperColorLayout">
-             <item>
-              <widget class="QPushButton" name="pickPaperColorBtn">
-               <property name="toolTip">
+           <widget class="QCheckBox" name="forceWhiteBalanceCB">
+            <property name="toolTip">
+             <string>Find brightest pixels and assume they should be white. Use for pages with color cast but no clear margins.</string>
+            </property>
+            <property name="text">
+             <string>Force white balance</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="brightnessLabel">
+            <property name="text">
+             <string>Brightness</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="brightnessSlider">
+            <property name="minimum">
+             <number>-100</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="contrastLabel">
+            <property name="text">
+             <string>Contrast</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="contrastSlider">
+            <property name="minimum">
+             <number>-100</number>
+            </property>
+            <property name="maximum">
+             <number>50</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="pickPaperColorLayout">
+            <item>
+             <widget class="QPushButton" name="pickPaperColorBtn">
+              <property name="toolTip">
                 <string>Click to pick a paper color from the screen. This color will be corrected to neutral white.</string>
                </property>
                <property name="text">

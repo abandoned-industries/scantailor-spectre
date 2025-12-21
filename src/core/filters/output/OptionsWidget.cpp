@@ -375,6 +375,19 @@ void OptionsWidget::updatePaperColorSwatch() {
   }
 }
 
+void OptionsWidget::brightnessChanged(int value) {
+  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  opp.setBrightness(value / 100.0);  // expand effective range
+  m_settings->setOutputProcessingParams(m_pageId, opp);
+  emit reloadRequested();
+}
+
+void OptionsWidget::contrastChanged(int value) {
+  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  opp.setContrast(value / 100.0);  // expand effective range
+  m_settings->setOutputProcessingParams(m_pageId, opp);
+  emit reloadRequested();
+}
 
 void OptionsWidget::binarizationSettingsChanged() {
   emit reloadRequested();
@@ -770,6 +783,10 @@ void OptionsWidget::updateColorsDisplay() {
   if (showPaperColorPicker) {
     updatePaperColorSwatch();
   }
+
+  const OutputProcessingParams& opp = m_settings->getOutputProcessingParams(m_pageId);
+  brightnessSlider->setValue(static_cast<int>(opp.brightness() * 100.0));
+  contrastSlider->setValue(static_cast<int>(opp.contrast() * 100.0));
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
   morphologicalSmoothingCB->setChecked(blackWhiteOptions.isMorphologicalSmoothingEnabled());
@@ -1133,6 +1150,8 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(forceWhiteBalanceCB, SIGNAL(clicked(bool)), this, SLOT(forceWhiteBalanceToggled(bool)));
   CONNECT(pickPaperColorBtn, SIGNAL(clicked()), this, SLOT(pickPaperColorClicked()));
   CONNECT(clearPaperColorBtn, SIGNAL(clicked()), this, SLOT(clearPaperColorClicked()));
+  CONNECT(brightnessSlider, SIGNAL(valueChanged(int)), this, SLOT(brightnessChanged(int)));
+  CONNECT(contrastSlider, SIGNAL(valueChanged(int)), this, SLOT(contrastChanged(int)));
   CONNECT(savitzkyGolaySmoothingCB, SIGNAL(clicked(bool)), this, SLOT(savitzkyGolaySmoothingToggled(bool)));
   CONNECT(morphologicalSmoothingCB, SIGNAL(clicked(bool)), this, SLOT(morphologicalSmoothingToggled(bool)));
   CONNECT(splittingCB, SIGNAL(clicked(bool)), this, SLOT(splittingToggled(bool)));
