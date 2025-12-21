@@ -1327,6 +1327,33 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
     flattenBackgroundToPaper(wbOrigImage, contentMask, wbAppliedColor);
   }
 
+  // Apply per-page brightness / contrast adjustments (after WB / illumination, before inversion).
+  const OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  if (opp.brightness() != 0.0 || opp.contrast() != 0.0) {
+    // brightness: [-1, 1] mapped to [-128, 128] additive
+    const int bShift = static_cast<int>(opp.brightness() * 128.0);
+    // contrast: [-1, 1] mapped to [0.2, 2.0] multiplier around 128
+    const double cMul = 1.0 + opp.contrast() * 0.8;
+
+    QImage work = wbOrigImage.convertToFormat(QImage::Format_ARGB32);
+    const int w = work.width();
+    const int h = work.height();
+    for (int y = 0; y < h; ++y) {
+      QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
+      for (int x = 0; x < w; ++x) {
+        const QRgb p = line[x];
+        int r = static_cast<int>((qRed(p) - 128) * cMul + 128 + bShift);
+        int g = static_cast<int>((qGreen(p) - 128) * cMul + 128 + bShift);
+        int b = static_cast<int>((qBlue(p) - 128) * cMul + 128 + bShift);
+        r = std::clamp(r, 0, 255);
+        g = std::clamp(g, 0, 255);
+        b = std::clamp(b, 0, 255);
+        line[x] = qRgb(r, g, b);
+      }
+    }
+    wbOrigImage = work.convertToFormat(wbOrigImage.format());
+  }
+
   // Assign processed originals and apply inversion only after WB, if needed.
   m_inputOrigImage = wbOrigImage;
   m_inputGrayImage = input.grayImage();
@@ -2033,7 +2060,8 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
   transformedConsiderationArea.translate(-targetRect.topLeft());
 
   const PolynomialSurface bgPs
-      = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg, &bgMask);
+      = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg,
+                           bgMask.isNull() ? nullptr : &bgMask, 0.05);
   m_status.throwIfCancelled();
 
   GrayImage bgImg(bgPs.render(toBeNormalized.size()));

@@ -46,6 +46,7 @@ imageproc::PolynomialSurface estimateBackground(const imageproc::GrayImage& inpu
                                                 const QPolygonF& areaToConsider,
                                                 const TaskStatus& status,
                                                 DebugImages* dbg = nullptr,
-                                                const imageproc::BinaryImage* mask = nullptr);
+                                                const imageproc::BinaryImage* mask = nullptr,
+                                                double minMaskCoverage = 0.0);
 
 #endif

@@ -29,9 +29,17 @@ class OutputProcessingParams {
 
   void setBlackOnWhiteSetManually(bool blackOnWhiteSetManually);
 
+  double brightness() const { return m_brightness; }
+  void setBrightness(double val) { m_brightness = val; }
+
+  double contrast() const { return m_contrast; }
+  void setContrast(double val) { m_contrast = val; }
+
  private:
   bool m_autoZonesFound;
   bool m_blackOnWhiteSetManually;
+  double m_brightness;
+  double m_contrast;
 };
 
 

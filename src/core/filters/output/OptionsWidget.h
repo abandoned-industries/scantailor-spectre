@@ -179,6 +179,9 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void updatePaperColorSwatch();
 
+  void brightnessChanged(int value);
+  void contrastChanged(int value);
+
   void updateDewarpingDisplay();
 
   void addBinarizationOptionsWidget(BinarizationOptionsWidget* widget);
