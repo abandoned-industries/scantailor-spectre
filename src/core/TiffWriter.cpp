@@ -54,16 +54,27 @@ class TiffWriter::TiffHandle {
 
 static tsize_t deviceRead(thandle_t context, tdata_t data, tsize_t size) {
   // Not implemented.
+  Q_UNUSED(context);
+  Q_UNUSED(data);
+  Q_UNUSED(size);
   return 0;
 }
 
 static tsize_t deviceWrite(thandle_t context, tdata_t data, tsize_t size) {
-  auto* dev = (QIODevice*) context;
-  return (tsize_t) dev->write(static_cast<char*>(data), size);
+  auto* dev = reinterpret_cast<QIODevice*>(context);
+  if (!dev) {
+    qWarning() << "TiffWriter: deviceWrite called with null context";
+    return 0;
+  }
+  return static_cast<tsize_t>(dev->write(static_cast<char*>(data), size));
 }
 
 static toff_t deviceSeek(thandle_t context, toff_t offset, int whence) {
-  auto* dev = (QIODevice*) context;
+  auto* dev = reinterpret_cast<QIODevice*>(context);
+  if (!dev) {
+    qWarning() << "TiffWriter: deviceSeek called with null context";
+    return 0;
+  }
 
   switch (whence) {
     case SEEK_SET:
@@ -82,13 +93,21 @@ static toff_t deviceSeek(thandle_t context, toff_t offset, int whence) {
 }
 
 static int deviceClose(thandle_t context) {
-  auto* dev = (QIODevice*) context;
+  auto* dev = reinterpret_cast<QIODevice*>(context);
+  if (!dev) {
+    qWarning() << "TiffWriter: deviceClose called with null context";
+    return -1;
+  }
   dev->close();
   return 0;
 }
 
 static toff_t deviceSize(thandle_t context) {
-  auto* dev = (QIODevice*) context;
+  auto* dev = reinterpret_cast<QIODevice*>(context);
+  if (!dev) {
+    qWarning() << "TiffWriter: deviceSize called with null context";
+    return 0;
+  }
   return dev->size();
 }
 

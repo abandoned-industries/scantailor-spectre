@@ -13,6 +13,8 @@
 #include <QPdfDocument>
 #include <QSizeF>
 
+#include <limits>
+
 #include "Dpi.h"
 #include "ImageMetadata.h"
 
@@ -126,13 +128,23 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
   }
 
   // Report metadata for each page
+  constexpr double maxDimension = static_cast<double>(std::numeric_limits<int>::max());
+
   for (int i = 0; i < pageCount; ++i) {
     // Get page size in points (1/72 inch)
     const QSizeF pageSizePoints = doc.pagePointSize(i);
 
-    // Calculate pixel dimensions at default render DPI
-    const int widthPx = static_cast<int>(pageSizePoints.width() * DEFAULT_RENDER_DPI / 72.0 + 0.5);
-    const int heightPx = static_cast<int>(pageSizePoints.height() * DEFAULT_RENDER_DPI / 72.0 + 0.5);
+    // Calculate pixel dimensions at default render DPI with overflow protection
+    const double calcWidth = pageSizePoints.width() * DEFAULT_RENDER_DPI / 72.0 + 0.5;
+    const double calcHeight = pageSizePoints.height() * DEFAULT_RENDER_DPI / 72.0 + 0.5;
+
+    if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
+      qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
+      continue;
+    }
+
+    const int widthPx = static_cast<int>(calcWidth);
+    const int heightPx = static_cast<int>(calcHeight);
 
     const QSize size(widthPx, heightPx);
     const Dpi dpi(DEFAULT_RENDER_DPI, DEFAULT_RENDER_DPI);
@@ -159,10 +171,18 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
     return QImage();
   }
 
-  // Get page size in points and calculate pixel size at requested DPI
+  // Get page size in points and calculate pixel size at requested DPI with overflow protection
   const QSizeF pageSizePoints = doc.pagePointSize(pageNum);
-  const QSize renderSize(static_cast<int>(pageSizePoints.width() * dpi / 72.0 + 0.5),
-                         static_cast<int>(pageSizePoints.height() * dpi / 72.0 + 0.5));
+  constexpr double maxDim = static_cast<double>(std::numeric_limits<int>::max());
+  const double calcWidth = pageSizePoints.width() * dpi / 72.0 + 0.5;
+  const double calcHeight = pageSizePoints.height() * dpi / 72.0 + 0.5;
+
+  if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDim || calcHeight > maxDim) {
+    qWarning() << "PdfReader: Invalid render dimensions for page" << pageNum;
+    return QImage();
+  }
+
+  const QSize renderSize(static_cast<int>(calcWidth), static_cast<int>(calcHeight));
 
   // Render the page (returns ARGB32 with transparency)
   QImage pdfImage = doc.render(pageNum, renderSize);

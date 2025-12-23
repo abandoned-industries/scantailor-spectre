@@ -109,6 +109,25 @@ void haruErrorHandler(HPDF_STATUS error_no, HPDF_STATUS detail_no, void* user_da
   qWarning() << "LibHaru error:" << Qt::hex << error_no << "detail:" << detail_no;
 }
 
+// RAII wrapper for HPDF_Doc to ensure proper cleanup on all exit paths
+class HpdfDocGuard {
+ public:
+  explicit HpdfDocGuard(HPDF_Error_Handler errorHandler, void* userData)
+      : m_doc(HPDF_New(errorHandler, userData)) {}
+  ~HpdfDocGuard() {
+    if (m_doc) {
+      HPDF_Free(m_doc);
+    }
+  }
+  HpdfDocGuard(const HpdfDocGuard&) = delete;
+  HpdfDocGuard& operator=(const HpdfDocGuard&) = delete;
+  HPDF_Doc get() const { return m_doc; }
+  explicit operator bool() const { return m_doc != nullptr; }
+
+ private:
+  HPDF_Doc m_doc;
+};
+
 bool exportWithLibHaru(const QStringList& imagePaths,
                        const QString& outputPdfPath,
                        const QString& title,
@@ -116,11 +135,12 @@ bool exportWithLibHaru(const QStringList& imagePaths,
                        bool compressGrayscale,
                        int maxDpi,
                        const PdfExporter::ProgressCallback& progressCallback) {
-  HPDF_Doc pdf = HPDF_New(haruErrorHandler, nullptr);
-  if (!pdf) {
+  HpdfDocGuard pdfGuard(haruErrorHandler, nullptr);
+  if (!pdfGuard) {
     qDebug() << "PdfExporter: Failed to create PDF document";
     return false;
   }
+  HPDF_Doc pdf = pdfGuard.get();
 
   HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
 
@@ -142,8 +162,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     if (progressCallback) {
       if (!progressCallback(currentPage, totalPages)) {
         qDebug() << "PdfExporter: Export cancelled by user";
-        HPDF_Free(pdf);
-        return false;
+        return false;  // RAII cleanup handles HPDF_Free
       }
     }
 
@@ -186,6 +205,10 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     float pageHeight = image.height() * 72.0f / dpiY;
 
     HPDF_Page page = HPDF_AddPage(pdf);
+    if (!page) {
+      qWarning() << "PdfExporter: Failed to add page" << currentPage;
+      continue;
+    }
     HPDF_Page_SetWidth(page, pageWidth);
     HPDF_Page_SetHeight(page, pageHeight);
 
@@ -290,8 +313,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
   }
 
   if (pagesWritten == 0) {
-    HPDF_Free(pdf);
-    return false;
+    return false;  // RAII cleanup handles HPDF_Free
   }
 
   // Signal that we're now saving the PDF (all pages processed)
@@ -300,7 +322,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
   }
 
   HPDF_STATUS status = HPDF_SaveToFile(pdf, outputPdfPath.toUtf8().constData());
-  HPDF_Free(pdf);
+  // RAII cleanup handles HPDF_Free
 
   if (status != HPDF_OK) {
     qDebug() << "PdfExporter: Failed to save PDF file";

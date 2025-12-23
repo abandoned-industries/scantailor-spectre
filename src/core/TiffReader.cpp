@@ -352,11 +352,22 @@ ImageMetadata TiffReader::currentPageMetadata(const TiffHandle& tif) {
   uint32_t width = 0, height = 0;
   float xres = 0, yres = 0;
   uint16_t resUnit = 0;
-  TIFFGetField(tif.handle(), TIFFTAG_IMAGEWIDTH, &width);
-  TIFFGetField(tif.handle(), TIFFTAG_IMAGELENGTH, &height);
+
+  // Width and height are required fields - validate they exist
+  if (!TIFFGetField(tif.handle(), TIFFTAG_IMAGEWIDTH, &width) || width == 0) {
+    qWarning() << "TiffReader: Failed to read image width or width is 0";
+    return ImageMetadata(QSize(), Dpi());
+  }
+  if (!TIFFGetField(tif.handle(), TIFFTAG_IMAGELENGTH, &height) || height == 0) {
+    qWarning() << "TiffReader: Failed to read image height or height is 0";
+    return ImageMetadata(QSize(), Dpi());
+  }
+
+  // Resolution fields are optional
   TIFFGetField(tif.handle(), TIFFTAG_XRESOLUTION, &xres);
   TIFFGetField(tif.handle(), TIFFTAG_YRESOLUTION, &yres);
   TIFFGetFieldDefaulted(tif.handle(), TIFFTAG_RESOLUTIONUNIT, &resUnit);
+
   return ImageMetadata(QSize(width, height), getDpi(xres, yres, resUnit));
 }
 
