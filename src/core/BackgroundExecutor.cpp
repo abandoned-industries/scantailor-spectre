@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QThread>
+#include <atomic>
 
 #include "OutOfMemoryHandler.h"
 
@@ -37,7 +38,7 @@ class BackgroundExecutor::Impl : public QThread {
  private:
   BackgroundExecutor& m_owner;
   Dispatcher m_dispatcher;
-  bool m_threadStarted;
+  std::atomic<bool> m_threadStarted{false};
 };
 
 
@@ -87,7 +88,7 @@ void BackgroundExecutor::Dispatcher::customEvent(QEvent* event) {
 /*======================= BackgroundExecutor::Impl =========================*/
 
 BackgroundExecutor::Impl::Impl(BackgroundExecutor& owner)
-    : m_owner(owner), m_dispatcher(*this), m_threadStarted(false) {
+    : m_owner(owner), m_dispatcher(*this) {
   m_dispatcher.moveToThread(this);
 }
 
@@ -98,9 +99,10 @@ BackgroundExecutor::Impl::~Impl() {
 
 void BackgroundExecutor::Impl::enqueueTask(const TaskPtr& task) {
   QCoreApplication::postEvent(&m_dispatcher, new TaskEvent(task));
-  if (!m_threadStarted) {
+  // Use atomic compare-exchange to ensure thread is started exactly once
+  bool expected = false;
+  if (m_threadStarted.compare_exchange_strong(expected, true)) {
     start();
-    m_threadStarted = true;
   }
 }
 

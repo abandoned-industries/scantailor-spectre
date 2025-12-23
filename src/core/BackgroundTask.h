@@ -26,9 +26,9 @@ class BackgroundTask : public AbstractCommand<FilterResultPtr>, public TaskStatu
 
   Type type() const { return m_type; }
 
-  void cancel() override { m_cancelFlag.storeRelaxed(1); }
+  void cancel() override { m_cancelFlag.storeRelease(1); }
 
-  bool isCancelled() const override { return m_cancelFlag.loadRelaxed() != 0; }
+  bool isCancelled() const override { return m_cancelFlag.loadAcquire() != 0; }
 
   /**
    * \brief If cancelled, throws CancelledException.

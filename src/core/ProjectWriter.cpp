@@ -24,6 +24,7 @@
 
 #endif
 
+#include <QDebug>
 #include <cassert>
 #include <cstddef>
 
@@ -88,12 +89,13 @@ bool ProjectWriter::write(const QString& filePath, const std::vector<FilterPtr>&
   }
 
   QFile file(filePath);
-  if (file.open(QIODevice::WriteOnly)) {
-    QTextStream strm(&file);
-    doc.save(strm, 2);
-    return true;
+  if (!file.open(QIODevice::WriteOnly)) {
+    qWarning() << "ProjectWriter: Failed to open file for writing:" << filePath << "-" << file.errorString();
+    return false;
   }
-  return false;
+  QTextStream strm(&file);
+  doc.save(strm, 2);
+  return true;
 }  // ProjectWriter::write
 
 QDomElement ProjectWriter::processDirectories(QDomDocument& doc) const {

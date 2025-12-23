@@ -150,6 +150,12 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
     return result;
   }
 
+  // Guard against division by zero
+  if (image.height() == 0) {
+    qDebug() << "PageSplit: image has zero height";
+    return result;
+  }
+
   // Check aspect ratio - but use a lower threshold to allow analysis
   // We'll use other signals (like page numbers) to validate
   const qreal aspectRatio = static_cast<qreal>(image.width()) / image.height();
