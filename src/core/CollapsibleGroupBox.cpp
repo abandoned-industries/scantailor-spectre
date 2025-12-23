@@ -5,8 +5,12 @@
 
 #include <foundation/ScopedIncDec.h>
 
+#include <QLayout>
 #include <QSettings>
+#include <QStyle>
+#include <QStyleOptionGroupBox>
 #include <QtCore/QEvent>
+#include <QtGui/QResizeEvent>
 #include <QtGui/QShowEvent>
 
 #include "IconProvider.h"
@@ -31,7 +35,7 @@ void CollapsibleGroupBox::initialize() {
   setFocusProxy(m_collapseButton);
   setFocusPolicy(Qt::StrongFocus);
 
-  this->setAlignment(Qt::AlignCenter);
+  // Alignment set via stylesheet qproperty-alignment
 
   connect(m_collapseButton, &QAbstractButton::clicked, this, &CollapsibleGroupBox::toggleCollapsed);
   connect(this, &QGroupBox::toggled, this, &CollapsibleGroupBox::checkToggled);
@@ -110,6 +114,26 @@ void CollapsibleGroupBox::showEvent(QShowEvent* event) {
   loadState();
 
   QWidget::showEvent(event);
+}
+
+void CollapsibleGroupBox::resizeEvent(QResizeEvent* event) {
+  QGroupBox::resizeEvent(event);
+
+  // Position collapse button to the left of the title
+  QStyleOptionGroupBox opt;
+  initStyleOption(&opt);
+  QRect titleRect = style()->subControlRect(QStyle::CC_GroupBox, &opt, QStyle::SC_GroupBoxLabel, this);
+
+  // Place button at fixed left position, vertically centered with title
+  int buttonY = titleRect.top() + (titleRect.height() - m_collapseButton->height()) / 2;
+  int buttonX = 2;  // Fixed position - title padding-left creates space for button
+  m_collapseButton->move(buttonX, buttonY);
+
+  // Remove internal layout margins for flush left alignment, but keep top margin for title
+  if (layout()) {
+    int topMargin = titleRect.bottom() + 4;  // Space below title text
+    layout()->setContentsMargins(0, topMargin, 0, 0);
+  }
 }
 
 void CollapsibleGroupBox::changeEvent(QEvent* event) {
