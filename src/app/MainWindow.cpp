@@ -2416,6 +2416,11 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
     return;
   }
 
+  // Export filter has no batch processing - it only has the "Export to PDF" button
+  if (m_curFilter == m_stages->exportFilterIdx()) {
+    filterList->setBatchProcessingPossible(false);
+  }
+
   for (int i = 0; i < m_stages->count(); i++) {
     m_stages->filterAt(i)->loadDefaultSettings(page);
   }
