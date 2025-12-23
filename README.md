@@ -2,11 +2,11 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-
-
 **Version 2.0a10** | macOS (Apple Silicon)
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through an 8-stage workflow, and export a polished PDF.
+
+ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.  
 
 ## What's New in Spectre
 
@@ -49,22 +49,31 @@ To run a stage, click on the little triangular play button next to the stage you
 
 ### 3. Batch Process
 
-You may want to try doing everything automatically if your scan is clean. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 5, Margins, and run each of the next stages. 
+You may want to try doing everything automatically if your scan is clean. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 6, Finalize, and run it and each of the next stages.
+
+After batch processing certain stages, a summary dialog appears to help catch common problems:
+
+- **Stage 2 (Split Pages)** - Shows pages that were/weren't split, lets you force changes
+- **Stage 4 (Select Content)** - Shows pages with low content coverage that might need layout preserved
+- **Stage 5 (Margins)** - Warns about unsplit spreads or outlier pages that cause margin issues. If you have unspilt spreads, you will have to go back to Stage 2. 
+
+The dialogs in stage 2 and 5 let you jump directly to problem pages and take corrective action without hunting through hundreds of thumbnails.
+
 ---
 
 ## The Workflow Explained
 
-Each stage is automatic and potentially requires minimal input, but some scans can be more difficult to process than others. For example, a decent scan with only text pages might require virtually no input on your part. A 500 page book with color pages, some of which are skewed, many of which have color casts, and so on may require substantial intervention. 
+Each stage has automatic operations and potentially requires minimal input, but some scans can be more difficult to process than others. For example, a decent scan with only text pages might require virtually no input on your part. A 500 page book with color pages, some of which are skewed, many of which have color casts and require individual adjustments may require substantial intervention. 
 
 Although ScanTailor Spectre is designed to be as automated as possible, it can make mistakes. It's always best to check your output. 
 
 After you run a stage, the parameters that stage set are stored in your project on a per-page basis. Let's say you set a page to color once. If you rerun the automatic color detection, it will not alter that setting even if it thinks it is grayscale.
 
-This is beta software. Save your project frequently.  
+This is pre-beta software. Save your project frequently.  
 
 ### Stage 1: Fix Orientation
 
-Corrects pages that are upside-down or rotated. Auto-detection handles most cases; use the rotate buttons for manual override. It is rare that you will have to even run this separately, I always start at Stage 2 or later. This is not the same as Stage 3, Deskew. 
+Corrects pages that are upside-down or rotated. Auto-detection handles most cases; use the rotate buttons for manual override. It is rare that you will have to even run this separately unless your scans are awful. This is not the same as Stage 3, Deskew. 
 
 ### Stage 2: Split Pages
 
@@ -91,6 +100,8 @@ Straightens pages that were slightly tilted during scanning. Even 1-2° of tilt 
 ### Stage 4: Select Content
 
 This stage has two separate but related functions: defining the **Page Box** (the physical page boundaries) and the **Content Box** (the area containing actual content like text and images).
+
+**When do you need this?** The Page Box helps crop out artifacts on the sides of the image like margins or the bed of the scanner. The  Content Box identifies where text or images are so margins can be standardized. For most workflows, Auto mode handles both well, but you may need Manual adjustments for pages with unusual layouts (title pages, illustrations, fold-outs) or when auto-detection picks up shadows or artifacts as content.
 
 #### Page Box
 
@@ -149,10 +160,10 @@ Sets white space around content in the final output and page size.
 
 ### Stage 6: Finalize
 
-**New in Spectre.** This stage determines how each page will be processed:
+This stage determines how each page will be processed:
 
 - **Color Mode**: Black & White, Grayscale, or Color
-- **Output Format**: TIFF or PNG
+- **Output Format**: TIFF or PNG (you can ignore this if you don’t care to save the individual images)
 - **Output Location**: Where processed files are saved
 
 The app auto-detects the appropriate color mode. Obviously, Color pages require the most storage space, Grayscale requires less, and Black and White the least of all.
@@ -165,7 +176,7 @@ The **Midtone Threshold** slider adjusts detection sensitivity, useful for small
 
 **Clear All Pages** resets all pages to unprocessed state, useful if you want to re-run automatic detection with different settings.
 
-Previous versions of Scantailor exported to images, the workflow in this one is images or PDF to PDF. Images will be discarded when you close the project unless you choose to preserve them at this point by ticking the box to "Preserve Output Images."
+Previous versions of ScanTailor exported to images, the workflow in this one is images or PDF to PDF. Images will be discarded when you close the project unless you choose to preserve them at this point by ticking the box to "Preserve Output Images."
 
 ### Stage 7: Output
 
@@ -231,7 +242,7 @@ This is essential for efficiently processing large documents.
 
 ### Stage 8: Export
 
-**New in Spectre.** Creates the final PDF.
+Creates the final PDF.
 
 **Max DPI:** Limits output resolution for grayscale and color pages. 
 
@@ -310,3 +321,17 @@ ScanTailor Spectre is based on:
 ## License
 
 GPL-3.0 - See [LICENSE](LICENSE) for details.
+
+## ScanTailor What? 
+
+ScanTailor Spectre is a Mac-native fork of ScanTailor Advanced, developed by Claude. Several considerations informed the choice of its name.
+
+First, the name serves to distinguish it from other community releases, including ScanTailor, ScanTailor Advanced, and ScanTailor Experimental.
+
+Second, the title references the opening line of the Communist Manifesto: "A spectre is haunting Europe." Jacques Derrida, in "Spectres of Marx" wrote that the dead refuse to remain absent. For Derrida, this refers to the spectre of Marxism, but it can also refer to the haunting of the Internet by the ongoing persistance of ScanTailor as well as to the scanned book existing as a ghostly trace circulating online rather than as a physical object.
+
+Fourth, ScanTailor Spectre is developed using Claude Code. The name also draws attention to the role of unauthorized book scans in the development of large language model artificial intelligences. It is illegal to copy and distribute copyrighted books, and we do not condone using ScanTailor Spectre for such purposes. Both Anthropic and Meta trained their models on millions of books obtained from shadow libraries such as Library Genesis, which are motivated by a vision of information freedom championed by Aaron Swartz. Recently, Anthropic settled with authors for $1.5 billion, equating to approximately $3,000 per book, a sum that exceeds the lifetime earnings of most books. In contemporary society, intellectual property is controlled not by individuals, but by those in positions of power.
+
+Lastly, the first application I vibe-coded was a clone of the 1990s game Spectre VR. 
+
+The "spectre in the machine" draws on all of these. 
