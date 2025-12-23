@@ -40,6 +40,11 @@ void CenteredTickSlider::drawTickMarks(QPainter& painter) {
   // Draw tick marks at -100, -50, 0, 50, 100 (assuming range -100 to 100)
   QVector<int> tickValues = {minVal, minVal + range / 4, (minVal + maxVal) / 2, maxVal - range / 4, maxVal};
 
+  // Use palette-aware colors for visibility in both light and dark modes
+  const QColor textColor = palette().color(QPalette::WindowText);
+  const QColor centerTickColor = textColor;
+  const QColor regularTickColor = textColor.lighter(150);
+
   for (int tickVal : tickValues) {
     const double ratio = static_cast<double>(tickVal - minVal) / range;
     const int x = sliderMin + static_cast<int>(ratio * sliderRange);
@@ -47,12 +52,12 @@ void CenteredTickSlider::drawTickMarks(QPainter& painter) {
     const bool isCenter = (tickVal == (minVal + maxVal) / 2);
 
     if (isCenter) {
-      // Draw center tick mark - taller and darker (above groove)
-      painter.setPen(QPen(QColor(80, 80, 80), 2));
+      // Draw center tick mark - taller and more prominent (above groove)
+      painter.setPen(QPen(centerTickColor, 2));
       painter.drawLine(x, grooveTop - 4, x, grooveTop - 12);
     } else {
       // Draw regular tick mark (above groove)
-      painter.setPen(QPen(QColor(150, 150, 150), 1));
+      painter.setPen(QPen(regularTickColor, 1));
       painter.drawLine(x, grooveTop - 4, x, grooveTop - 9);
     }
   }

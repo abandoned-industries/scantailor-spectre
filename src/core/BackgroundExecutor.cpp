@@ -4,8 +4,8 @@
 #include "BackgroundExecutor.h"
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QThread>
-#include <cassert>
 
 #include "OutOfMemoryHandler.h"
 
@@ -64,10 +64,16 @@ BackgroundExecutor::Dispatcher::Dispatcher(Impl& owner) : m_owner(owner) {}
 void BackgroundExecutor::Dispatcher::customEvent(QEvent* event) {
   try {
     auto* evt = dynamic_cast<TaskEvent*>(event);
-    assert(evt);
+    if (!evt) {
+      qWarning() << "BackgroundExecutor::Dispatcher: received invalid event type";
+      return;
+    }
 
     const TaskPtr& task = evt->payload();
-    assert(task);
+    if (!task) {
+      qWarning() << "BackgroundExecutor::Dispatcher: received null task";
+      return;
+    }
 
     const TaskResultPtr result((*task)());
     if (result) {
@@ -104,10 +110,16 @@ void BackgroundExecutor::Impl::run() {
 
 void BackgroundExecutor::Impl::customEvent(QEvent* event) {
   auto* evt = dynamic_cast<ResultEvent*>(event);
-  assert(evt);
+  if (!evt) {
+    qWarning() << "BackgroundExecutor::Impl: received invalid event type";
+    return;
+  }
 
   const TaskResultPtr& result = evt->payload();
-  assert(result);
+  if (!result) {
+    qWarning() << "BackgroundExecutor::Impl: received null result";
+    return;
+  }
 
   (*result)();
 }

@@ -23,6 +23,20 @@ class WorkerThreadPool::TaskResultEvent : public QEvent {
   FilterResultPtr m_result;
 };
 
+class WorkerThreadPool::TaskErrorEvent : public QEvent {
+ public:
+  TaskErrorEvent(BackgroundTaskPtr task, QString errorMessage)
+      : QEvent(static_cast<QEvent::Type>(User + 1)), m_task(std::move(task)), m_errorMessage(std::move(errorMessage)) {}
+
+  const BackgroundTaskPtr& task() const { return m_task; }
+
+  const QString& errorMessage() const { return m_errorMessage; }
+
+ private:
+  BackgroundTaskPtr m_task;
+  QString m_errorMessage;
+};
+
 
 WorkerThreadPool::WorkerThreadPool(QObject* parent) : QObject(parent), m_pool(new QThreadPool(this)) {
   updateNumberOfThreads();
@@ -59,8 +73,10 @@ void WorkerThreadPool::submitTask(const BackgroundTaskPtr& task) {
         OutOfMemoryHandler::instance().handleOutOfMemorySituation();
       } catch (const std::exception& e) {
         qWarning() << "Exception in worker thread:" << e.what();
+        QCoreApplication::postEvent(&m_owner, new TaskErrorEvent(m_task, QString::fromStdString(e.what())));
       } catch (...) {
         qWarning() << "Unknown exception in worker thread";
+        QCoreApplication::postEvent(&m_owner, new TaskErrorEvent(m_task, QStringLiteral("Unknown exception")));
       }
     }
 
@@ -77,6 +93,8 @@ void WorkerThreadPool::submitTask(const BackgroundTaskPtr& task) {
 void WorkerThreadPool::customEvent(QEvent* event) {
   if (auto* evt = dynamic_cast<TaskResultEvent*>(event)) {
     emit taskResult(evt->task(), evt->result());
+  } else if (auto* errEvt = dynamic_cast<TaskErrorEvent*>(event)) {
+    emit taskError(errEvt->task(), errEvt->errorMessage());
   }
 }
 

@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QThread>
+#include <atomic>
 #include <boost/foreach.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -77,8 +78,10 @@ class ThumbnailPixmapCache::Item {
   /**
    * Set to true when recreateThumbnail() is called while a load is in progress.
    * When the load completes, the result is discarded and a reload is triggered.
+   * Atomic because it's accessed from multiple threads (main thread sets it,
+   * background thread reads it in processLoadResult).
    */
-  mutable bool needsReload = false;
+  mutable std::atomic<bool> needsReload{false};
 
   Item(const ImageId& imageId, int precedingLoadAttempts, Status st);
 
@@ -901,7 +904,13 @@ void ThumbnailPixmapCache::Impl::setMaxThumbSize(const QSize& maxSize) {
 ThumbnailPixmapCache::Item::Item(const ImageId& imageId, const int precedingLoadAttempts, const Status st)
     : imageId(imageId), precedingLoadAttempts(precedingLoadAttempts), status(st) {}
 
-ThumbnailPixmapCache::Item::Item(const Item& other) = default;
+ThumbnailPixmapCache::Item::Item(const Item& other)
+    : imageId(other.imageId),
+      pixmap(other.pixmap),
+      completionHandlers(other.completionHandlers),
+      precedingLoadAttempts(other.precedingLoadAttempts),
+      status(other.status),
+      needsReload(other.needsReload.load()) {}
 
 /*=============== ThumbnailPixmapCache::Impl::LoadResultEvent ===============*/
 

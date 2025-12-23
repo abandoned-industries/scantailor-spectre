@@ -149,7 +149,11 @@ ImageViewBase::ImageViewBase(const QImage& image,
 
   if (ApplicationSettings::getInstance().isOpenGlEnabled()) {
     if (OpenGLSupport::supported()) {
-      setViewport(new QOpenGLWidget());
+      auto* glWidget = new QOpenGLWidget();
+      setViewport(glWidget);  // QGraphicsView takes ownership
+      if (viewport() != glWidget) {
+        qWarning() << "ImageViewBase: Failed to set OpenGL viewport";
+      }
     }
   }
 

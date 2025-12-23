@@ -3,7 +3,7 @@
 
 #include "DefaultParamsProvider.h"
 
-#include <cassert>
+#include <stdexcept>
 
 #include "ApplicationSettings.h"
 #include "DefaultParams.h"
@@ -43,7 +43,9 @@ const QString& DefaultParamsProvider::getProfileName() const {
 }
 
 const DefaultParams& DefaultParamsProvider::getParams() const {
-  assert(m_params != nullptr);
+  if (!m_params) {
+    throw std::runtime_error("DefaultParamsProvider::getParams() called before params were set");
+  }
   return *m_params;
 }
 
