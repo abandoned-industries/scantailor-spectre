@@ -185,6 +185,24 @@ Applies image processing to generate the output files. Options vary by color mod
 - **Normalize Illumination** - Evens out lighting variations.
 - **Sharpen/Blur filters** - Enhance or soften the image.
 
+#### Brightness & Contrast
+
+- **Brightness** - Adjusts overall image lightness. Slide right to brighten, left to darken.
+- **Contrast** - Adjusts tonal range. Slide right to increase contrast, left to decrease.
+
+The sliders have tick marks at -100, 0, and +100, with a center detent that snaps to 0 for easy reset.
+
+#### Paper Detection (Equalize Illumination)
+
+When "Equalize illumination (Color)" is enabled, these advanced controls appear:
+
+- **Min Brightness** (0-255, default 120) - Pixels brighter than this may be paper
+- **Max Saturation** (0-255, default 60) - Pixels less saturated than this may be paper
+- **Min Coverage** (0-50%, default 1%) - Minimum paper area required for equalization
+- **Adaptive (sample margins)** - Auto-detect paper color from page margins
+
+These controls help the algorithm distinguish paper from content when correcting uneven lighting.
+
 #### Common Options (All Modes)
 
 - **Dewarping** - Flattens curved pages from book spines. Set to "Auto" for automatic detection or "Manual" to adjust control points yourself. Most useful for thick books where pages curve near the spine.

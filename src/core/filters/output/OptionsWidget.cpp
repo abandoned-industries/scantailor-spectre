@@ -317,12 +317,48 @@ void OptionsWidget::equalizeIlluminationToggled(const bool checked) {
 
   m_colorParams.setBlackWhiteOptions(blackWhiteOptions);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  // Update visibility of paper detection controls
+  paperDetectionWidget->setVisible(checked || equalizeIlluminationColorCB->isChecked());
   emit reloadRequested();
 }
 
 void OptionsWidget::equalizeIlluminationColorToggled(const bool checked) {
   ColorCommonOptions opt(m_colorParams.colorCommonOptions());
   opt.setNormalizeIllumination(checked);
+  m_colorParams.setColorCommonOptions(opt);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  // Update visibility of paper detection controls
+  paperDetectionWidget->setVisible(checked || equalizeIlluminationCB->isChecked());
+  emit reloadRequested();
+}
+
+void OptionsWidget::paperBrightnessChanged(int value) {
+  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
+  opt.setPaperBrightnessThreshold(value);
+  m_colorParams.setColorCommonOptions(opt);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+}
+
+void OptionsWidget::paperSaturationChanged(int value) {
+  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
+  opt.setPaperSaturationThreshold(value);
+  m_colorParams.setColorCommonOptions(opt);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+}
+
+void OptionsWidget::paperCoverageChanged(double value) {
+  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
+  opt.setPaperCoverageThreshold(value / 100.0);  // Convert from percentage to fraction
+  m_colorParams.setColorCommonOptions(opt);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+}
+
+void OptionsWidget::adaptiveDetectionToggled(bool checked) {
+  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
+  opt.setUseAdaptiveDetection(checked);
   m_colorParams.setColorCommonOptions(opt);
   m_settings->setColorParams(m_pageId, m_colorParams);
   emit reloadRequested();
@@ -376,17 +412,35 @@ void OptionsWidget::updatePaperColorSwatch() {
 }
 
 void OptionsWidget::brightnessChanged(int value) {
+  // Snap to center if within ±5 of zero for easy reset
+  if (value > -5 && value < 5 && value != 0) {
+    brightnessSlider->blockSignals(true);
+    brightnessSlider->setValue(0);
+    brightnessSlider->blockSignals(false);
+    value = 0;
+  }
+  qDebug() << "OptionsWidget::brightnessChanged slider=" << value << "normalized=" << (value / 100.0);
   OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
   opp.setBrightness(value / 100.0);  // expand effective range
   m_settings->setOutputProcessingParams(m_pageId, opp);
   emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
 }
 
 void OptionsWidget::contrastChanged(int value) {
+  // Snap to center if within ±5 of zero for easy reset
+  if (value > -5 && value < 5 && value != 0) {
+    contrastSlider->blockSignals(true);
+    contrastSlider->setValue(0);
+    contrastSlider->blockSignals(false);
+    value = 0;
+  }
+  qDebug() << "OptionsWidget::contrastChanged slider=" << value << "normalized=" << (value / 100.0);
   OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
   opp.setContrast(value / 100.0);  // expand effective range
   m_settings->setOutputProcessingParams(m_pageId, opp);
   emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
 }
 
 void OptionsWidget::binarizationSettingsChanged() {
@@ -713,9 +767,9 @@ void OptionsWidget::reloadIfNecessary() {
 
 void OptionsWidget::updateDpiDisplay() {
   if (m_outputDpi.horizontal() != m_outputDpi.vertical()) {
-    dpiLabel->setText(QString::fromLatin1("%1 x %2").arg(m_outputDpi.horizontal()).arg(m_outputDpi.vertical()));
+    dpiLabel->setText(QString::fromLatin1("%1 x %2 dpi").arg(m_outputDpi.horizontal()).arg(m_outputDpi.vertical()));
   } else {
-    dpiLabel->setText(QString::number(m_outputDpi.horizontal()));
+    dpiLabel->setText(QString::fromLatin1("%1 dpi").arg(m_outputDpi.horizontal()));
   }
 }
 
@@ -787,6 +841,16 @@ void OptionsWidget::updateColorsDisplay() {
   const OutputProcessingParams& opp = m_settings->getOutputProcessingParams(m_pageId);
   brightnessSlider->setValue(static_cast<int>(opp.brightness() * 100.0));
   contrastSlider->setValue(static_cast<int>(opp.contrast() * 100.0));
+
+  // Paper detection thresholds - populate from settings (using colorCommonOptions from line 794)
+  paperBrightnessSB->setValue(colorCommonOptions.paperBrightnessThreshold());
+  paperSaturationSB->setValue(colorCommonOptions.paperSaturationThreshold());
+  paperCoverageSB->setValue(colorCommonOptions.paperCoverageThreshold() * 100.0);  // Display as percentage
+  adaptiveDetectionCB->setChecked(colorCommonOptions.useAdaptiveDetection());
+  // Show paper detection controls when either illumination equalization is enabled
+  const bool showPaperDetection = equalizeIlluminationCB->isChecked() || equalizeIlluminationColorCB->isChecked();
+  paperDetectionWidget->setVisible(showPaperDetection);
+
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
   morphologicalSmoothingCB->setChecked(blackWhiteOptions.isMorphologicalSmoothingEnabled());
@@ -1147,6 +1211,10 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(fillOffcutCB, SIGNAL(clicked(bool)), this, SLOT(fillOffcutToggled(bool)));
   CONNECT(equalizeIlluminationCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationToggled(bool)));
   CONNECT(equalizeIlluminationColorCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationColorToggled(bool)));
+  CONNECT(paperBrightnessSB, SIGNAL(valueChanged(int)), this, SLOT(paperBrightnessChanged(int)));
+  CONNECT(paperSaturationSB, SIGNAL(valueChanged(int)), this, SLOT(paperSaturationChanged(int)));
+  CONNECT(paperCoverageSB, SIGNAL(valueChanged(double)), this, SLOT(paperCoverageChanged(double)));
+  CONNECT(adaptiveDetectionCB, SIGNAL(clicked(bool)), this, SLOT(adaptiveDetectionToggled(bool)));
   CONNECT(forceWhiteBalanceCB, SIGNAL(clicked(bool)), this, SLOT(forceWhiteBalanceToggled(bool)));
   CONNECT(pickPaperColorBtn, SIGNAL(clicked()), this, SLOT(pickPaperColorClicked()));
   CONNECT(clearPaperColorBtn, SIGNAL(clicked()), this, SLOT(clearPaperColorClicked()));

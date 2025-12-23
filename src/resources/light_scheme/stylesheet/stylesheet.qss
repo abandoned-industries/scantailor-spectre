@@ -230,6 +230,25 @@ QGroupBox {
   margin-top: 8px;
 }
 
+CollapsibleGroupBox {
+  qproperty-alignment: 'AlignLeft';
+  border: none;
+  background-color: transparent;
+  margin-top: 16px;
+  margin-left: 0px;
+  margin-right: 0px;
+  padding: 0px;
+  padding-top: 0px;
+}
+
+CollapsibleGroupBox::title {
+  subcontrol-origin: margin;
+  subcontrol-position: top left;
+  padding-left: 0px;
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
 QGroupBox::title {
   subcontrol-origin: margin;
   subcontrol-position: top center;
@@ -582,12 +601,21 @@ QAbstractSpinBox::up-arrow:pressed {
 }
 
 QSlider:horizontal {
-  margin: 2px 1px 8px 1px;
+  margin: 12px 1px 2px 1px;
+  height: 20px;
 }
 
 QSlider::groove:horizontal {
   border: none;
   height: 6px;
+  background-color: #cccccc;
+}
+
+QSlider::sub-page:horizontal {
+  background-color: #cccccc;
+}
+
+QSlider::add-page:horizontal {
   background-color: #cccccc;
 }
 

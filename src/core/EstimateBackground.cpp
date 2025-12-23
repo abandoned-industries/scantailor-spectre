@@ -30,6 +30,15 @@
 
 using namespace imageproc;
 
+static double maskCoverage(const BinaryImage& mask) {
+  if (mask.isNull() || mask.width() == 0 || mask.height() == 0) {
+    return 0.0;
+  }
+  // Here "coverage" means the fraction of dark (kept) pixels in the mask.
+  const double black = mask.countBlackPixels();
+  return black / static_cast<double>(mask.width() * mask.height());
+}
+
 struct AbsoluteDifference {
   static uint8_t transform(uint8_t src, uint8_t dst) { return static_cast<uint8_t>(std::abs(int(src) - int(dst))); }
 };
@@ -180,7 +189,7 @@ imageproc::PolynomialSurface estimateBackground(const GrayImage& input,
     BinaryImage downscaledUserMask(maskGray, BinaryThreshold(1));
     rasterOp<RopAnd<RopSrc, RopDst>>(mask, downscaledUserMask);
     if (minMaskCoverage > 0.0) {
-      const double coverage = static_cast<double>(mask.countBlackPixels()) / (mask.width() * mask.height());
+      const double coverage = maskCoverage(mask);
       if (coverage < minMaskCoverage) {
         // Not enough paper-like pixels; fall back to original mask.
         mask.fill(WHITE);

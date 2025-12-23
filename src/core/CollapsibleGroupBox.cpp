@@ -119,19 +119,19 @@ void CollapsibleGroupBox::showEvent(QShowEvent* event) {
 void CollapsibleGroupBox::resizeEvent(QResizeEvent* event) {
   QGroupBox::resizeEvent(event);
 
-  // Position collapse button to the left of the title
+  // Position collapse button to the right of the title
   QStyleOptionGroupBox opt;
   initStyleOption(&opt);
   QRect titleRect = style()->subControlRect(QStyle::CC_GroupBox, &opt, QStyle::SC_GroupBoxLabel, this);
 
-  // Place button at fixed left position, vertically centered with title
+  // Place button at right edge, vertically centered with title
   int buttonY = titleRect.top() + (titleRect.height() - m_collapseButton->height()) / 2;
-  int buttonX = 2;  // Fixed position - title padding-left creates space for button
+  int buttonX = width() - m_collapseButton->width() - 4;  // Right-aligned with small margin
   m_collapseButton->move(buttonX, buttonY);
 
-  // Remove internal layout margins for flush left alignment, but keep top margin for title
+  // Set top margin for content - tight spacing like regular QGroupBox
   if (layout()) {
-    int topMargin = titleRect.bottom() + 4;  // Space below title text
+    int topMargin = titleRect.bottom() - 2;
     layout()->setContentsMargins(0, topMargin, 0, 0);
   }
 }

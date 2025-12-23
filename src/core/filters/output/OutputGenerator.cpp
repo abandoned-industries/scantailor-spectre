@@ -48,7 +48,9 @@
 #include <QSize>
 #include <QTransform>
 #include <boost/bind/bind.hpp>
+#include <BitOps.h>
 #include <cmath>
+#include <exception>
 #include <functional>
 #include <stdexcept>
 
@@ -364,9 +366,13 @@ void OutputGenerator::Processor::calcAreas() {
 namespace {
 struct RaiseAboveBackground {
   static uint8_t transform(uint8_t src, uint8_t dst) {
-    // src: orig
-    // dst: background (dst >= src)
-    if (dst - src < 1) {
+    // src: orig pixel value
+    // dst: background estimate
+    // Guard against division by zero: if background is 0 or <= src,
+    // return white (maximum illumination correction).
+    // Note: the old check "dst - src < 1" used unsigned arithmetic which
+    // would underflow when dst < src, failing to protect against dst == 0.
+    if (dst == 0 || dst <= src) {
       return 0xff;
     }
     const unsigned orig = src;
@@ -479,10 +485,35 @@ void reserveBlackAndWhite(QImage& img, const BinaryImage& mask) {
   }
 }
 
-void flattenBackgroundToPaper(QImage& img, const BinaryImage& contentMask, const QColor& paperColor) {
+static double paperMaskCoverage(const BinaryImage& mask) {
+  if (mask.isNull() || mask.width() == 0 || mask.height() == 0) {
+    return 0.0;
+  }
+  const uint32_t* data = mask.data();
+  const int wordsPerLine = mask.wordsPerLine();
+  size_t bitsSet = 0;
+  for (int y = 0; y < mask.height(); ++y) {
+    const uint32_t* line = data + y * wordsPerLine;
+    for (int x = 0; x < wordsPerLine; ++x) {
+      bitsSet += countNonZeroBits(line[x]);
+    }
+  }
+  return bitsSet / static_cast<double>(mask.width() * mask.height());
+}
+
+void flattenBackgroundToPaper(QImage& img,
+                              const BinaryImage& contentMask,
+                              const QColor& paperColor,
+                              int brightnessThreshold,
+                              int saturationThreshold) {
   if (!paperColor.isValid()) {
     return;
   }
+
+  // Use slightly stricter thresholds for replacement than for detection
+  // (we want to be more conservative about what we replace)
+  const int minBrightness = brightnessThreshold + 30;  // Higher brightness required
+  const int maxSaturation = std::max(10, saturationThreshold - 15);  // Lower saturation required
 
   QImage work = img.convertToFormat(QImage::Format_ARGB32);
   const int w = work.width();
@@ -512,7 +543,7 @@ void flattenBackgroundToPaper(QImage& img, const BinaryImage& contentMask, const
       const int brightness = (r + g + b) / 3;
 
       // Only adjust bright, low-saturation pixels (background-like)
-      if (brightness < 170 || saturation > 45) {
+      if (brightness < minBrightness || saturation > maxSaturation) {
         continue;
       }
 
@@ -1324,16 +1355,21 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
   if (wbAppliedColor.isValid()) {
     BinaryImage contentMask(input.origImage().size(), BLACK);
     PolygonRasterizer::fill(contentMask, WHITE, m_contentAreaInOriginalCs, Qt::WindingFill);
-    flattenBackgroundToPaper(wbOrigImage, contentMask, wbAppliedColor);
+    const ColorCommonOptions& colorOpts = m_colorParams.colorCommonOptions();
+    flattenBackgroundToPaper(wbOrigImage, contentMask, wbAppliedColor,
+                             colorOpts.paperBrightnessThreshold(),
+                             colorOpts.paperSaturationThreshold());
   }
 
   // Apply per-page brightness / contrast adjustments (after WB / illumination, before inversion).
   const OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  qDebug() << "OutputGenerator: brightness=" << opp.brightness() << "contrast=" << opp.contrast();
   if (opp.brightness() != 0.0 || opp.contrast() != 0.0) {
-    // brightness: [-1, 1] mapped to [-128, 128] additive
-    const int bShift = static_cast<int>(opp.brightness() * 128.0);
-    // contrast: [-1, 1] mapped to [0.2, 2.0] multiplier around 128
-    const double cMul = 1.0 + opp.contrast() * 0.8;
+    // brightness: [-1, 1] mapped to roughly [-255, 255] additive
+    const int bShift = static_cast<int>(opp.brightness() * 255.0);
+    // contrast: [-1, 1] mapped to ~[0.4, 2.5] multiplier around 128
+    const double cMul = std::max(0.2, std::pow(2.0, opp.contrast() * 1.3));
+    qDebug() << "OutputGenerator: APPLYING brightness/contrast bShift=" << bShift << "cMul=" << cMul;
 
     QImage work = wbOrigImage.convertToFormat(QImage::Format_ARGB32);
     const int w = work.width();
@@ -1352,11 +1388,14 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
       }
     }
     wbOrigImage = work.convertToFormat(wbOrigImage.format());
+    qDebug() << "OutputGenerator: brightness/contrast applied to" << w << "x" << h << "pixels";
   }
 
   // Assign processed originals and apply inversion only after WB, if needed.
   m_inputOrigImage = wbOrigImage;
-  m_inputGrayImage = input.grayImage();
+  // Derive grayscale from the brightness/contrast-adjusted image, not the original input.
+  // This ensures brightness/contrast adjustments apply to grayscale processing paths too.
+  m_inputGrayImage = GrayImage(wbOrigImage);
   if (!m_blackOnWhite) {
     m_inputOrigImage.invertPixels();
     m_inputGrayImage = m_inputGrayImage.inverted();
@@ -2019,8 +2058,79 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
                                                                 const QTransform& xform,
                                                                 const QRect& targetRect,
                                                                 GrayImage* background) const {
+  // Get paper detection thresholds from settings
+  const ColorCommonOptions& colorOpts = m_colorParams.colorCommonOptions();
+  int brightnessThreshold = colorOpts.paperBrightnessThreshold();
+  int saturationThreshold = colorOpts.paperSaturationThreshold();
+  const double coverageThreshold = colorOpts.paperCoverageThreshold();
+  const bool useAdaptive = colorOpts.useAdaptiveDetection();
+
   // Build a mask of likely-background (paper-like) pixels to avoid using photo regions.
   QImage colorInput = transform(input, xform, targetRect, OutsidePixels::assumeWeakNearest());
+
+  // If adaptive detection is enabled, sample margin colors to adjust thresholds
+  if (useAdaptive && !colorInput.isNull()) {
+    // Ensure image is in a format we can read as ARGB
+    QImage sampleImage = colorInput;
+    if (sampleImage.format() != QImage::Format_ARGB32 && sampleImage.format() != QImage::Format_RGB32) {
+      sampleImage = sampleImage.convertToFormat(QImage::Format_ARGB32);
+    }
+
+    // Sample pixels from the edges to estimate paper color
+    const int w = sampleImage.width();
+    const int h = sampleImage.height();
+    if (w > 0 && h > 0) {
+      const int sampleDepth = std::min(20, std::min(w, h) / 10);  // Sample 20 pixels deep or 10% of image
+      std::vector<int> marginBrightness;
+      std::vector<int> marginSaturation;
+      marginBrightness.reserve(2 * (w + h) * sampleDepth);
+      marginSaturation.reserve(2 * (w + h) * sampleDepth);
+
+      for (int y = 0; y < h; ++y) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(sampleImage.constScanLine(y));
+        for (int x = 0; x < w; ++x) {
+          // Only sample from margins
+          if (x >= sampleDepth && x < w - sampleDepth && y >= sampleDepth && y < h - sampleDepth) {
+            continue;
+          }
+          const QRgb p = line[x];
+          const int r = qRed(p);
+          const int g = qGreen(p);
+          const int b = qBlue(p);
+          const int maxC = std::max({r, g, b});
+          const int minC = std::min({r, g, b});
+          marginBrightness.push_back((r + g + b) / 3);
+          marginSaturation.push_back(maxC - minC);
+        }
+      }
+
+      if (!marginBrightness.empty()) {
+        // Use median for robustness against outliers
+        std::sort(marginBrightness.begin(), marginBrightness.end());
+        std::sort(marginSaturation.begin(), marginSaturation.end());
+        const int medianBrightness = marginBrightness[marginBrightness.size() / 2];
+        const int medianSaturation = marginSaturation[marginSaturation.size() / 2];
+
+        // Adjust thresholds based on detected paper color
+        // Allow 40 units below detected brightness and 30 units above detected saturation
+        brightnessThreshold = std::max(50, medianBrightness - 40);
+        saturationThreshold = std::max(30, medianSaturation + 30);
+
+        qDebug() << "normalizeIlluminationGray: adaptive detection - margin brightness=" << medianBrightness
+                 << "saturation=" << medianSaturation
+                 << "-> thresholds: brightness>" << brightnessThreshold << "saturation<" << saturationThreshold;
+      }
+    }  // if (w > 0 && h > 0)
+  }  // if (useAdaptive)
+
+  qDebug() << "normalizeIlluminationGray: using thresholds brightness>" << brightnessThreshold
+           << "saturation<" << saturationThreshold << "coverage>" << coverageThreshold;
+
+  // Ensure colorInput is in a format we can read as ARGB for mask building
+  if (colorInput.format() != QImage::Format_ARGB32 && colorInput.format() != QImage::Format_RGB32) {
+    colorInput = colorInput.convertToFormat(QImage::Format_ARGB32);
+  }
+
   BinaryImage bgMask(colorInput.size(), BLACK);
   {
     const int w = colorInput.width();
@@ -2038,7 +2148,7 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
         const int saturation = maxC - minC;
         const int brightness = (r + g + b) / 3;
         // Paper-like: reasonably bright and low saturation.
-        if (brightness > 140 && saturation < 50) {
+        if (brightness > brightnessThreshold && saturation < saturationThreshold) {
           maskLine[x >> 5] |= (uint32_t(1) << (31 - (x & 31)));
         }
       }
@@ -2059,9 +2169,30 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
   QPolygonF transformedConsiderationArea = xform.map(areaToConsider);
   transformedConsiderationArea.translate(-targetRect.topLeft());
 
-  const PolynomialSurface bgPs
-      = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg,
-                           bgMask.isNull() ? nullptr : &bgMask, 0.05);
+  const double coverage = paperMaskCoverage(bgMask);
+  if (coverage < coverageThreshold) {
+    qWarning() << "normalizeIlluminationGray: paper coverage" << (coverage * 100) << "% below threshold"
+               << (coverageThreshold * 100) << "% - skipping equalization";
+    if (m_dbg) {
+      m_dbg->add(bgMask, "paper_like_mask_too_sparse");
+    }
+    if (background) {
+      *background = toBeNormalized;
+    }
+    return toBeNormalized;  // Avoid using a bad illumination model on photo-heavy pages.
+  }
+
+  PolynomialSurface bgPs(1, 1, toBeNormalized);  // dummy init to satisfy compiler; replaced below
+  try {
+    bgPs = estimateBackground(toBeNormalized, transformedConsiderationArea, m_status, m_dbg,
+                              bgMask.isNull() ? nullptr : &bgMask, 0.05);
+  } catch (const std::exception& e) {
+    qWarning() << "normalizeIlluminationGray: estimateBackground failed, skipping equalization:" << e.what();
+    if (background) {
+      *background = toBeNormalized;
+    }
+    return toBeNormalized;
+  }
   m_status.throwIfCancelled();
 
   GrayImage bgImg(bgPs.render(toBeNormalized.size()));

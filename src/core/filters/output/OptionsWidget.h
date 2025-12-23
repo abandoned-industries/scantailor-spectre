@@ -124,11 +124,23 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void equalizeIlluminationColorToggled(bool checked);
 
+  void paperBrightnessChanged(int value);
+
+  void paperSaturationChanged(int value);
+
+  void paperCoverageChanged(double value);
+
+  void adaptiveDetectionToggled(bool checked);
+
   void forceWhiteBalanceToggled(bool checked);
 
   void pickPaperColorClicked();
 
   void clearPaperColorClicked();
+
+  void brightnessChanged(int value);
+
+  void contrastChanged(int value);
 
   void savitzkyGolaySmoothingToggled(bool checked);
 
@@ -178,9 +190,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updateColorsDisplay();
 
   void updatePaperColorSwatch();
-
-  void brightnessChanged(int value);
-  void contrastChanged(int value);
 
   void updateDewarpingDisplay();
 
