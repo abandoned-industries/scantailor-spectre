@@ -4,6 +4,7 @@
 #include "ColorCommonOptions.h"
 
 #include <QDomDocument>
+#include <cmath>
 
 namespace output {
 ColorCommonOptions::ColorCommonOptions()
@@ -12,7 +13,11 @@ ColorCommonOptions::ColorCommonOptions()
       m_normalizeIllumination(true),
       m_fillingColor(FILL_BACKGROUND),
       m_wienerCoef(0.0),
-      m_wienerWindowSize(5) {}
+      m_wienerWindowSize(5),
+      m_paperBrightnessThreshold(120),
+      m_paperSaturationThreshold(60),
+      m_paperCoverageThreshold(0.01),
+      m_useAdaptiveDetection(true) {}
 
 ColorCommonOptions::ColorCommonOptions(const QDomElement& el)
     : m_fillOffcut(el.attribute("fillOffcut") == "1"),
@@ -21,12 +26,26 @@ ColorCommonOptions::ColorCommonOptions(const QDomElement& el)
       m_fillingColor(parseFillingColor(el.attribute("fillingColor"))),
       m_posterizationOptions(el.namedItem("posterization-options").toElement()),
       m_wienerCoef(el.attribute("wienerCoef").toDouble()),
-      m_wienerWindowSize(el.attribute("wienerWinSize").toInt()) {
+      m_wienerWindowSize(el.attribute("wienerWinSize").toInt()),
+      m_paperBrightnessThreshold(el.attribute("paperBrightnessThreshold", "120").toInt()),
+      m_paperSaturationThreshold(el.attribute("paperSaturationThreshold", "60").toInt()),
+      m_paperCoverageThreshold(el.attribute("paperCoverageThreshold", "0.01").toDouble()),
+      m_useAdaptiveDetection(el.attribute("useAdaptiveDetection", "1") == "1") {
   if (m_wienerCoef < 0.0 || m_wienerCoef > 1.0) {
     m_wienerCoef = 0.0;
   }
   if (m_wienerWindowSize < 3) {
     m_wienerWindowSize = 5;
+  }
+  // Validate paper detection thresholds
+  if (m_paperBrightnessThreshold < 0 || m_paperBrightnessThreshold > 255) {
+    m_paperBrightnessThreshold = 120;
+  }
+  if (m_paperSaturationThreshold < 0 || m_paperSaturationThreshold > 255) {
+    m_paperSaturationThreshold = 60;
+  }
+  if (m_paperCoverageThreshold < 0.0 || m_paperCoverageThreshold > 1.0) {
+    m_paperCoverageThreshold = 0.01;
   }
 }
 
@@ -39,6 +58,10 @@ QDomElement ColorCommonOptions::toXml(QDomDocument& doc, const QString& name) co
   el.appendChild(m_posterizationOptions.toXml(doc, "posterization-options"));
   el.setAttribute("wienerCoef", m_wienerCoef);
   el.setAttribute("wienerWinSize", m_wienerWindowSize);
+  el.setAttribute("paperBrightnessThreshold", m_paperBrightnessThreshold);
+  el.setAttribute("paperSaturationThreshold", m_paperSaturationThreshold);
+  el.setAttribute("paperCoverageThreshold", m_paperCoverageThreshold);
+  el.setAttribute("useAdaptiveDetection", m_useAdaptiveDetection ? "1" : "0");
   return el;
 }
 
@@ -46,7 +69,11 @@ bool ColorCommonOptions::operator==(const ColorCommonOptions& other) const {
   return (m_normalizeIllumination == other.m_normalizeIllumination) && (m_fillMargins == other.m_fillMargins)
          && (m_fillOffcut == other.m_fillOffcut) && (m_fillingColor == other.m_fillingColor)
          && (m_posterizationOptions == other.m_posterizationOptions) && (m_wienerCoef == other.m_wienerCoef)
-         && (m_wienerWindowSize == other.m_wienerWindowSize);
+         && (m_wienerWindowSize == other.m_wienerWindowSize)
+         && (m_paperBrightnessThreshold == other.m_paperBrightnessThreshold)
+         && (m_paperSaturationThreshold == other.m_paperSaturationThreshold)
+         && (std::abs(m_paperCoverageThreshold - other.m_paperCoverageThreshold) < 0.0001)
+         && (m_useAdaptiveDetection == other.m_useAdaptiveDetection);
 }
 
 bool ColorCommonOptions::operator!=(const ColorCommonOptions& other) const {

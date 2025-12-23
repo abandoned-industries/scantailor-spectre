@@ -55,6 +55,8 @@ class CollapsibleGroupBox : public QGroupBox {
 
   void showEvent(QShowEvent* event) override;
 
+  void resizeEvent(QResizeEvent* event) override;
+
   void changeEvent(QEvent* event) override;
 
   void childEvent(QChildEvent* event) override;

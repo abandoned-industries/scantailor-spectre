@@ -14,6 +14,9 @@
    <string>Export</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
    <item>
     <widget class="QGroupBox" name="pdfExportGroup">
      <property name="title">

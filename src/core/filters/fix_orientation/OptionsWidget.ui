@@ -14,6 +14,9 @@
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
    <item>
     <widget class="CollapsibleGroupBox" name="rotateGroupBox">
      <property name="title">
@@ -23,6 +26,9 @@
       <set>Qt::AlignCenter</set>
      </property>
      <layout class="QVBoxLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
       <item>
        <layout class="QHBoxLayout">
         <item>

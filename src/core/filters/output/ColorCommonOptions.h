@@ -6,6 +6,8 @@
 
 #include <AutoManualMode.h>
 
+#include <algorithm>
+
 class QString;
 class QDomDocument;
 class QDomElement;
@@ -73,6 +75,16 @@ class ColorCommonOptions {
   int wienerWindowSize() const;
   void setWienerWindowSize(int val);
 
+  // Paper detection thresholds for illumination equalization
+  int paperBrightnessThreshold() const;
+  void setPaperBrightnessThreshold(int val);
+  int paperSaturationThreshold() const;
+  void setPaperSaturationThreshold(int val);
+  double paperCoverageThreshold() const;
+  void setPaperCoverageThreshold(double val);
+  bool useAdaptiveDetection() const;
+  void setUseAdaptiveDetection(bool val);
+
   FillingColor getFillingColor() const;
 
   void setFillingColor(FillingColor fillingColor);
@@ -98,6 +110,12 @@ class ColorCommonOptions {
   int m_wienerWindowSize;
   FillingColor m_fillingColor;
   PosterizationOptions m_posterizationOptions;
+
+  // Paper detection thresholds for illumination equalization
+  int m_paperBrightnessThreshold;   // Default: 120 (pixels brighter than this may be paper)
+  int m_paperSaturationThreshold;   // Default: 60 (pixels less saturated than this may be paper)
+  double m_paperCoverageThreshold;  // Default: 0.01 (min fraction of image that must be paper-like)
+  bool m_useAdaptiveDetection;      // Default: true (sample margins to learn paper color)
 };
 
 
@@ -185,6 +203,38 @@ inline bool ColorCommonOptions::PosterizationOptions::isForceBlackAndWhite() con
 
 inline void ColorCommonOptions::PosterizationOptions::setForceBlackAndWhite(bool forceBlackAndWhite) {
   PosterizationOptions::m_forceBlackAndWhite = forceBlackAndWhite;
+}
+
+inline int ColorCommonOptions::paperBrightnessThreshold() const {
+  return m_paperBrightnessThreshold;
+}
+
+inline void ColorCommonOptions::setPaperBrightnessThreshold(int val) {
+  m_paperBrightnessThreshold = std::clamp(val, 0, 255);
+}
+
+inline int ColorCommonOptions::paperSaturationThreshold() const {
+  return m_paperSaturationThreshold;
+}
+
+inline void ColorCommonOptions::setPaperSaturationThreshold(int val) {
+  m_paperSaturationThreshold = std::clamp(val, 0, 255);
+}
+
+inline double ColorCommonOptions::paperCoverageThreshold() const {
+  return m_paperCoverageThreshold;
+}
+
+inline void ColorCommonOptions::setPaperCoverageThreshold(double val) {
+  m_paperCoverageThreshold = std::clamp(val, 0.0, 1.0);
+}
+
+inline bool ColorCommonOptions::useAdaptiveDetection() const {
+  return m_useAdaptiveDetection;
+}
+
+inline void ColorCommonOptions::setUseAdaptiveDetection(bool val) {
+  m_useAdaptiveDetection = val;
 }
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_COLORCOMMONOPTIONS_H_
