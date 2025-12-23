@@ -16,45 +16,53 @@
 #include "Dpi.h"
 #include "ImageMetadata.h"
 
-// Global mutex to serialize PDF operations.
+// Thread-safe PDF document manager.
 // QtPdf (Chromium-based PDF renderer) is not thread-safe and will crash
 // if multiple threads attempt to load/render PDFs concurrently.
-static QMutex s_pdfMutex;
-
-// Shared QPdfDocument instance - reusing the same instance avoids
-// crashes that occur when creating/destroying QPdfDocument objects
-// from multiple threads, even with mutex protection.
-static QPdfDocument* s_pdfDoc = nullptr;
-static QString s_loadedFilePath;
-
-static QPdfDocument& getSharedPdfDoc() {
-  if (!s_pdfDoc) {
-    s_pdfDoc = new QPdfDocument();
+// This class encapsulates the shared state with proper RAII semantics.
+class PdfDocumentManager {
+ public:
+  static PdfDocumentManager& instance() {
+    static PdfDocumentManager s_instance;
+    return s_instance;
   }
-  return *s_pdfDoc;
-}
 
-static bool ensurePdfLoaded(const QString& filePath) {
-  QPdfDocument& doc = getSharedPdfDoc();
+  QMutex& mutex() { return m_mutex; }
 
-  // If already loaded, return success
-  if (s_loadedFilePath == filePath && doc.status() == QPdfDocument::Status::Ready) {
+  bool ensureLoaded(const QString& filePath) {
+    // If already loaded, return success
+    if (m_loadedFilePath == filePath && m_doc.status() == QPdfDocument::Status::Ready) {
+      return true;
+    }
+
+    // Close any previously loaded document
+    m_doc.close();
+    m_loadedFilePath.clear();
+
+    // Load the new document
+    if (m_doc.load(filePath) != QPdfDocument::Error::None) {
+      qDebug() << "PdfReader: Failed to load PDF:" << filePath;
+      return false;
+    }
+
+    m_loadedFilePath = filePath;
     return true;
   }
 
-  // Close any previously loaded document
-  doc.close();
-  s_loadedFilePath.clear();
+  QPdfDocument& document() { return m_doc; }
 
-  // Load the new document
-  if (doc.load(filePath) != QPdfDocument::Error::None) {
-    qDebug() << "PdfReader: Failed to load PDF:" << filePath;
-    return false;
-  }
+ private:
+  PdfDocumentManager() = default;
+  ~PdfDocumentManager() = default;
 
-  s_loadedFilePath = filePath;
-  return true;
-}
+  // Non-copyable, non-movable
+  PdfDocumentManager(const PdfDocumentManager&) = delete;
+  PdfDocumentManager& operator=(const PdfDocumentManager&) = delete;
+
+  QMutex m_mutex;
+  QPdfDocument m_doc;
+  QString m_loadedFilePath;
+};
 
 bool PdfReader::checkMagic(const QByteArray& data) {
   // PDF files start with "%PDF-"
@@ -103,13 +111,14 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
     return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
   }
 
-  QMutexLocker lock(&s_pdfMutex);
+  PdfDocumentManager& mgr = PdfDocumentManager::instance();
+  QMutexLocker lock(&mgr.mutex());
 
-  if (!ensurePdfLoaded(filePath)) {
+  if (!mgr.ensureLoaded(filePath)) {
     return ImageMetadataLoader::GENERIC_ERROR;
   }
 
-  QPdfDocument& doc = getSharedPdfDoc();
+  QPdfDocument& doc = mgr.document();
   const int pageCount = doc.pageCount();
   if (pageCount <= 0) {
     qDebug() << "PdfReader: PDF has no pages:" << filePath;
@@ -135,14 +144,15 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 }
 
 QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
-  QMutexLocker lock(&s_pdfMutex);
+  PdfDocumentManager& mgr = PdfDocumentManager::instance();
+  QMutexLocker lock(&mgr.mutex());
 
-  if (!ensurePdfLoaded(filePath)) {
+  if (!mgr.ensureLoaded(filePath)) {
     qDebug() << "PdfReader: Failed to load PDF for rendering:" << filePath;
     return QImage();
   }
 
-  QPdfDocument& doc = getSharedPdfDoc();
+  QPdfDocument& doc = mgr.document();
 
   if (pageNum < 0 || pageNum >= doc.pageCount()) {
     qDebug() << "PdfReader: Invalid page number:" << pageNum << "for PDF with" << doc.pageCount() << "pages";

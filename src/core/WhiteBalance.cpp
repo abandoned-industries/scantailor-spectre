@@ -25,6 +25,7 @@ const int MAX_SATURATION = 60;
 const int SAMPLE_COUNT = 1000;
 
 // Helper: compute a simple local variance proxy (average absolute diff to 3x3 mean).
+// Note: caller must ensure image is Format_RGB32 or Format_ARGB32 for safe scanLine access.
 int localVarianceScore(const QImage& image, const int x, const int y) {
   const int w = image.width();
   const int h = image.height();
@@ -33,11 +34,21 @@ int localVarianceScore(const QImage& image, const int x, const int y) {
   const int y0 = std::max(0, y - 1);
   const int y1 = std::min(h - 1, y + 1);
 
+  // Verify format supports direct QRgb* access
+  const QImage::Format fmt = image.format();
+  const bool directAccess = (fmt == QImage::Format_RGB32 || fmt == QImage::Format_ARGB32
+                             || fmt == QImage::Format_ARGB32_Premultiplied);
+
   int sumR = 0, sumG = 0, sumB = 0, count = 0;
   for (int yy = y0; yy <= y1; ++yy) {
-    const QRgb* line = reinterpret_cast<const QRgb*>(image.scanLine(yy));
     for (int xx = x0; xx <= x1; ++xx) {
-      const QRgb p = line[xx];
+      QRgb p;
+      if (directAccess) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(image.constScanLine(yy));
+        p = line[xx];
+      } else {
+        p = image.pixel(xx, yy);
+      }
       sumR += qRed(p);
       sumG += qGreen(p);
       sumB += qBlue(p);
@@ -368,11 +379,13 @@ QImage WhiteBalance::apply(const QImage& image, const QColor& paperColor) {
   qDebug() << "WhiteBalance: applying correction - R*" << rMult << "G*" << gMult << "B*" << bMult;
 
   // Apply correction to all pixels
+  // Convert to RGB32 to guarantee QRgb* scanLine access is safe
   QImage result = image.convertToFormat(QImage::Format_RGB32);
   const int width = result.width();
   const int height = result.height();
 
   for (int y = 0; y < height; ++y) {
+    // Safe cast: Format_RGB32 guarantees 32-bit QRgb per pixel
     QRgb* line = reinterpret_cast<QRgb*>(result.scanLine(y));
     for (int x = 0; x < width; ++x) {
       const QRgb pixel = line[x];

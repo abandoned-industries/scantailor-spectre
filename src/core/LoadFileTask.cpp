@@ -6,6 +6,7 @@
 #include <imageproc/Grayscale.h>
 
 #include <QCoreApplication>
+#include <stdexcept>
 #include <QDir>
 #include <QFile>
 #include <QTextDocument>
@@ -49,7 +50,9 @@ LoadFileTask::LoadFileTask(Type type,
       m_imageMetadata(page.metadata()),
       m_pages(std::move(pages)),
       m_nextTask(std::move(nextTask)) {
-  assert(m_nextTask);
+  if (!m_nextTask) {
+    throw std::invalid_argument("LoadFileTask: nextTask cannot be null");
+  }
 }
 
 LoadFileTask::~LoadFileTask() = default;

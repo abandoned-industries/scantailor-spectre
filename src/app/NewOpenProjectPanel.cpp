@@ -126,8 +126,19 @@ void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
   font.setWeight(QFont::DemiBold);
   label->setFont(font);
 
-  // Slightly lighter color for recent projects
-  label->setTextColor(QColor(80, 80, 80));
+  // Use palette-aware color: slightly lighter than normal text for visual hierarchy
+  QColor textColor = palette().color(QPalette::WindowText);
+  // Mix with mid to get a softer secondary color that works in both themes
+  QColor secondaryColor;
+  const int brightness = (textColor.red() + textColor.green() + textColor.blue()) / 3;
+  if (brightness > 128) {
+    // Dark mode (light text) - darken slightly
+    secondaryColor = textColor.darker(130);
+  } else {
+    // Light mode (dark text) - lighten slightly
+    secondaryColor = textColor.lighter(160);
+  }
+  label->setTextColor(secondaryColor);
 
   m_recentLayout->addWidget(label);
 

@@ -5,6 +5,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <stdexcept>
 #include <utility>
 
 #include "AbstractRelinker.h"
@@ -18,7 +19,9 @@ OutputFileNameGenerator::OutputFileNameGenerator(std::shared_ptr<FileNameDisambi
                                                  const QString& outDir,
                                                  Qt::LayoutDirection layoutDirection)
     : m_disambiguator(std::move(disambiguator)), m_outDir(outDir), m_layoutDirection(layoutDirection) {
-  assert(m_disambiguator);
+  if (!m_disambiguator) {
+    throw std::invalid_argument("OutputFileNameGenerator: disambiguator cannot be null");
+  }
 }
 
 void OutputFileNameGenerator::performRelinking(const AbstractRelinker& relinker) {

@@ -36,8 +36,16 @@ class WorkerThreadPool : public QObject {
 
   void taskResult(const BackgroundTaskPtr& task, const FilterResultPtr& result);
 
+  /**
+   * Emitted when a task fails with an exception.
+   * \param task The task that failed
+   * \param errorMessage Description of the error
+   */
+  void taskError(const BackgroundTaskPtr& task, const QString& errorMessage);
+
  private:
   class TaskResultEvent;
+  class TaskErrorEvent;
 
   void customEvent(QEvent* event) override;
 

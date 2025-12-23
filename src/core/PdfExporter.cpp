@@ -257,10 +257,17 @@ bool exportWithLibHaru(const QStringList& imagePaths,
 
       QByteArray jpegData;
       QBuffer buffer(&jpegData);
-      buffer.open(QIODevice::WriteOnly);
+      if (!buffer.open(QIODevice::WriteOnly)) {
+        qWarning() << "PdfExporter: Failed to open buffer for page" << currentPage;
+        continue;
+      }
       // Use higher quality for color pages (covers often have fine line art)
       const int effectiveQuality = (type == ImageType::Color) ? qMax(jpegQuality, 95) : jpegQuality;
-      outImage.save(&buffer, "JPEG", effectiveQuality);
+      if (!outImage.save(&buffer, "JPEG", effectiveQuality)) {
+        qWarning() << "PdfExporter: Failed to save JPEG for page" << currentPage;
+        buffer.close();
+        continue;
+      }
       buffer.close();
 
       // Log first few JPEG sizes to help debug
