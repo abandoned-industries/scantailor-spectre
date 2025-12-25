@@ -77,6 +77,16 @@
        </layout>
       </item>
       <item>
+       <widget class="QLabel" name="selectionIndicatorLabel">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="applyToBtn">
         <property name="text">
          <string>Apply To ...</string>

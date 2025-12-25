@@ -63,6 +63,8 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo, const Margins& margins
   m_marginsMM = marginsMm;
   m_alignment = alignment;
 
+  updateSelectionIndicator();
+
   for (const auto& [button, btnAlignment] : m_alignmentByButton) {
     if (alignment.isAutoVertical()) {
       if ((btnAlignment.vertical() == Alignment::VCENTER) && (btnAlignment.horizontal() == alignment.horizontal())) {
@@ -181,6 +183,9 @@ void OptionsWidget::horMarginsChanged(const double val) {
   m_marginsMM.setLeft(leftMarginSpinBoxValue);
   m_marginsMM.setRight(rightMarginSpinBoxValue);
 
+  // Apply to all selected pages
+  applyMarginsToSelectedPages();
+
   emit marginsSetLocally(m_marginsMM);
 }
 
@@ -199,6 +204,9 @@ void OptionsWidget::vertMarginsChanged(const double val) {
 
   m_marginsMM.setTop(topMarginSpinBoxValue);
   m_marginsMM.setBottom(bottomMarginSpinBoxValue);
+
+  // Apply to all selected pages
+  applyMarginsToSelectedPages();
 
   emit marginsSetLocally(m_marginsMM);
 }
@@ -286,6 +294,9 @@ void OptionsWidget::alignmentButtonClicked() {
   } else {
     m_alignment = alignment;
   }
+
+  // Apply to all selected pages
+  applyAlignmentToSelectedPages();
 
   emit alignmentChanged(m_alignment);
 }
@@ -496,5 +507,59 @@ void OptionsWidget::setupIcons() {
   alignCenterBtn->setIcon(iconProvider.getIcon("stock-center"));
   m_chainIcon = iconProvider.getIcon("stock-vchain");
   m_brokenChainIcon = iconProvider.getIcon("stock-vchain-broken");
+}
+
+void OptionsWidget::applyMarginsToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    const bool autoMarginsEnabled = m_settings->isPageAutoMarginsEnabled(m_pageId);
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        continue;
+      }
+
+      m_settings->setPageAutoMarginsEnabled(pageId, autoMarginsEnabled);
+      if (autoMarginsEnabled) {
+        m_settings->invalidateContentSize(pageId);
+      } else {
+        m_settings->setHardMarginsMM(pageId, m_marginsMM);
+      }
+    }
+    emit aggregateHardSizeChanged();
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::applyAlignmentToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        continue;
+      }
+
+      m_settings->setPageAlignment(pageId, m_alignment);
+    }
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 }  // namespace page_layout
