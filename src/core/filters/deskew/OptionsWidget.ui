@@ -103,6 +103,16 @@
        </layout>
       </item>
       <item>
+       <widget class="QLabel" name="selectionIndicatorLabel">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <spacer name="horizontalSpacer_9">

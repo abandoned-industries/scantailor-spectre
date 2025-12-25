@@ -81,6 +81,8 @@ endif()
 add_executable(
     scantailor WIN32 ${MACOS_BUNDLE_FLAG} ${gui_only_sources} ${gui_only_ui_files}
     ${resource_files} ${win32_resource_file})
+# Ensure version.h is regenerated before building scantailor
+add_dependencies(scantailor generate_version_h)
 target_link_libraries(
     scantailor
     PRIVATE core ${EXTRA_LIBS})

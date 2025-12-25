@@ -172,6 +172,7 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   m_depthPerception = params.depthPerception();
   m_despeckleLevel = params.despeckleLevel();
 
+  updateSelectionIndicator();
   updateDpiDisplay();
   updateColorsDisplay();
   updateDewarpingDisplay();
@@ -228,6 +229,9 @@ void OptionsWidget::colorModeChanged(const int idx) {
     qDebug() << "Output: User set color mode to" << mode << "for page" << m_pageId.imageId().filePath()
              << "- synced to finalize filter";
   }
+
+  // Apply to all selected pages
+  applyColorParamsToSelectedPages();
 
   emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
@@ -497,16 +501,9 @@ void OptionsWidget::applyColorsConfirmed(const std::set<PageId>& pages) {
     m_settings->setManualWhiteBalanceColor(pageId, wbColor);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
-  }
-
-  if (pages.find(m_pageId) != pages.end()) {
-    emit reloadRequested();
+  // Request batch processing of ALL pages (including current if present)
+  if (!pages.empty()) {
+    emit batchProcessingRequested(pages);
   }
 }
 
@@ -1251,6 +1248,60 @@ ImageViewTab OptionsWidget::lastTab() const {
 
 const DepthPerception& OptionsWidget::depthPerception() const {
   return m_depthPerception;
+}
+
+void OptionsWidget::applyColorParamsToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    std::set<PageId> pagesToReprocess;
+
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        // Include current page in batch - it will be processed along with others
+        pagesToReprocess.insert(pageId);
+        continue;
+      }
+
+      m_settings->setColorParams(pageId, m_colorParams);
+      pagesToReprocess.insert(pageId);
+
+      // Also update finalize settings so finalize filter stays in sync
+      if (m_finalizeSettings) {
+        finalize::ColorMode finalizeMode;
+        switch (m_colorParams.colorMode()) {
+          case BLACK_AND_WHITE:
+            finalizeMode = finalize::ColorMode::BlackAndWhite;
+            break;
+          case GRAYSCALE:
+            finalizeMode = finalize::ColorMode::Grayscale;
+            break;
+          case COLOR:
+          default:
+            finalizeMode = finalize::ColorMode::Color;
+            break;
+        }
+        m_finalizeSettings->setColorMode(pageId, finalizeMode);
+      }
+    }
+
+    // Request batch processing of ALL selected pages (including current)
+    if (!pagesToReprocess.empty()) {
+      emit batchProcessingRequested(pagesToReprocess);
+    }
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 
 }  // namespace output

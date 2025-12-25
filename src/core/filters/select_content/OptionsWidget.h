@@ -124,6 +124,10 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void setupUiConnections();
 
+  void applyModeToSelectedPages();
+
+  void updateSelectionIndicator();
+
   std::shared_ptr<Settings> m_settings;
   UiData m_uiData;
   PageSelectionAccessor m_pageSelectionAccessor;

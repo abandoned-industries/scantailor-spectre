@@ -284,7 +284,15 @@ string(
 if ("${VERSION_QUAD}" STREQUAL "${version_h_contents}")
   message(FATAL_ERROR "Failed to extract VERSION_QUAD from version.h")
 endif()
-configure_file(version.h.in "${CMAKE_BINARY_DIR}/version.h" COPYONLY)
+# Generate build timestamp on every build (format: YYYYMMDD.HHMM)
+# Use a custom command that runs at build time, not configure time
+add_custom_target(generate_version_h ALL
+  COMMAND ${CMAKE_COMMAND}
+    -DVERSION_H_IN="${PROJECT_SOURCE_DIR}/version.h.in"
+    -DVERSION_H_OUT="${CMAKE_BINARY_DIR}/version.h"
+    -P "${PROJECT_SOURCE_DIR}/cmake/GenerateVersionH.cmake"
+  COMMENT "Generating version.h with build timestamp"
+)
 string(REGEX REPLACE "([0-9]+)\\.[0-9]+\\.[0-9]+" "\\1" APPLICATION_VERSION_MAJOR "${VERSION}")
 string(REGEX REPLACE "[0-9]+\\.([0-9]+)\\.[0-9]+" "\\1" APPLICATION_VERSION_MINOR "${VERSION}")
 string(REGEX REPLACE "[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" APPLICATION_VERSION_PATCH "${VERSION}")

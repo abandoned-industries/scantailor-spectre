@@ -29,6 +29,8 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
   m_pageId = pageInfo.id();
   m_dpi = pageInfo.metadata().dpi();
 
+  updateSelectionIndicator();
+
   contentBoxGroup->setEnabled(false);
   pageBoxGroup->setEnabled(false);
 
@@ -91,6 +93,9 @@ void OptionsWidget::contentDetectToggled(const AutoManualMode mode) {
   m_uiData.setContentDetectionMode(mode);
   commitCurrentParams();
 
+  // Apply mode to all selected pages
+  applyModeToSelectedPages();
+
   if (mode != MODE_MANUAL) {
     emit reloadRequested();
   }
@@ -102,6 +107,9 @@ void OptionsWidget::pageDetectToggled(const AutoManualMode mode) {
   m_uiData.setPageDetectionMode(mode);
   updatePageDetectOptionsDisplay();
   commitCurrentParams();
+
+  // Apply mode to all selected pages
+  applyModeToSelectedPages();
 
   if (mode != MODE_MANUAL) {
     emit reloadRequested();
@@ -304,6 +312,49 @@ void OptionsWidget::setupUiConnections() {
 }
 
 #undef CONNECT
+
+void OptionsWidget::applyModeToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    const Params params(m_uiData.contentRect(), m_uiData.contentSizeMM(), m_uiData.pageRect(), m_uiData.dependencies(),
+                        m_uiData.contentDetectionMode(), m_uiData.pageDetectionMode(),
+                        m_uiData.isFineTuningCornersEnabled());
+
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        continue;
+      }
+
+      std::unique_ptr<Params> oldParams = m_settings->getPageParams(pageId);
+      if (oldParams) {
+        // Copy only the mode settings, not the boxes
+        Params newParams(*oldParams);
+        newParams.setContentDetectionMode(m_uiData.contentDetectionMode());
+        newParams.setPageDetectionMode(m_uiData.pageDetectionMode());
+        newParams.setFineTuneCornersEnabled(m_uiData.isFineTuningCornersEnabled());
+        m_settings->setPageParams(pageId, newParams);
+      } else {
+        m_settings->setPageParams(pageId, params);
+      }
+    }
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
+}
 
 
 /*========================= OptionsWidget::UiData ======================*/
