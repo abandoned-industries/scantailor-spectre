@@ -1,24 +1,24 @@
-// Copyright (C) 2024  ScanTailor Advanced contributors
+// Copyright (C) 2024  ScanTailor Spectre contributors
 // Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
 
 #include "Filter.h"
 
-#include <utility>
+#include <filters/output/CacheDrivenTask.h>
+#include <filters/output/Task.h>
 
-#include "AbstractCacheDrivenOutputTask.h"
-#include "AbstractOutputTask.h"
+#include <utility>
 
 #include "CacheDrivenTask.h"
 #include "FilterUiInterface.h"
+#include "OcrResult.h"
 #include "OptionsWidget.h"
 #include "ProjectPages.h"
 #include "ProjectReader.h"
 #include "ProjectWriter.h"
 #include "Settings.h"
 #include "Task.h"
-#include "filters/output/Settings.h"
 
-namespace finalize {
+namespace ocr {
 Filter::Filter(std::shared_ptr<ProjectPages> pages, const PageSelectionAccessor& pageSelectionAccessor)
     : m_pages(std::move(pages)), m_settings(std::make_shared<Settings>()), m_selectedPageOrder(0) {
   m_optionsWidget.reset(new OptionsWidget(m_settings, pageSelectionAccessor));
@@ -30,7 +30,7 @@ Filter::Filter(std::shared_ptr<ProjectPages> pages, const PageSelectionAccessor&
 Filter::~Filter() = default;
 
 QString Filter::getName() const {
-  return tr("Finalize");
+  return tr("OCR");
 }
 
 PageView Filter::getView() const {
@@ -64,22 +64,29 @@ void Filter::preUpdateUI(FilterUiInterface* ui, const PageInfo& pageInfo) {
 }
 
 QDomElement Filter::saveSettings(const ProjectWriter& writer, QDomDocument& doc) const {
-  QDomElement filterEl(doc.createElement("finalize"));
+  QDomElement filterEl(doc.createElement("ocr"));
 
+  // Save global OCR settings
+  filterEl.setAttribute("enabled", m_settings->ocrEnabled() ? "1" : "0");
+  filterEl.setAttribute("language", m_settings->language());
+  filterEl.setAttribute("accurate", m_settings->useAccurateRecognition() ? "1" : "0");
+
+  // Save per-page OCR results
   writer.enumPages(
       [&](const PageId& pageId, int numericId) { this->writePageSettings(doc, filterEl, pageId, numericId); });
+
   return filterEl;
 }
 
 void Filter::writePageSettings(QDomDocument& doc, QDomElement& filterEl, const PageId& pageId, int numericId) const {
-  const std::unique_ptr<Params> params(m_settings->getParams(pageId));
-  if (!params) {
+  const std::unique_ptr<OcrResult> result = m_settings->getOcrResult(pageId);
+  if (!result || result->isEmpty()) {
     return;
   }
 
   QDomElement pageEl(doc.createElement("page"));
   pageEl.setAttribute("id", numericId);
-  pageEl.appendChild(params->toXml(doc, "params"));
+  pageEl.appendChild(result->toXml(doc, "ocr-result"));
 
   filterEl.appendChild(pageEl);
 }
@@ -87,11 +94,17 @@ void Filter::writePageSettings(QDomDocument& doc, QDomElement& filterEl, const P
 void Filter::loadSettings(const ProjectReader& reader, const QDomElement& filtersEl) {
   m_settings->clear();
 
-  const QDomElement filterEl(filtersEl.namedItem("finalize").toElement());
+  const QDomElement filterEl(filtersEl.namedItem("ocr").toElement());
   if (filterEl.isNull()) {
     return;
   }
 
+  // Load global settings
+  m_settings->setOcrEnabled(filterEl.attribute("enabled", "0") == "1");
+  m_settings->setLanguage(filterEl.attribute("language", ""));
+  m_settings->setUseAccurateRecognition(filterEl.attribute("accurate", "1") == "1");
+
+  // Load per-page OCR results
   const QString pageTagName("page");
   QDomNode node(filterEl.firstChild());
   for (; !node.isNull(); node = node.nextSibling()) {
@@ -114,42 +127,33 @@ void Filter::loadSettings(const ProjectReader& reader, const QDomElement& filter
       continue;
     }
 
-    const QDomElement paramsEl(el.namedItem("params").toElement());
-    if (paramsEl.isNull()) {
+    const QDomElement resultEl(el.namedItem("ocr-result").toElement());
+    if (resultEl.isNull()) {
       continue;
     }
 
-    const Params params(paramsEl);
-    m_settings->setParams(pageId, params);
+    const OcrResult result(resultEl);
+    m_settings->setOcrResult(pageId, result);
   }
 }
 
 void Filter::loadDefaultSettings(const PageInfo& pageInfo) {
-  // No default settings needed
-}
-
-bool Filter::checkReadyForOutput(const ProjectPages& pages, const PageId* ignore) {
-  const PageSequence snapshot(pages.toPageSequence(PAGE_VIEW));
-  return m_settings->checkEverythingDefined(snapshot, ignore);
+  // No per-page default settings needed
 }
 
 std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
-                                         std::shared_ptr<AbstractOutputTask> nextTask,
-                                         std::shared_ptr<output::Settings> outputSettings,
+                                         std::shared_ptr<output::Task> outputTask,
+                                         const OutputFileNameGenerator& outFileNameGen,
                                          const bool batch) {
-  return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), std::move(nextTask), m_settings,
-                                std::move(outputSettings), pageId, batch);
+  return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), std::move(outputTask), m_settings,
+                                pageId, outFileNameGen, batch);
 }
 
-std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<AbstractCacheDrivenOutputTask> nextTask) {
-  return std::make_shared<CacheDrivenTask>(std::move(nextTask), m_settings);
+std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask) {
+  return std::make_shared<CacheDrivenTask>(std::move(outputTask), m_settings);
 }
 
 OptionsWidget* Filter::optionsWidget() {
   return m_optionsWidget.get();
 }
-
-void Filter::setOutputSettings(std::shared_ptr<output::Settings> outputSettings) {
-  m_optionsWidget->setOutputSettings(std::move(outputSettings));
-}
-}  // namespace finalize
+}  // namespace ocr

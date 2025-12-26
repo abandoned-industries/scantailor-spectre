@@ -1,8 +1,8 @@
 // Copyright (C) 2024  ScanTailor Spectre contributors
 // Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
 
-#ifndef SCANTAILOR_EXPORT_FILTER_H_
-#define SCANTAILOR_EXPORT_FILTER_H_
+#ifndef SCANTAILOR_OCR_FILTER_H_
+#define SCANTAILOR_OCR_FILTER_H_
 
 #include <QCoreApplication>
 #include <memory>
@@ -11,6 +11,7 @@
 #include "AbstractFilter.h"
 #include "FilterResult.h"
 #include "NonCopyable.h"
+#include "OutputFileNameGenerator.h"
 #include "PageOrderOption.h"
 #include "PageView.h"
 #include "SafeDeletingQObjectPtr.h"
@@ -19,16 +20,12 @@ class ProjectPages;
 class PageSelectionAccessor;
 class QString;
 
-namespace ocr {
+namespace output {
 class Task;
 class CacheDrivenTask;
-}  // namespace ocr
-
-namespace output {
-class Settings;
 }  // namespace output
 
-namespace export_ {
+namespace ocr {
 class OptionsWidget;
 class Task;
 class CacheDrivenTask;
@@ -37,7 +34,7 @@ class Settings;
 class Filter : public AbstractFilter {
   DECLARE_NON_COPYABLE(Filter)
 
-  Q_DECLARE_TR_FUNCTIONS(export_::Filter)
+  Q_DECLARE_TR_FUNCTIONS(ocr::Filter)
  public:
   Filter(std::shared_ptr<ProjectPages> pageSequence, const PageSelectionAccessor& pageSelectionAccessor);
 
@@ -66,23 +63,24 @@ class Filter : public AbstractFilter {
   void loadDefaultSettings(const PageInfo& pageInfo) override;
 
   std::shared_ptr<Task> createTask(const PageId& pageId,
-                                   std::shared_ptr<ocr::Task> ocrTask,
+                                   std::shared_ptr<output::Task> outputTask,
+                                   const OutputFileNameGenerator& outFileNameGen,
                                    bool batch);
 
-  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<ocr::CacheDrivenTask> ocrTask);
+  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask);
 
   OptionsWidget* optionsWidget();
 
   std::shared_ptr<Settings> settings() const { return m_settings; }
 
-  void setOutputSettings(std::shared_ptr<output::Settings> outputSettings);
-
  private:
+  void writePageSettings(QDomDocument& doc, QDomElement& filterEl, const PageId& pageId, int numericId) const;
+
   std::shared_ptr<ProjectPages> m_pages;
   std::shared_ptr<Settings> m_settings;
   SafeDeletingQObjectPtr<OptionsWidget> m_optionsWidget;
   std::vector<PageOrderOption> m_pageOrderOptions;
   int m_selectedPageOrder;
 };
-}  // namespace export_
-#endif  // SCANTAILOR_EXPORT_FILTER_H_
+}  // namespace ocr
+#endif  // SCANTAILOR_OCR_FILTER_H_

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>OcrOptionsWidget</class>
+ <widget class="QWidget" name="OcrOptionsWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>250</width>
+    <height>350</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>OCR</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QGroupBox" name="ocrGroup">
+     <property name="title">
+      <string>Text Recognition (OCR)</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QCheckBox" name="enableOcrCB">
+        <property name="text">
+         <string>Enable OCR for searchable PDF</string>
+        </property>
+        <property name="toolTip">
+         <string>Add invisible text layer to PDF for search and copy</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="languageLayout">
+        <item>
+         <widget class="QLabel" name="languageLabel">
+          <property name="text">
+           <string>Language:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="languageCombo">
+          <property name="toolTip">
+           <string>Select the primary language of the document</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="languageSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="accurateCB">
+        <property name="text">
+         <string>Use accurate recognition (slower)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Higher accuracy but slower processing</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="resultsGroup">
+     <property name="title">
+      <string>Current Page</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_3">
+      <item>
+       <widget class="QLabel" name="statusLabel">
+        <property name="text">
+         <string>Status: Not processed</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="wordCountLabel">
+        <property name="text">
+         <string>Text blocks: 0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="buttonLayout">
+        <item>
+         <widget class="QPushButton" name="clearResultBtn">
+          <property name="text">
+           <string>Clear Result</string>
+          </property>
+          <property name="toolTip">
+           <string>Clear OCR result for current page</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="clearAllBtn">
+          <property name="text">
+           <string>Clear All</string>
+          </property>
+          <property name="toolTip">
+           <string>Clear OCR results for all pages</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -7,11 +7,13 @@
 #include <QImage>
 #include <QRectF>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 /**
- * Apple Vision Framework integration for page split detection.
- * Uses macOS Vision APIs for text recognition to detect two-page spreads.
+ * Apple Vision Framework integration for page split detection and OCR.
+ * Uses macOS Vision APIs for text recognition to detect two-page spreads
+ * and perform OCR for searchable PDF generation.
  * Falls back to disabled on non-Apple platforms.
  */
 class AppleVisionDetector {
@@ -24,6 +26,24 @@ class AppleVisionDetector {
     QRectF bounds;       // Bounding rectangle in image coordinates
     float confidence;    // Detection confidence (0.0 - 1.0)
     QString text;        // Recognized text (if available)
+  };
+
+  /**
+   * OCR configuration for text recognition.
+   */
+  struct OcrConfig {
+    QString languageCode;              // Empty = auto-detect, or specific language code (e.g., "en-US")
+    bool useAccurateRecognition = true;  // Accurate vs Fast recognition level
+    bool usesLanguageCorrection = true;  // Apply language model corrections
+  };
+
+  /**
+   * OCR result with word-level bounding box.
+   */
+  struct OcrWordResult {
+    QString text;
+    QRectF bounds;       // In image coordinates
+    float confidence;
   };
 
   /**
@@ -63,6 +83,20 @@ class AppleVisionDetector {
    * @return Page split detection result
    */
   static PageSplitResult detectPageSplitFromFile(const QString& imagePath);
+
+  /**
+   * Perform OCR with word-level results for PDF text layer.
+   * @param image The image to analyze
+   * @param config OCR configuration (language, accuracy level)
+   * @return Vector of word results with bounding boxes
+   */
+  static QVector<OcrWordResult> performOcr(const QImage& image, const OcrConfig& config);
+
+  /**
+   * Get list of supported language codes for OCR.
+   * @return List of language codes (e.g., "en-US", "fr-FR")
+   */
+  static QStringList supportedOcrLanguages();
 };
 
 #endif  // SCANTAILOR_CORE_APPLEVISIONDETECTOR_H_

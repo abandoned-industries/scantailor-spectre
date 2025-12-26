@@ -3,8 +3,9 @@
 #ifndef SCANTAILOR_VERSION_H_
 #define SCANTAILOR_VERSION_H_
 
-#define VERSION "2.0a10"
+#define VERSION "2.0a11"
 #define VERSION_QUAD ""  // Must be "x.x.x.x" or an empty string.
 #define PROJECT_VERSION 4
+#define BUILD_TIMESTAMP "2025-12-26"
 
 #endif
