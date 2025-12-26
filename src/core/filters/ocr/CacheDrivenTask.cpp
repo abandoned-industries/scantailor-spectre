@@ -5,12 +5,13 @@
 
 #include <utility>
 
-#include "filters/ocr/CacheDrivenTask.h"
+#include "Settings.h"
+#include "filters/output/CacheDrivenTask.h"
 
-namespace export_ {
+namespace ocr {
 
-CacheDrivenTask::CacheDrivenTask(std::shared_ptr<ocr::CacheDrivenTask> ocrTask)
-    : m_ocrTask(std::move(ocrTask)) {}
+CacheDrivenTask::CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask, std::shared_ptr<Settings> settings)
+    : m_outputTask(std::move(outputTask)), m_settings(std::move(settings)) {}
 
 CacheDrivenTask::~CacheDrivenTask() = default;
 
@@ -18,10 +19,10 @@ void CacheDrivenTask::process(const PageInfo& pageInfo,
                               AbstractFilterDataCollector* collector,
                               const ImageTransformation& xform,
                               const QPolygonF& contentRectPhys) {
-  // Delegate to OCR filter's cache-driven task (which delegates to output)
-  if (m_ocrTask) {
-    m_ocrTask->process(pageInfo, collector, xform, contentRectPhys);
+  // OCR filter delegates to output filter's cache-driven task for thumbnail generation
+  if (m_outputTask) {
+    m_outputTask->process(pageInfo, collector, xform, contentRectPhys);
   }
 }
 
-}  // namespace export_
+}  // namespace ocr

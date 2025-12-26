@@ -2,6 +2,8 @@ set(common_ui_files
     ErrorWidget.ui)
 
 set(common_sources
+    AbstractCacheDrivenOutputTask.h
+    AbstractOutputTask.h
     Application.cpp Application.h
     BackgroundExecutor.cpp BackgroundExecutor.h
     PixmapRenderer.cpp PixmapRenderer.h
@@ -156,7 +158,7 @@ target_link_libraries(
     $<$<BOOL:${ACCELERATE_FRAMEWORK}>:${ACCELERATE_FRAMEWORK}>
   PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets Qt::Pdf
   imageproc zones
-  fix_orientation page_split deskew select_content page_layout finalize output export_)
+  fix_orientation page_split deskew select_content page_layout finalize output ocr export_)
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 set_target_properties(core PROPERTIES AUTOUIC ON)
 
@@ -172,4 +174,5 @@ add_subdirectory(filters/select_content)
 add_subdirectory(filters/page_layout)
 add_subdirectory(filters/finalize)
 add_subdirectory(filters/output)
+add_subdirectory(filters/ocr)
 add_subdirectory(filters/export)

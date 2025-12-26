@@ -3,8 +3,8 @@
 
 #include "Filter.h"
 
-#include <filters/output/CacheDrivenTask.h>
-#include <filters/output/Task.h>
+#include <filters/ocr/CacheDrivenTask.h>
+#include <filters/ocr/Task.h>
 
 #include <utility>
 
@@ -92,14 +92,14 @@ void Filter::loadDefaultSettings(const PageInfo& pageInfo) {
 }
 
 std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
-                                         std::shared_ptr<output::Task> outputTask,
+                                         std::shared_ptr<ocr::Task> ocrTask,
                                          const bool batch) {
-  return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), std::move(outputTask), pageId,
+  return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), std::move(ocrTask), pageId,
                                 batch);
 }
 
-std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask) {
-  return std::make_shared<CacheDrivenTask>(std::move(outputTask));
+std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<ocr::CacheDrivenTask> ocrTask) {
+  return std::make_shared<CacheDrivenTask>(std::move(ocrTask));
 }
 
 OptionsWidget* Filter::optionsWidget() {

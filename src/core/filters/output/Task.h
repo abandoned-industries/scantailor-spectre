@@ -8,6 +8,7 @@
 #include <QImage>
 #include <memory>
 
+#include "AbstractOutputTask.h"
 #include "FilterResult.h"
 #include "ImageViewTab.h"
 #include "NonCopyable.h"
@@ -32,7 +33,7 @@ namespace output {
 class Filter;
 class Settings;
 
-class Task {
+class Task : public AbstractOutputTask {
   DECLARE_NON_COPYABLE(Task)
 
  public:
@@ -45,9 +46,9 @@ class Task {
        bool batch,
        bool debug);
 
-  virtual ~Task();
+  ~Task() override;
 
-  FilterResultPtr process(const TaskStatus& status, const FilterData& data, const QPolygonF& contentRectPhys);
+  FilterResultPtr process(const TaskStatus& status, const FilterData& data, const QPolygonF& contentRectPhys) override;
 
  private:
   class UiUpdater;

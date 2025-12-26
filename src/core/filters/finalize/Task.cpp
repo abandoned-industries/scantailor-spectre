@@ -20,9 +20,9 @@
 #include "TaskStatus.h"
 #include "Thumbnail.h"
 #include "WhiteBalance.h"
+#include "AbstractOutputTask.h"
 #include "filters/output/ColorParams.h"
 #include "filters/output/Settings.h"
-#include "filters/output/Task.h"
 #include "LeptonicaDetector.h"
 
 namespace finalize {
@@ -53,7 +53,7 @@ class Task::UiUpdater : public FilterResult {
 };
 
 Task::Task(std::shared_ptr<Filter> filter,
-           std::shared_ptr<output::Task> nextTask,
+           std::shared_ptr<AbstractOutputTask> nextTask,
            std::shared_ptr<Settings> settings,
            std::shared_ptr<output::Settings> outputSettings,
            const PageId& pageId,

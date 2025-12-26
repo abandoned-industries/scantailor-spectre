@@ -15,13 +15,13 @@
 #include "PageView.h"
 #include "SafeDeletingQObjectPtr.h"
 
+class AbstractCacheDrivenOutputTask;
+class AbstractOutputTask;
 class ProjectPages;
 class PageSelectionAccessor;
 class QString;
 
 namespace output {
-class Task;
-class CacheDrivenTask;
 class Settings;
 }  // namespace output
 
@@ -65,11 +65,11 @@ class Filter : public AbstractFilter {
   bool checkReadyForOutput(const ProjectPages& pages, const PageId* ignore = nullptr);
 
   std::shared_ptr<Task> createTask(const PageId& pageId,
-                                   std::shared_ptr<output::Task> nextTask,
+                                   std::shared_ptr<AbstractOutputTask> nextTask,
                                    std::shared_ptr<output::Settings> outputSettings,
                                    bool batch);
 
-  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask);
+  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<AbstractCacheDrivenOutputTask> nextTask);
 
   OptionsWidget* optionsWidget();
 

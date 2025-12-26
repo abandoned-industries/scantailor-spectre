@@ -19,6 +19,8 @@ on:
 
 env:
   BUILD_TYPE: ${{ github.event.inputs.build_type || 'Release' }}
+  APP_NAME: ScanTailor Spectre
+  ARTIFACT_PREFIX: ScanTailor-Spectre
 
 jobs:
   build-macos:
@@ -53,7 +55,7 @@ jobs:
       run: |
         cd build
         xcodebuild \
-          -project "ScanTailor Advanced.xcodeproj" \
+          -project "${{ env.APP_NAME }}.xcodeproj" \
           -scheme scantailor \
           -configuration ${{ env.BUILD_TYPE }} \
           -derivedDataPath DerivedData \
@@ -63,7 +65,7 @@ jobs:
       id: locate_app
       run: |
         # Find the built app bundle
-        APP_PATH=$(find build -name "ScanTailor Advanced.app" -type d | head -1)
+        APP_PATH=$(find build -name "${{ env.APP_NAME }}.app" -type d | head -1)
         echo "App found at: $APP_PATH"
         echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
@@ -81,7 +83,7 @@ jobs:
     - name: Upload DMG artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ScanTailor-Advanced-${{ steps.locate_app.outputs.version }}-macOS-arm64
+        name: ${{ env.ARTIFACT_PREFIX }}-${{ steps.locate_app.outputs.version }}-macOS-arm64
         path: packaging/macos/*.dmg
         if-no-files-found: error
 
@@ -126,7 +128,7 @@ jobs:
       run: |
         cd build
         xcodebuild \
-          -project "ScanTailor Advanced.xcodeproj" \
+          -project "${{ env.APP_NAME }}.xcodeproj" \
           -scheme scantailor \
           -configuration ${{ env.BUILD_TYPE }} \
           -derivedDataPath DerivedData \
@@ -135,7 +137,7 @@ jobs:
     - name: Locate app bundle
       id: locate_app
       run: |
-        APP_PATH=$(find build -name "ScanTailor Advanced.app" -type d | head -1)
+        APP_PATH=$(find build -name "${{ env.APP_NAME }}.app" -type d | head -1)
         echo "App found at: $APP_PATH"
         echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
 
@@ -156,7 +158,7 @@ jobs:
     - name: Upload DMG artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ScanTailor-Advanced-${{ steps.locate_app.outputs.version }}-macOS-x86_64
+        name: ${{ env.ARTIFACT_PREFIX }}-${{ steps.locate_app.outputs.version }}-macOS-x86_64
         path: packaging/macos/*.dmg
         if-no-files-found: error
 

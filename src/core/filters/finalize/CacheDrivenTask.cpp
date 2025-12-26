@@ -10,12 +10,12 @@
 #include "PageInfo.h"
 #include "Settings.h"
 #include "Thumbnail.h"
+#include "AbstractCacheDrivenOutputTask.h"
 #include "core/AbstractFilterDataCollector.h"
 #include "core/ThumbnailCollector.h"
-#include "filters/output/CacheDrivenTask.h"
 
 namespace finalize {
-CacheDrivenTask::CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> nextTask,
+CacheDrivenTask::CacheDrivenTask(std::shared_ptr<AbstractCacheDrivenOutputTask> nextTask,
                                  std::shared_ptr<Settings> settings)
     : m_nextTask(std::move(nextTask)), m_settings(std::move(settings)) {}
 

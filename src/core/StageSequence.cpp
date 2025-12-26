@@ -14,6 +14,7 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
       m_pageLayoutFilter(std::make_shared<page_layout::Filter>(pages, pageSelectionAccessor)),
       m_finalizeFilter(std::make_shared<finalize::Filter>(pages, pageSelectionAccessor)),
       m_outputFilter(std::make_shared<output::Filter>(pages, pageSelectionAccessor)),
+      m_ocrFilter(std::make_shared<ocr::Filter>(pages, pageSelectionAccessor)),
       m_exportFilter(std::make_shared<export_::Filter>(pages, pageSelectionAccessor)) {
   // Connect finalize filter to output settings so user changes in finalize propagate to output
   m_finalizeFilter->setOutputSettings(m_outputFilter->settings());
@@ -42,6 +43,9 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
 
   m_outputFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_outputFilter);
+
+  m_ocrFilterIdx = static_cast<int>(m_filters.size());
+  m_filters.emplace_back(m_ocrFilter);
 
   m_exportFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_exportFilter);

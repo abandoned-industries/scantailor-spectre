@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QMap>
 #include <QPageSize>
 #include <QPainter>
 #include <QPdfWriter>
@@ -134,6 +135,7 @@ bool exportWithLibHaru(const QStringList& imagePaths,
                        int jpegQuality,
                        bool compressGrayscale,
                        int maxDpi,
+                       const QMap<QString, PdfExporter::OcrTextData>& ocrData,
                        const PdfExporter::ProgressCallback& progressCallback) {
   HpdfDocGuard pdfGuard(haruErrorHandler, nullptr);
   if (!pdfGuard) {
@@ -309,6 +311,57 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     }
 
     HPDF_Page_DrawImage(page, pdfImage, 0, 0, pageWidth, pageHeight);
+
+    // Add invisible text layer for OCR if available
+    auto ocrIt = ocrData.find(imagePath);
+    if (ocrIt != ocrData.end() && !ocrIt->words.isEmpty()) {
+      const PdfExporter::OcrTextData& ocr = ocrIt.value();
+
+      // Calculate scale factors from image coords to PDF coords
+      // PDF coords: origin at bottom-left, units in points (72 per inch)
+      const float scaleX = (ocr.imageWidth > 0) ? pageWidth / ocr.imageWidth : 1.0f;
+      const float scaleY = (ocr.imageHeight > 0) ? pageHeight / ocr.imageHeight : 1.0f;
+
+      // Load a font for the text layer (use a standard font)
+      HPDF_Font font = HPDF_GetFont(pdf, "Helvetica", nullptr);
+
+      for (const auto& word : ocr.words) {
+        // Skip empty text
+        if (word.text.isEmpty()) {
+          continue;
+        }
+
+        // Convert image coords (Y from top) to PDF coords (Y from bottom)
+        // Image: (x, y) where y=0 is top
+        // PDF: (x, y) where y=0 is bottom
+        const float pdfX = word.bounds.x() * scaleX;
+        const float pdfY = pageHeight - (word.bounds.y() + word.bounds.height()) * scaleY;
+
+        // Calculate font size to match word height
+        const float wordHeight = word.bounds.height() * scaleY;
+        // Use 80% of box height as font size (typical line height ratio)
+        const float fontSize = wordHeight * 0.8f;
+
+        if (fontSize < 1.0f || fontSize > 1000.0f) {
+          continue;  // Skip invalid sizes
+        }
+
+        // Each word gets its own text object for absolute positioning
+        HPDF_Page_BeginText(page);
+        HPDF_Page_SetFontAndSize(page, font, fontSize);
+        // Set text to invisible (render mode 3 = neither fill nor stroke)
+        HPDF_Page_SetTextRenderingMode(page, HPDF_INVISIBLE);
+        HPDF_Page_MoveTextPos(page, pdfX, pdfY);
+
+        // Convert to UTF-8 for PDF
+        const QByteArray textUtf8 = word.text.toUtf8();
+        HPDF_Page_ShowText(page, textUtf8.constData());
+        HPDF_Page_EndText(page);
+      }
+
+      qDebug() << "PdfExporter: Added" << ocr.words.size() << "text blocks for OCR";
+    }
+
     ++pagesWritten;
   }
 
@@ -419,6 +472,7 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
                               Quality quality,
                               bool compressGrayscale,
                               int maxDpi,
+                              const QMap<QString, OcrTextData>& ocrData,
                               ProgressCallback progressCallback) {
   if (imagePaths.isEmpty()) {
     qDebug() << "PdfExporter: No images to export";
@@ -428,11 +482,13 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
   const int jpegQuality = qualityToJpegPercent(quality);
 
 #ifdef HAVE_LIBHARU
-  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, maxDpi, progressCallback);
+  return exportWithLibHaru(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, maxDpi, ocrData,
+                           progressCallback);
 #else
   Q_UNUSED(jpegQuality);
   Q_UNUSED(compressGrayscale);
   Q_UNUSED(maxDpi);
+  Q_UNUSED(ocrData);
   qDebug() << "PdfExporter: Using Qt fallback (libharu not available)";
   return exportWithQt(imagePaths, outputPdfPath, title, progressCallback);
 #endif

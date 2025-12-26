@@ -33,6 +33,8 @@
 #include <boost/lambda/lambda.hpp>
 #include <memory>
 
+#include "AbstractCacheDrivenOutputTask.h"
+#include "AbstractOutputTask.h"
 #include "AbstractRelinker.h"
 #include "Application.h"
 #include "ProjectFolder.h"
@@ -90,6 +92,11 @@
 #include "filters/export/OptionsWidget.h"
 #include "filters/export/Settings.h"
 #include "filters/export/Task.h"
+#include "filters/ocr/CacheDrivenTask.h"
+#include "filters/ocr/Filter.h"
+#include "filters/ocr/OcrResult.h"
+#include "filters/ocr/Settings.h"
+#include "filters/ocr/Task.h"
 #include "filters/finalize/CacheDrivenTask.h"
 #include "filters/finalize/Settings.h"
 #include "filters/finalize/Task.h"
@@ -1849,8 +1856,8 @@ void MainWindow::exportToPdf() {
     return true;
   };
 
-  // Export
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, progressCallback);
+  // Export (no OCR data for this legacy export dialog)
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, {}, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
@@ -1986,8 +1993,37 @@ void MainWindow::exportToPdfFromFilter() {
     return true;
   };
 
+  // Collect OCR data if OCR is enabled
+  QMap<QString, PdfExporter::OcrTextData> ocrData;
+  const auto& ocrSettings = m_stages->ocrFilter()->settings();
+  if (ocrSettings->ocrEnabled()) {
+    for (const PageInfo& pageInfo : pages) {
+      const QString filePath = m_outFileNameGen.filePathFor(pageInfo.id());
+      if (!QFile::exists(filePath)) {
+        continue;  // Skip unprocessed pages
+      }
+
+      const std::unique_ptr<ocr::OcrResult> result = ocrSettings->getOcrResult(pageInfo.id());
+      if (result && !result->isEmpty()) {
+        PdfExporter::OcrTextData textData;
+        textData.imageWidth = result->imageWidth();
+        textData.imageHeight = result->imageHeight();
+
+        for (const ocr::OcrWord& word : result->words()) {
+          PdfExporter::OcrTextData::Word pdfWord;
+          pdfWord.text = word.text;
+          pdfWord.bounds = word.boundingBox;
+          textData.words.append(pdfWord);
+        }
+
+        ocrData.insert(filePath, textData);
+      }
+    }
+    qDebug() << "MainWindow: Collected OCR data for" << ocrData.size() << "pages";
+  }
+
   // Export
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, progressCallback);
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, ocrData, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
@@ -2980,6 +3016,7 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
   std::shared_ptr<page_layout::Task> pageLayoutTask;
   std::shared_ptr<finalize::Task> finalizeTask;
   std::shared_ptr<output::Task> outputTask;
+  std::shared_ptr<ocr::Task> ocrTask;
   std::shared_ptr<export_::Task> exportTask;
 
   if (batch) {
@@ -2987,16 +3024,31 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
   }
 
   if (lastFilterIdx >= m_stages->exportFilterIdx()) {
-    // Export filter delegates to output, so create output task first
+    // Chain: Output -> OCR -> Export
     outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
-    exportTask = m_stages->exportFilter()->createTask(page.id(), outputTask, batch);
+    ocrTask = m_stages->ocrFilter()->createTask(page.id(), outputTask, m_outFileNameGen, batch);
+    exportTask = m_stages->exportFilter()->createTask(page.id(), ocrTask, batch);
+    debug = false;
+  } else if (lastFilterIdx >= m_stages->ocrFilterIdx()) {
+    // Chain: Output -> OCR (no export)
+    outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
+    ocrTask = m_stages->ocrFilter()->createTask(page.id(), outputTask, m_outFileNameGen, batch);
     debug = false;
   } else if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createTask(page.id(), m_thumbnailCache, m_outFileNameGen, batch, debug);
     debug = false;
   }
   if (lastFilterIdx >= m_stages->finalizeFilterIdx()) {
-    finalizeTask = m_stages->finalizeFilter()->createTask(page.id(), outputTask,
+    // Pass the END of the chain to finalize (Export/OCR if selected, otherwise output)
+    std::shared_ptr<AbstractOutputTask> nextTask;
+    if (exportTask) {
+      nextTask = exportTask;
+    } else if (ocrTask) {
+      nextTask = ocrTask;
+    } else {
+      nextTask = outputTask;
+    }
+    finalizeTask = m_stages->finalizeFilter()->createTask(page.id(), nextTask,
                                                           m_stages->outputFilter()->settings(), batch);
   }
   if (lastFilterIdx >= m_stages->pageLayoutFilterIdx()) {
@@ -3032,17 +3084,32 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   std::shared_ptr<page_layout::CacheDrivenTask> pageLayoutTask;
   std::shared_ptr<finalize::CacheDrivenTask> finalizeTask;
   std::shared_ptr<output::CacheDrivenTask> outputTask;
+  std::shared_ptr<ocr::CacheDrivenTask> ocrTask;
   std::shared_ptr<export_::CacheDrivenTask> exportTask;
 
   if (lastFilterIdx >= m_stages->exportFilterIdx()) {
-    // Export filter delegates to output for thumbnails
+    // Chain: Output -> OCR -> Export for thumbnails
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
-    exportTask = m_stages->exportFilter()->createCacheDrivenTask(outputTask);
+    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask);
+    exportTask = m_stages->exportFilter()->createCacheDrivenTask(ocrTask);
+  } else if (lastFilterIdx >= m_stages->ocrFilterIdx()) {
+    // Chain: Output -> OCR for thumbnails
+    outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
+    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask);
   } else if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
   }
   if (lastFilterIdx >= m_stages->finalizeFilterIdx()) {
-    finalizeTask = m_stages->finalizeFilter()->createCacheDrivenTask(outputTask);
+    // Pass the END of the chain to finalize (Export/OCR if selected, otherwise output)
+    std::shared_ptr<AbstractCacheDrivenOutputTask> nextTask;
+    if (exportTask) {
+      nextTask = exportTask;
+    } else if (ocrTask) {
+      nextTask = ocrTask;
+    } else {
+      nextTask = outputTask;
+    }
+    finalizeTask = m_stages->finalizeFilter()->createCacheDrivenTask(nextTask);
   }
   if (lastFilterIdx >= m_stages->pageLayoutFilterIdx()) {
     pageLayoutTask = m_stages->pageLayoutFilter()->createCacheDrivenTask(finalizeTask);

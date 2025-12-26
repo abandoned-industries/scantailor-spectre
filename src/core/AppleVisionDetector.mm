@@ -379,6 +379,111 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplitFromFil
   return detectPageSplit(image);
 }
 
+QVector<AppleVisionDetector::OcrWordResult> AppleVisionDetector::performOcr(const QImage& image,
+                                                                             const OcrConfig& config) {
+  QVector<OcrWordResult> results;
+
+  if (!isAvailable() || image.isNull()) {
+    return results;
+  }
+
+  @autoreleasepool {
+    CGImageRef cgImage = createCGImageFromQImage(image);
+    if (!cgImage) {
+      return results;
+    }
+
+    if (@available(macOS 10.15, *)) {
+      VNRecognizeTextRequest* request = [[VNRecognizeTextRequest alloc] init];
+
+      // Set recognition level
+      request.recognitionLevel = config.useAccurateRecognition
+                                     ? VNRequestTextRecognitionLevelAccurate
+                                     : VNRequestTextRecognitionLevelFast;
+
+      request.usesLanguageCorrection = config.usesLanguageCorrection;
+
+      // Set language if specified (non-empty means user selected a specific language)
+      if (!config.languageCode.isEmpty()) {
+        NSString* langCode = config.languageCode.toNSString();
+        request.recognitionLanguages = @[ langCode ];
+      }
+      // If empty, Vision will auto-detect the language
+
+      NSArray* observations = performVisionRequest(request, cgImage);
+      CGImageRelease(cgImage);
+
+      qreal imgWidth = image.width();
+      qreal imgHeight = image.height();
+
+      for (VNRecognizedTextObservation* observation in observations) {
+        NSArray<VNRecognizedText*>* candidates = [observation topCandidates:1];
+        if (candidates.count == 0) {
+          continue;
+        }
+
+        VNRecognizedText* bestCandidate = candidates.firstObject;
+        NSString* fullText = bestCandidate.string;
+
+        // Get the bounding box for the entire text line/block
+        CGRect bbox = observation.boundingBox;
+
+        OcrWordResult word;
+        word.text = QString::fromNSString(fullText);
+        word.confidence = observation.confidence;
+
+        // Convert Vision coordinates (normalized, Y-inverted) to image coords
+        // Vision: origin at bottom-left, normalized 0-1
+        // Image: origin at top-left, in pixels
+        word.bounds = QRectF(bbox.origin.x * imgWidth,
+                             (1.0 - bbox.origin.y - bbox.size.height) * imgHeight,
+                             bbox.size.width * imgWidth,
+                             bbox.size.height * imgHeight);
+
+        results.append(word);
+      }
+    }
+  }
+
+  return results;
+}
+
+QStringList AppleVisionDetector::supportedOcrLanguages() {
+  QStringList languages;
+
+  if (@available(macOS 10.15, *)) {
+    // Return the list of supported languages for accurate recognition
+    // Based on Apple Vision documentation
+    languages << "en-US"
+              << "fr-FR"
+              << "de-DE"
+              << "it-IT"
+              << "pt-BR"
+              << "es-ES"
+              << "zh-Hans"
+              << "zh-Hant"
+              << "ja-JP"
+              << "ko-KR"
+              << "ru-RU"
+              << "uk-UA"
+              << "pl-PL"
+              << "cs-CZ"
+              << "nl-NL"
+              << "da-DK"
+              << "fi-FI"
+              << "nb-NO"
+              << "sv-SE"
+              << "tr-TR"
+              << "el-GR"
+              << "hu-HU"
+              << "ro-RO"
+              << "th-TH"
+              << "vi-VN";
+  }
+
+  return languages;
+}
+
 #else  // Non-macOS platforms
 
 bool AppleVisionDetector::isAvailable() {
@@ -407,6 +512,14 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplitFromFil
   result.leftTextRegions = 0;
   result.rightTextRegions = 0;
   return result;
+}
+
+QVector<AppleVisionDetector::OcrWordResult> AppleVisionDetector::performOcr(const QImage&, const OcrConfig&) {
+  return QVector<OcrWordResult>();
+}
+
+QStringList AppleVisionDetector::supportedOcrLanguages() {
+  return QStringList();
 }
 
 #endif  // Q_OS_MACOS

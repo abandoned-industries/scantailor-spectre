@@ -10,13 +10,13 @@
 #include "NonCopyable.h"
 #include "PageId.h"
 
+class AbstractOutputTask;
 class TaskStatus;
 class FilterData;
 class QImage;
 class QPolygonF;
 
 namespace output {
-class Task;
 class Settings;
 }
 
@@ -29,7 +29,7 @@ class Task {
 
  public:
   Task(std::shared_ptr<Filter> filter,
-       std::shared_ptr<output::Task> nextTask,
+       std::shared_ptr<AbstractOutputTask> nextTask,
        std::shared_ptr<Settings> settings,
        std::shared_ptr<output::Settings> outputSettings,
        const PageId& pageId,
@@ -45,7 +45,7 @@ class Task {
   void detectColorMode(const QImage& image);
 
   std::shared_ptr<Filter> m_filter;
-  std::shared_ptr<output::Task> m_nextTask;
+  std::shared_ptr<AbstractOutputTask> m_nextTask;
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<output::Settings> m_outputSettings;
   PageId m_pageId;

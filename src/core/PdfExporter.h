@@ -4,8 +4,11 @@
 #ifndef SCANTAILOR_CORE_PDFEXPORTER_H_
 #define SCANTAILOR_CORE_PDFEXPORTER_H_
 
+#include <QMap>
+#include <QRectF>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 #include <functional>
 
 class PdfExporter {
@@ -27,6 +30,19 @@ class PdfExporter {
   using ProgressCallback = std::function<bool(int, int)>;
 
   /**
+   * OCR text data for a single page (for invisible text layer).
+   */
+  struct OcrTextData {
+    struct Word {
+      QString text;
+      QRectF bounds;  // In image coordinates (pixels)
+    };
+    QVector<Word> words;
+    int imageWidth = 0;
+    int imageHeight = 0;
+  };
+
+  /**
    * \brief Combines multiple image files into a single PDF.
    *
    * \param imagePaths List of paths to image files (in order).
@@ -35,6 +51,7 @@ class PdfExporter {
    * \param quality Compression quality preset.
    * \param compressGrayscale If true, use JPEG for grayscale images too (smaller but lossy).
    * \param maxDpi Maximum resolution (0 = keep original). Images higher than this will be downsampled.
+   * \param ocrData Optional OCR text data for invisible text layer (image path -> OCR data).
    * \param progressCallback Optional callback for progress updates.
    * \return true if successful, false otherwise.
    */
@@ -44,6 +61,7 @@ class PdfExporter {
                           Quality quality = Quality::High,
                           bool compressGrayscale = false,
                           int maxDpi = 0,
+                          const QMap<QString, OcrTextData>& ocrData = {},
                           ProgressCallback progressCallback = nullptr);
 };
 
