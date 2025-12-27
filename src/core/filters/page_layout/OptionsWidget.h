@@ -112,6 +112,12 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void setupIcons();
 
+  void applyMarginsToSelectedPages();
+
+  void applyAlignmentToSelectedPages();
+
+  void updateSelectionIndicator();
+
   std::shared_ptr<Settings> m_settings;
   PageSelectionAccessor m_pageSelectionAccessor;
   QIcon m_chainIcon;

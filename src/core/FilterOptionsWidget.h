@@ -6,6 +6,8 @@
 
 #include <QWidget>
 
+#include <set>
+
 #include "PageId.h"
 #include "PageInfo.h"
 
@@ -33,6 +35,14 @@ class FilterOptionsWidget : public QWidget {
    * there is no one using this signal.  It's a candidate for removal.
    */
   void goToPage(const PageId& pageId);
+
+  /**
+   * \brief Request batch processing of specific pages.
+   *
+   * Emitted when settings change for multiple selected pages and they
+   * need to be reprocessed.
+   */
+  void batchProcessingRequested(const std::set<PageId>& pages);
 };
 
 

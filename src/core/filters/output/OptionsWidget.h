@@ -197,6 +197,10 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void setupUiConnections();
 
+  void applyColorParamsToSelectedPages();
+
+  void updateSelectionIndicator();
+
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<finalize::Settings> m_finalizeSettings;
   PageSelectionAccessor m_pageSelectionAccessor;

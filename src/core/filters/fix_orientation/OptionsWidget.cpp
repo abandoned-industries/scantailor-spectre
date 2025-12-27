@@ -32,6 +32,7 @@ void OptionsWidget::preUpdateUI(const PageId& pageId, const OrthogonalRotation r
   m_pageId = pageId;
   m_rotation = rotation;
   setRotationPixmap();
+  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const OrthogonalRotation rotation) {
@@ -94,10 +95,10 @@ void OptionsWidget::setRotation(const OrthogonalRotation& rotation) {
   m_rotation = rotation;
   setRotationPixmap();
 
-  m_settings->applyRotation(m_pageId.imageId(), rotation);
+  // Apply to all selected pages if multiple are selected
+  applyRotationToSelectedPages();
 
   emit rotated(rotation);
-  emit invalidateThumbnail(m_pageId);
 }
 
 void OptionsWidget::setRotationPixmap() {
@@ -136,5 +137,31 @@ void OptionsWidget::setupIcons() {
   auto& iconProvider = IconProvider::getInstance();
   rotateLeftBtn->setIcon(iconProvider.getIcon("object-rotate-left"));
   rotateRightBtn->setIcon(iconProvider.getIcon("object-rotate-right"));
+}
+
+void OptionsWidget::applyRotationToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    m_settings->applyRotation(selectedPages, m_rotation);
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  } else {
+    m_settings->applyRotation(m_pageId.imageId(), m_rotation);
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 }  // namespace fix_orientation

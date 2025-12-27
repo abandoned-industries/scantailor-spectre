@@ -185,6 +185,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void invalidateAllThumbnails() override;
 
+  void batchProcessPages(const std::set<PageId>& pages);
+
   void showRelinkingDialog();
 
   void filterResult(const BackgroundTaskPtr& task, const FilterResultPtr& result);
