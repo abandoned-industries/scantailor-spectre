@@ -725,6 +725,7 @@ bool MainWindow::compareFiles(const QString& fpath1, const QString& fpath2) {
     return false;
   }
   if (!file2.open(QIODevice::ReadOnly)) {
+    file1.close();
     return false;
   }
 
@@ -738,9 +739,10 @@ bool MainWindow::compareFiles(const QString& fpath1, const QString& fpath2) {
   while (true) {
     const QByteArray chunk1(file1.read(chunkSize));
     const QByteArray chunk2(file2.read(chunkSize));
-    if (chunk1.size() != chunk2.size()) {
+    if (chunk1 != chunk2) {
       return false;
-    } else if (chunk1.size() == 0) {
+    }
+    if (chunk1.isEmpty()) {
       return true;
     }
   }
@@ -854,6 +856,8 @@ void MainWindow::setOptionsWidget(FilterOptionsWidget* widget, const Ownership o
   connect(widget, SIGNAL(invalidateThumbnail(const PageInfo&)), this, SLOT(invalidateThumbnail(const PageInfo&)));
   connect(widget, SIGNAL(invalidateAllThumbnails()), this, SLOT(invalidateAllThumbnails()));
   connect(widget, SIGNAL(goToPage(const PageId&)), this, SLOT(goToPage(const PageId&)));
+  connect(widget, SIGNAL(batchProcessingRequested(const std::set<PageId>&)), this,
+          SLOT(batchProcessPages(const std::set<PageId>&)));
   // Connect output settings change signals (only finalize::OptionsWidget has these, others will silently ignore)
   connect(widget, SIGNAL(outputDirectoryChanged(const QString&)), this, SLOT(outputDirectoryChanged(const QString&)));
   connect(widget, SIGNAL(outputFormatSettingChanged(int)), this, SLOT(outputFormatSettingChanged(int)));
@@ -915,6 +919,72 @@ void MainWindow::invalidateThumbnail(const PageInfo& pageInfo) {
 
 void MainWindow::invalidateAllThumbnails() {
   m_thumbSequence->invalidateAllThumbnails();
+}
+
+void MainWindow::batchProcessPages(const std::set<PageId>& pages) {
+  if (pages.empty() || !isProjectLoaded()) {
+    return;
+  }
+
+  // If batch processing is already in progress, add pages to queue
+  // Otherwise start a new batch for just these pages
+  if (isBatchProcessingInProgress()) {
+    // Can't interrupt current batch processing
+    return;
+  }
+
+  m_interactiveQueue->cancelAndClear();
+
+  m_batchQueue = std::make_unique<ProcessingTaskQueue>();
+
+  // Get the page sequence to look up PageInfo
+  const PageSequence pageSequence = m_pages->toPageSequence(PAGE_VIEW);
+
+  // Add only the specified pages to the batch queue
+  for (const PageId& pageId : pages) {
+    const PageInfo& pageInfo = pageSequence.pageAt(pageId);
+    if (!pageInfo.isNull()) {
+      for (int i = 0; i < m_stages->count(); i++) {
+        m_stages->filterAt(i)->loadDefaultSettings(pageInfo);
+      }
+      m_batchQueue->addProcessingTask(pageInfo, createCompositeTask(pageInfo, m_curFilter, /*batch=*/true, m_debug));
+    }
+  }
+
+  if (m_batchQueue->totalPages() == 0) {
+    m_batchQueue.reset();
+    return;
+  }
+
+  focusButton->setChecked(true);
+
+  removeFilterOptionsWidget();
+  filterList->setBatchProcessingInProgress(true);
+  filterList->setEnabled(false);
+
+  // Initialize progress display
+  if (m_batchProgressLabel) {
+    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  }
+
+  BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
+  if (task) {
+    do {
+      m_workerThreadPool->submitTask(task);
+      if (!m_workerThreadPool->hasSpareCapacity()) {
+        break;
+      }
+    } while ((task = m_batchQueue->takeForProcessing()));
+  } else {
+    stopBatchProcessing();
+  }
+
+  PageInfo page = m_batchQueue->selectedPage();
+  if (!page.isNull()) {
+    m_thumbSequence->setSelection(page.id());
+  }
+  // Display the batch processing screen.
+  updateMainArea();
 }
 
 std::shared_ptr<AbstractCommand<void>> MainWindow::relinkingDialogRequester() {

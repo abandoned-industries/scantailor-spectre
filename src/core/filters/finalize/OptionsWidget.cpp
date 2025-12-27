@@ -70,6 +70,7 @@ void OptionsWidget::setOutputSettings(std::shared_ptr<output::Settings> outputSe
 void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
   m_pageId = pageInfo.id();
   updateDisplay();
+  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const PageId& pageId) {
@@ -104,34 +105,72 @@ void OptionsWidget::colorModeChanged(int index) {
   }
 
   const ColorMode mode = static_cast<ColorMode>(colorModeCombo->itemData(index).toInt());
-  m_settings->setColorMode(m_pageId, mode);
 
-  // Also update output::Settings so the output filter uses this mode
-  // Mark as user-set so it won't be overwritten by auto-detection
-  if (m_outputSettings) {
-    output::ColorParams colorParams;
-    output::ColorMode outputMode;
-    switch (mode) {
-      case ColorMode::BlackAndWhite:
-        outputMode = output::BLACK_AND_WHITE;
-        break;
-      case ColorMode::Grayscale:
-        outputMode = output::GRAYSCALE;
-        break;
-      case ColorMode::Color:
-      default:
-        outputMode = output::COLOR;
-        break;
-    }
-    colorParams.setColorMode(outputMode);
-    colorParams.setColorModeUserSet(true);  // CRITICAL: Mark as user-set to prevent auto-detection override
-    m_outputSettings->setColorParams(m_pageId, colorParams);
-    qDebug() << "Finalize: User set color mode to" << static_cast<int>(outputMode) << "for page"
-             << m_pageId.imageId().filePath();
+  // Apply to all selected pages if multiple are selected
+  applyColorModeToSelectedPages(mode);
+
+  emit reloadRequested();
+}
+
+void OptionsWidget::applyColorModeToSelectedPages(ColorMode mode) {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Determine which pages to update
+  std::set<PageId> pagesToUpdate;
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    pagesToUpdate = selectedPages;
+  } else {
+    pagesToUpdate.insert(m_pageId);
   }
 
-  emit invalidateThumbnail(m_pageId);
-  emit reloadRequested();
+  // Apply to all target pages
+  for (const PageId& pageId : pagesToUpdate) {
+    m_settings->setColorMode(pageId, mode);
+
+    // Also update output::Settings so the output filter uses this mode
+    if (m_outputSettings) {
+      output::ColorParams colorParams;
+      output::ColorMode outputMode;
+      switch (mode) {
+        case ColorMode::BlackAndWhite:
+          outputMode = output::BLACK_AND_WHITE;
+          break;
+        case ColorMode::Grayscale:
+          outputMode = output::GRAYSCALE;
+          break;
+        case ColorMode::Color:
+        default:
+          outputMode = output::COLOR;
+          break;
+      }
+      colorParams.setColorMode(outputMode);
+      colorParams.setColorModeUserSet(true);
+      m_outputSettings->setColorParams(pageId, colorParams);
+    }
+  }
+
+  if (pagesToUpdate.size() > 1) {
+    qDebug() << "Finalize: User set color mode to" << static_cast<int>(mode) << "for" << pagesToUpdate.size()
+             << "pages";
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  } else {
+    qDebug() << "Finalize: User set color mode to" << static_cast<int>(mode) << "for page"
+             << m_pageId.imageId().filePath();
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 
 void OptionsWidget::thresholdChanged(int value) {
