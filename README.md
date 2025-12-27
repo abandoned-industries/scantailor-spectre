@@ -4,7 +4,7 @@
 
 **Version 2.0a11** | macOS (Apple Silicon)
 
-ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through an 8-stage workflow, and export a polished PDF.
+ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.  
 
@@ -12,9 +12,10 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 
 - **PDF Import** - Open PDFs directly, no need to extract pages first
 - **Finalize Stage** - New stage for color mode selection and output format
-- **Export Stage** - New dedicated PDF export with quality presets 
+- **OCR Stage** - Automatic text recognition for searchable PDFs
+- **Export Stage** - New dedicated PDF export with quality presets
 - **Redesigned UI** - Clean, focused interface
-- **Apple Silicon Native** 
+- **Apple Silicon Native**
 - **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages
 
 ---
@@ -43,9 +44,10 @@ Each filter stage refines your pages. Work top to bottom:
 | 5 | **Margins** | Set page margins |
 | 6 | **Finalize** | Choose B&W, Grayscale, or Color |
 | 7 | **Output** | Apply image processing |
-| 8 | **Export** | Create final PDF |\
+| 8 | **OCR** | Text recognition for searchable PDFs |
+| 9 | **Export** | Create final PDF |
 
-To run a stage, click on the little triangular play button next to the stage you are at. Stage 8 is special. You don’t need to run it, you simply click on Export to PDF. 
+To run a stage, click on the little triangular play button next to the stage you are at. Stage 9 is special. You don't need to run it, you simply click on Export to PDF. 
 
 ### 3. Batch Process
 
@@ -240,7 +242,24 @@ Once you've tuned settings for one page, use **Apply To...** to copy those setti
 
 This is essential for efficiently processing large documents.
 
-### Stage 8: Export
+### Stage 8: OCR
+
+Performs optical character recognition to make your PDF searchable. When enabled, text is recognized and embedded as an invisible layer in the exported PDF, allowing you to search and select text.
+
+**Options:**
+- **Enable OCR** - Toggle text recognition on/off (enabled by default)
+- **Language** - Select the document language for better recognition accuracy, or leave on Auto-detect
+- **Accurate Recognition** - Use accurate mode for best results (slower) or fast mode for quicker processing
+
+**Status Display:**
+- Shows whether the current page has been processed
+- Displays the number of text blocks found
+
+OCR runs automatically when you batch process through the Export stage. Results are cached per-page, so re-running won't re-process pages that already have OCR data unless you clear them.
+
+**Note:** OCR uses Apple's Vision framework and requires macOS 13.0 or later.
+
+### Stage 9: Export
 
 Creates the final PDF.
 
@@ -301,9 +320,10 @@ Projects are saved as `.ScanTailor` files containing:
 
 | Feature | ScanTailor Advanced | ScanTailor Spectre |
 |---------|--------------------|--------------------|
-| Workflow stages | 6 | 8 (adds Finalize + Export) |
+| Workflow stages | 6 | 9 (adds Finalize + OCR + Export) |
 | PDF import | No | Yes |
 | PDF export | Menu action | Dedicated stage with presets |
+| OCR / Searchable PDFs | No | Yes (Apple Vision) |
 | Color detection | Manual | Automatic with manual override |
 | macOS support | Limited | Native Apple Silicon |
 | UI design | Traditional | Ulm design system |
