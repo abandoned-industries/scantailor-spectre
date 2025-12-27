@@ -1,15 +1,13 @@
 name: macOS Build
 
 on:
-  push:
-    branches: [master, main]
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-  pull_request:
-    branches: [master, main]
-  release:
-    types: [created]
+  # push:
+  #   branches: [master, main]
+  #   paths-ignore:
+  #     - '**.md'
+  #     - 'LICENSE'
+  # pull_request:
+  #   branches: [master, main]
   workflow_dispatch:
     inputs:
       build_type:
@@ -98,7 +96,7 @@ jobs:
   # Optional: Build for Intel Macs as well
   build-macos-intel:
     runs-on: macos-13  # Intel runner
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
 
     steps:
     - name: Checkout repository
