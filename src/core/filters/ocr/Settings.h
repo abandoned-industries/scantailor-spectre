@@ -67,7 +67,7 @@ class Settings {
   mutable QMutex m_mutex;
 
   // Global settings
-  bool m_ocrEnabled = false;  // Disabled by default
+  bool m_ocrEnabled = true;  // Enabled by default
   QString m_language;         // Empty = auto-detect
   bool m_useAccurateRecognition = true;
 

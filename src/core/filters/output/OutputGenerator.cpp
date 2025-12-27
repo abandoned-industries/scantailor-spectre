@@ -1316,8 +1316,9 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
     const QColor marginColor
         = WhiteBalance::detectPaperColor(wbOrigImage, m_contentAreaInOriginalCs.boundingRect().toRect());
 
+    const QByteArray pagePathUtf8 = m_pageId.imageId().filePath().toUtf8();
     fprintf(stderr, "OutputGenerator: colorMode=%d forceWB=%d manualWB=%d page=%s\n",
-            colorMode, forceWB, manualWBColor.isValid(), m_pageId.imageId().filePath().toUtf8().constData());
+            colorMode, forceWB, manualWBColor.isValid(), pagePathUtf8.constData());
 
     if (manualWBColor.isValid()) {
       // User picked a paper color - use it directly

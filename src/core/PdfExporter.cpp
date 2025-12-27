@@ -147,9 +147,10 @@ bool exportWithLibHaru(const QStringList& imagePaths,
   HPDF_SetCompressionMode(pdf, HPDF_COMP_ALL);
 
   if (!title.isEmpty()) {
-    HPDF_SetInfoAttr(pdf, HPDF_INFO_TITLE, title.toUtf8().constData());
+    const QByteArray titleUtf8 = title.toUtf8();
+    HPDF_SetInfoAttr(pdf, HPDF_INFO_TITLE, titleUtf8.constData());
   }
-  HPDF_SetInfoAttr(pdf, HPDF_INFO_CREATOR, "ScanTailor Advanced");
+  HPDF_SetInfoAttr(pdf, HPDF_INFO_CREATOR, "ScanTailor Spectre");
 
   const int totalPages = imagePaths.size();
   int pagesWritten = 0;
@@ -374,7 +375,8 @@ bool exportWithLibHaru(const QStringList& imagePaths,
     progressCallback(totalPages, totalPages);
   }
 
-  HPDF_STATUS status = HPDF_SaveToFile(pdf, outputPdfPath.toUtf8().constData());
+  const QByteArray outputPathUtf8 = outputPdfPath.toUtf8();
+  HPDF_STATUS status = HPDF_SaveToFile(pdf, outputPathUtf8.constData());
   // RAII cleanup handles HPDF_Free
 
   if (status != HPDF_OK) {
