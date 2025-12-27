@@ -172,7 +172,8 @@ void remapColorsInIndexedImage(QImage& image, const std::unordered_map<uint32_t,
     for (int y = 0; y < height; ++y) {
       for (int x = 0; x < width; ++x) {
         uint32_t color = colorTable[imgLine[x]];
-        uint32_t newColor = colorMap.at(color);
+        auto it = colorMap.find(color);
+        uint32_t newColor = (it != colorMap.end()) ? it->second : color;
         imgLine[x] = colorToIndexMap[newColor];
       }
       imgLine += imgStride;
@@ -197,7 +198,8 @@ void remapColorsInRgbImage(QImage& image, const std::unordered_map<uint32_t, uin
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       uint32_t color = imgLine[x];
-      imgLine[x] = colorMap.at(color);
+      auto it = colorMap.find(color);
+      imgLine[x] = (it != colorMap.end()) ? it->second : color;
     }
     imgLine += imgStride;
   }
@@ -268,6 +270,7 @@ std::unordered_map<uint32_t, uint32_t> normalizePalette(const QImage& image,
   }
 
   std::unordered_map<uint32_t, uint32_t> colorToNormalizedMap;
+  const int levelRange = maxLevel - minLevel;
   for (const auto& colorAndStat : palette) {
     const uint32_t color = colorAndStat.first;
     if (color == 0xff000000u) {
@@ -278,10 +281,15 @@ std::unordered_map<uint32_t, uint32_t> normalizePalette(const QImage& image,
       colorToNormalizedMap[0xffffffffu] = 0xffffffffu;
       continue;
     }
+    if (levelRange == 0) {
+      // All pixels same level, no normalization needed
+      colorToNormalizedMap[color] = color;
+      continue;
+    }
 
-    int normalizedRed = qRound((double(qRed(color) - minLevel) / (maxLevel - minLevel)) * 255);
-    int normalizedGreen = qRound((double(qGreen(color) - minLevel) / (maxLevel - minLevel)) * 255);
-    int normalizedBlue = qRound((double(qBlue(color) - minLevel) / (maxLevel - minLevel)) * 255);
+    int normalizedRed = qRound((double(qRed(color) - minLevel) / levelRange) * 255);
+    int normalizedGreen = qRound((double(qGreen(color) - minLevel) / levelRange) * 255);
+    int normalizedBlue = qRound((double(qBlue(color) - minLevel) / levelRange) * 255);
     normalizedRed = qBound(0, normalizedRed, 255);
     normalizedGreen = qBound(0, normalizedGreen, 255);
     normalizedBlue = qBound(0, normalizedBlue, 255);

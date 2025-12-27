@@ -363,21 +363,29 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
 
       if (renderParams.splitOutput()) {
         auto* outputImageWithForeground = dynamic_cast<OutputImageWithForeground*>(outputImage.get());
-
-        QDir().mkdir(foregroundDir);
-        QDir().mkdir(backgroundDir);
-        if (!TiffWriter::writeImage(foregroundFilePath, outputImageWithForeground->getForegroundImage())
-            || !TiffWriter::writeImage(backgroundFilePath, outputImageWithForeground->getBackgroundImage())) {
+        if (!outputImageWithForeground) {
+          qWarning() << "Output: Failed to cast to OutputImageWithForeground for split output";
           invalidateParams = true;
+        } else {
+          QDir().mkdir(foregroundDir);
+          QDir().mkdir(backgroundDir);
+          if (!TiffWriter::writeImage(foregroundFilePath, outputImageWithForeground->getForegroundImage())
+              || !TiffWriter::writeImage(backgroundFilePath, outputImageWithForeground->getBackgroundImage())) {
+            invalidateParams = true;
+          }
         }
 
         if (renderParams.originalBackground()) {
           auto* outputImageWithOrigBg = dynamic_cast<OutputImageWithOriginalBackground*>(outputImage.get());
-
-          QDir().mkdir(originalBackgroundDir);
-          if (!TiffWriter::writeImage(originalBackgroundFilePath,
-                                      outputImageWithOrigBg->getOriginalBackgroundImage())) {
+          if (!outputImageWithOrigBg) {
+            qWarning() << "Output: Failed to cast to OutputImageWithOriginalBackground";
             invalidateParams = true;
+          } else {
+            QDir().mkdir(originalBackgroundDir);
+            if (!TiffWriter::writeImage(originalBackgroundFilePath,
+                                        outputImageWithOrigBg->getOriginalBackgroundImage())) {
+              invalidateParams = true;
+            }
           }
         }
       }
