@@ -2313,7 +2313,8 @@ void MainWindow::showAboutDialog() {
   Ui::AboutDialog ui;
   auto* dialog = new QDialog(this);
   ui.setupUi(dialog);
-  ui.version->setText(QString(tr("version ")) + QString::fromUtf8(VERSION));
+  ui.version->setText(QString(tr("version ")) + QString::fromUtf8(VERSION) +
+                      QString(" (") + QString::fromUtf8(BUILD_TIMESTAMP) + QString(")"));
 
   QResource license(":/GPLv3.html");
   ui.licenseViewer->setHtml(QString::fromUtf8((const char*) license.data(), static_cast<int>(license.size())));
