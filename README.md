@@ -2,7 +2,7 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a11** | macOS (Apple Silicon)
+**Version 2.0a11** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
@@ -10,13 +10,14 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 
 ## What's New in Spectre
 
+- **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
+- **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
 - **Finalize Stage** - New stage for color mode selection and output format
+- **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages
+- **White Balance Tools** - Auto white balance and pick-paper-color for correcting aged paper and lighting
 - **OCR Stage** - Automatic text recognition for searchable PDFs
 - **Export Stage** - New dedicated PDF export with quality presets
-- **Redesigned UI** - Clean, focused interface
-- **Apple Silicon Native**
-- **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages
 
 ---
 
@@ -28,6 +29,8 @@ From the startup screen or from the file menu:
 - **Import PDF** - Extract pages from an existing PDF
 - **Import Folder** - Load a folder of scanned images
 - **Import Project** - Load a project you have previously saved.
+
+**Supported formats:** PDF, TIFF, PNG, JPEG, BMP
 
 Recently saved projects will be shown here.  
 
@@ -278,8 +281,6 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 | `Home` / `End` | First/last page |
 | `Cmd+S` | Save project |
 
----
-
 ## Tips
 
 ### Scanning
@@ -303,8 +304,6 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 - Grayscale PDF: 20-50 MB
 - Color PDF: 50-150 MB
 
----
-
 ## Project Files
 
 Projects are saved as `.ScanTailor` files containing:
@@ -313,22 +312,6 @@ Projects are saved as `.ScanTailor` files containing:
 - Processing state
 
 **Important:** Keep source images in place - projects reference them by path.
-
----
-
-## Differences from ScanTailor Advanced
-
-| Feature | ScanTailor Advanced | ScanTailor Spectre |
-|---------|--------------------|--------------------|
-| Workflow stages | 6 | 9 (adds Finalize + OCR + Export) |
-| PDF import | No | Yes |
-| PDF export | Menu action | Dedicated stage with presets |
-| OCR / Searchable PDFs | No | Yes (Apple Vision) |
-| Color detection | Manual | Automatic with manual override |
-| macOS support | Limited | Native Apple Silicon |
-| UI design | Traditional | Ulm design system |
-
-ScanTailor Spectre includes all features from ScanTailor Advanced (dewarping, despeckle, picture zones, fill zones, etc.) plus the new workflow stages.
 
 ---
 
@@ -341,6 +324,8 @@ ScanTailor Spectre is based on:
 ## License
 
 GPL-3.0 - See [LICENSE](LICENSE) for details.
+
+---
 
 ## ScanTailor What? 
 

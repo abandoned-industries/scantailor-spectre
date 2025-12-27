@@ -219,12 +219,17 @@ To create the README PDF for distribution:
 ```bash
 # Generate HTML with styling:
 # - Replace GitHub image URL with local file, sized to 128px
-# - Add page break before "Quick Start" section
+# - Add page breaks before "Quick Start" and "Credits" sections
+# - Use class="no-rule" to suppress horizontal rule on page-break sections
 cat README.md | \
   sed 's|<img.*/>|<img src="src/resources/scantailor-spectre2.png" width="128" alt="ScanTailor Spectre"/>|' | \
-  sed 's|## Quick Start|<div style="page-break-before: always"></div>\n\n## Quick Start|' \
+  sed 's|## Quick Start|<div style="page-break-before: always"></div>\n\n## Quick Start {.no-rule}|' | \
+  sed 's|## Credits|<div style="page-break-before: always"></div>\n\n## Credits {.no-rule}|' \
   > README_temp.md
 pandoc README_temp.md -t html --standalone > README.html
+
+# Add CSS to suppress border on .no-rule headings (insert after opening <style> tag)
+sed -i '' 's|<style>|<style>\n    h2.no-rule { border-bottom: none !important; }|' README.html
 
 # Generate PDF using Chrome headless
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
