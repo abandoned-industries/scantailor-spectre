@@ -40,6 +40,7 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   auto block = m_connectionManager.getScopedBlock();
 
   m_pageId = pageId;
+  updateSelectionIndicator();
   const Settings::Record record(m_settings->getPageRecord(pageId.imageId()));
   const LayoutType layoutType(record.combinedLayoutType());
 
@@ -150,38 +151,11 @@ void OptionsWidget::layoutTypeButtonToggled(const bool checked) {
     plt = ProjectPages::TWO_PAGE_LAYOUT;
   }
 
-  Settings::UpdateAction update;
-  update.setLayoutType(lt);
-
   splitLineGroup->setVisible(lt != SINGLE_PAGE_UNCUT);
   scopeLabel->setText(tr("Set manually"));
 
-  m_pages->setLayoutTypeFor(m_pageId.imageId(), plt);
-
-  if ((lt == PAGE_PLUS_OFFCUT) || ((lt != SINGLE_PAGE_UNCUT) && (m_uiData.splitLineMode() == MODE_AUTO))) {
-    m_settings->updatePage(m_pageId.imageId(), update);
-    emit reloadRequested();
-  } else {
-    PageLayout::Type plt;
-    if (lt == SINGLE_PAGE_UNCUT) {
-      plt = PageLayout::SINGLE_PAGE_UNCUT;
-    } else {
-      assert(lt == TWO_PAGES);
-      plt = PageLayout::TWO_PAGES;
-    }
-
-    PageLayout newLayout(m_uiData.pageLayout());
-    newLayout.setType(plt);
-    const Params newParams(newLayout, m_uiData.dependencies(), m_uiData.splitLineMode());
-
-    update.setParams(newParams);
-    m_settings->updatePage(m_pageId.imageId(), update);
-
-    m_uiData.setPageLayout(newLayout);
-
-    emit pageLayoutSetLocally(newLayout);
-    emit invalidateThumbnail(m_pageId);
-  }
+  // Apply to all selected pages if multiple are selected
+  applyLayoutTypeToSelectedPages(lt);
 }  // OptionsWidget::layoutTypeButtonToggled
 
 void OptionsWidget::showChangeDialog() {
@@ -289,6 +263,74 @@ void OptionsWidget::setupIcons() {
   singlePageUncutBtn->setIcon(iconProvider.getIcon("single_page_uncut"));
   pagePlusOffcutBtn->setIcon(iconProvider.getIcon("right_page_plus_offcut"));
   twoPagesBtn->setIcon(iconProvider.getIcon("two_pages"));
+}
+
+void OptionsWidget::applyLayoutTypeToSelectedPages(LayoutType lt) {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Determine pages to update
+  std::set<PageId> pagesToUpdate;
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    pagesToUpdate = selectedPages;
+  } else {
+    pagesToUpdate.insert(m_pageId);
+  }
+
+  ProjectPages::LayoutType plt = (lt == TWO_PAGES) ? ProjectPages::TWO_PAGE_LAYOUT : ProjectPages::ONE_PAGE_LAYOUT;
+
+  for (const PageId& pageId : pagesToUpdate) {
+    Settings::UpdateAction update;
+    update.setLayoutType(lt);
+
+    m_pages->setLayoutTypeFor(pageId.imageId(), plt);
+
+    if ((lt == PAGE_PLUS_OFFCUT) || ((lt != SINGLE_PAGE_UNCUT) && (m_uiData.splitLineMode() == MODE_AUTO))) {
+      m_settings->updatePage(pageId.imageId(), update);
+    } else {
+      PageLayout::Type pageLayoutType;
+      if (lt == SINGLE_PAGE_UNCUT) {
+        pageLayoutType = PageLayout::SINGLE_PAGE_UNCUT;
+      } else {
+        pageLayoutType = PageLayout::TWO_PAGES;
+      }
+
+      PageLayout newLayout(m_uiData.pageLayout());
+      newLayout.setType(pageLayoutType);
+      const Params newParams(newLayout, m_uiData.dependencies(), m_uiData.splitLineMode());
+
+      update.setParams(newParams);
+      m_settings->updatePage(pageId.imageId(), update);
+
+      if (pageId == m_pageId) {
+        m_uiData.setPageLayout(newLayout);
+        emit pageLayoutSetLocally(newLayout);
+      }
+    }
+  }
+
+  if (pagesToUpdate.size() > 1) {
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+    emit reloadRequested();
+  } else {
+    if ((lt == PAGE_PLUS_OFFCUT) || ((lt != SINGLE_PAGE_UNCUT) && (m_uiData.splitLineMode() == MODE_AUTO))) {
+      emit reloadRequested();
+    } else {
+      emit invalidateThumbnail(m_pageId);
+    }
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 
 /*============================= Widget::UiData ==========================*/

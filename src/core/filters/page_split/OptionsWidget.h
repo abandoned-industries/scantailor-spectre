@@ -94,6 +94,10 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void setupIcons();
 
+  void applyLayoutTypeToSelectedPages(LayoutType layoutType);
+
+  void updateSelectionIndicator();
+
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<ProjectPages> m_pages;
   PageSelectionAccessor m_pageSelectionAccessor;

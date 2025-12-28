@@ -81,6 +81,7 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   autoBtn->setChecked(true);
   autoBtn->setEnabled(false);
   manualBtn->setEnabled(false);
+  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const UiData& uiData) {
@@ -103,7 +104,9 @@ void OptionsWidget::spinBoxValueChanged(const double value) {
   commitCurrentParams();
 
   emit manualDeskewAngleSet(degrees);
-  emit invalidateThumbnail(m_pageId);
+
+  // Apply to all selected pages if multiple are selected
+  applyToSelectedPages();
 }
 
 void OptionsWidget::modeChanged(const bool autoMode) {
@@ -150,6 +153,32 @@ void OptionsWidget::setSpinBoxKnownState(const double angle) {
 void OptionsWidget::commitCurrentParams() {
   Params params(m_uiData.effectiveDeskewAngle(), m_uiData.dependencies(), m_uiData.mode());
   m_settings->setPageParams(m_pageId, params);
+}
+
+void OptionsWidget::applyToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  // Only apply to multiple pages if current page is in selection and there are multiple selected
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    const Params params(m_uiData.effectiveDeskewAngle(), m_uiData.dependencies(), m_uiData.mode());
+    m_settings->setDegrees(selectedPages, params);
+    emit invalidateAllThumbnails();
+    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
+    emit invalidateThumbnail(m_pageId);
+  } else {
+    emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::updateSelectionIndicator() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->show();
+  } else {
+    selectionIndicatorLabel->hide();
+  }
 }
 
 double OptionsWidget::spinBoxToDegrees(const double sbValue) {
