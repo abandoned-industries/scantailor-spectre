@@ -277,18 +277,17 @@ add_custom_target(generate_version_h ALL
 )
 ```
 
-### 4. MainWindow Displays It in the About Dialog
+### 4. Two About Dialogs Display It
 
-`src/app/MainWindow.cpp` in `showAboutDialog()`:
+**IMPORTANT:** There are TWO `showAboutDialog()` functions that must stay in sync:
+
+1. `src/app/MainWindow.cpp` - shown from the main application window
+2. `src/app/StartupWindow.cpp` - shown from the startup/welcome screen
+
+Both must use the same format:
 ```cpp
-void MainWindow::showAboutDialog() {
-  Ui::AboutDialog ui;
-  auto* dialog = new QDialog(this);
-  ui.setupUi(dialog);
-  ui.version->setText(QString(tr("version ")) + QString::fromUtf8(VERSION) +
-                      QString(" (") + QString::fromUtf8(BUILD_TIMESTAMP) + QString(")"));
-  // ...
-}
+ui.version->setText(QString(tr("version ")) + QString::fromUtf8(VERSION) +
+                    QString(" (") + QString::fromUtf8(BUILD_TIMESTAMP) + QString(")"));
 ```
 
 ### 5. UI Label in AboutDialog.ui
@@ -297,7 +296,7 @@ void MainWindow::showAboutDialog() {
 
 ### Result
 
-The About dialog displays: `version 2.0a11 (20251227.1153)`
+The About dialog displays: `version 2.0a12 (20251227.1153)`
 
 ## Adding a New Filter
 
