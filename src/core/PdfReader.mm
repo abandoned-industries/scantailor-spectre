@@ -1,0 +1,334 @@
+// Copyright (C) 2024  ScanTailor Advanced contributors
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "PdfReader.h"
+
+#include <QDebug>
+#include <QFile>
+#include <QIODevice>
+#include <QImage>
+#include <QMutex>
+#include <QMutexLocker>
+
+#include <limits>
+#include <cmath>
+
+#include "Dpi.h"
+#include "ImageMetadata.h"
+
+#ifdef Q_OS_MACOS
+#import <CoreGraphics/CoreGraphics.h>
+#import <Foundation/Foundation.h>
+
+// Thread-safe PDF document manager using CGPDFDocument.
+class PdfDocumentManager {
+ public:
+  static PdfDocumentManager& instance() {
+    static PdfDocumentManager s_instance;
+    return s_instance;
+  }
+
+  QMutex& mutex() { return m_mutex; }
+
+  bool ensureLoaded(const QString& filePath) {
+    if (m_loadedFilePath == filePath && m_doc) {
+      return true;
+    }
+
+    if (m_doc) {
+      CGPDFDocumentRelease(m_doc);
+      m_doc = nullptr;
+    }
+    m_loadedFilePath.clear();
+
+    @autoreleasepool {
+      NSString* nsPath = filePath.toNSString();
+      NSURL* url = [NSURL fileURLWithPath:nsPath];
+      m_doc = CGPDFDocumentCreateWithURL((__bridge CFURLRef)url);
+    }
+
+    if (!m_doc) {
+      qDebug() << "PdfReader: Failed to load PDF:" << filePath;
+      return false;
+    }
+
+    m_loadedFilePath = filePath;
+    return true;
+  }
+
+  CGPDFDocumentRef document() { return m_doc; }
+
+  size_t pageCount() {
+    return m_doc ? CGPDFDocumentGetNumberOfPages(m_doc) : 0;
+  }
+
+ private:
+  PdfDocumentManager() = default;
+  ~PdfDocumentManager() {
+    if (m_doc) {
+      CGPDFDocumentRelease(m_doc);
+    }
+  }
+
+  PdfDocumentManager(const PdfDocumentManager&) = delete;
+  PdfDocumentManager& operator=(const PdfDocumentManager&) = delete;
+
+  QMutex m_mutex;
+  CGPDFDocumentRef m_doc = nullptr;
+  QString m_loadedFilePath;
+};
+
+// Get the effective box for a PDF page (cropBox if available, otherwise mediaBox)
+static CGRect getEffectiveBox(CGPDFPageRef page) {
+  CGRect cropBox = CGPDFPageGetBoxRect(page, kCGPDFCropBox);
+  if (CGRectIsEmpty(cropBox)) {
+    return CGPDFPageGetBoxRect(page, kCGPDFMediaBox);
+  }
+  return cropBox;
+}
+
+// Get the display size of a page accounting for rotation
+static CGSize getDisplaySize(CGPDFPageRef page) {
+  CGRect box = getEffectiveBox(page);
+  int rotation = CGPDFPageGetRotationAngle(page);
+
+  // 90 or 270 degree rotation swaps width and height
+  if (rotation == 90 || rotation == 270) {
+    return CGSizeMake(box.size.height, box.size.width);
+  }
+  return box.size;
+}
+
+#endif  // Q_OS_MACOS
+
+bool PdfReader::checkMagic(const QByteArray& data) {
+  return data.size() >= 5 && data.startsWith("%PDF-");
+}
+
+bool PdfReader::canRead(QIODevice& device) {
+  if (!device.isOpen()) {
+    if (!device.open(QIODevice::ReadOnly)) {
+      return false;
+    }
+  }
+
+  const qint64 origPos = device.pos();
+  device.seek(0);
+  const QByteArray header = device.read(5);
+  device.seek(origPos);
+
+  return checkMagic(header);
+}
+
+bool PdfReader::canRead(const QString& filePath) {
+  QFile file(filePath);
+  if (!file.open(QIODevice::ReadOnly)) {
+    return false;
+  }
+  const QByteArray header = file.read(5);
+  return checkMagic(header);
+}
+
+#ifdef Q_OS_MACOS
+
+ImageMetadataLoader::Status PdfReader::readMetadata(QIODevice& device,
+                                                    const VirtualFunction<void, const ImageMetadata&>& out) {
+  auto* file = qobject_cast<QFile*>(&device);
+  if (!file) {
+    return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
+  }
+  return readMetadata(file->fileName(), out);
+}
+
+ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
+                                                    const VirtualFunction<void, const ImageMetadata&>& out) {
+  if (!canRead(filePath)) {
+    return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
+  }
+
+  PdfDocumentManager& mgr = PdfDocumentManager::instance();
+  QMutexLocker lock(&mgr.mutex());
+
+  if (!mgr.ensureLoaded(filePath)) {
+    return ImageMetadataLoader::GENERIC_ERROR;
+  }
+
+  CGPDFDocumentRef doc = mgr.document();
+  const size_t pageCount = CGPDFDocumentGetNumberOfPages(doc);
+
+  if (pageCount == 0) {
+    qDebug() << "PdfReader: PDF has no pages:" << filePath;
+    return ImageMetadataLoader::NO_IMAGES;
+  }
+
+  constexpr double maxDimension = static_cast<double>(std::numeric_limits<int>::max());
+
+  for (size_t i = 1; i <= pageCount; ++i) {
+    CGPDFPageRef page = CGPDFDocumentGetPage(doc, i);
+    if (!page) {
+      continue;
+    }
+
+    // Get display size (accounts for rotation)
+    CGSize displaySize = getDisplaySize(page);
+
+    const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 + 0.5;
+    const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 + 0.5;
+
+    if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
+      qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
+      continue;
+    }
+
+    const int widthPx = static_cast<int>(calcWidth);
+    const int heightPx = static_cast<int>(calcHeight);
+
+    out(ImageMetadata(QSize(widthPx, heightPx), Dpi(DEFAULT_RENDER_DPI, DEFAULT_RENDER_DPI)));
+  }
+
+  return ImageMetadataLoader::LOADED;
+}
+
+QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
+  PdfDocumentManager& mgr = PdfDocumentManager::instance();
+  QMutexLocker lock(&mgr.mutex());
+
+  if (!mgr.ensureLoaded(filePath)) {
+    qDebug() << "PdfReader: Failed to load PDF for rendering:" << filePath;
+    return QImage();
+  }
+
+  CGPDFDocumentRef doc = mgr.document();
+
+  const size_t pageIndex = static_cast<size_t>(pageNum + 1);
+  const size_t totalPages = CGPDFDocumentGetNumberOfPages(doc);
+
+  if (pageIndex < 1 || pageIndex > totalPages) {
+    qDebug() << "PdfReader: Invalid page number:" << pageNum << "for PDF with" << totalPages << "pages";
+    return QImage();
+  }
+
+  CGPDFPageRef page = CGPDFDocumentGetPage(doc, pageIndex);
+  if (!page) {
+    qDebug() << "PdfReader: Failed to get page" << pageNum;
+    return QImage();
+  }
+
+  // Get display size (accounts for rotation)
+  CGSize displaySize = getDisplaySize(page);
+
+  constexpr double maxDim = static_cast<double>(std::numeric_limits<int>::max());
+  const CGFloat scale = static_cast<CGFloat>(dpi) / 72.0;
+
+  const double calcWidth = displaySize.width * scale + 0.5;
+  const double calcHeight = displaySize.height * scale + 0.5;
+
+  if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDim || calcHeight > maxDim) {
+    qWarning() << "PdfReader: Invalid render dimensions for page" << pageNum;
+    return QImage();
+  }
+
+  const int widthPx = static_cast<int>(calcWidth);
+  const int heightPx = static_cast<int>(calcHeight);
+
+  // Create bitmap context for PDF rendering
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef context = CGBitmapContextCreate(
+      nullptr,  // Let CG allocate the buffer
+      widthPx,
+      heightPx,
+      8,
+      0,  // Let CG calculate bytes per row
+      colorSpace,
+      kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
+
+  if (!context) {
+    CGColorSpaceRelease(colorSpace);
+    qDebug() << "PdfReader: Failed to create bitmap context for page" << pageNum;
+    return QImage();
+  }
+
+  // Fill with white background
+  CGContextSetRGBFillColor(context, 1.0, 1.0, 1.0, 1.0);
+  CGContextFillRect(context, CGRectMake(0, 0, widthPx, heightPx));
+
+  // Scale for DPI
+  CGContextScaleCTM(context, scale, scale);
+
+  // Get the drawing transform which handles cropBox offset and page rotation
+  CGRect destRect = CGRectMake(0, 0, displaySize.width, displaySize.height);
+  CGAffineTransform drawTransform = CGPDFPageGetDrawingTransform(
+      page,
+      kCGPDFCropBox,
+      destRect,
+      0,      // No additional rotation
+      true);  // Preserve aspect ratio
+
+  CGContextConcatCTM(context, drawTransform);
+
+  // Draw the PDF page
+  CGContextDrawPDFPage(context, page);
+
+  // Create CGImage from the context - this has correct orientation
+  CGImageRef cgImage = CGBitmapContextCreateImage(context);
+  CGContextRelease(context);
+  CGColorSpaceRelease(colorSpace);
+
+  if (!cgImage) {
+    qDebug() << "PdfReader: Failed to create image for page" << pageNum;
+    return QImage();
+  }
+
+  // Convert CGImage to QImage
+  QImage image(widthPx, heightPx, QImage::Format_RGB32);
+  image.fill(Qt::white);
+
+  // Draw CGImage into QImage using a new context
+  CGColorSpaceRef destColorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef destContext = CGBitmapContextCreate(
+      image.bits(),
+      widthPx,
+      heightPx,
+      8,
+      image.bytesPerLine(),
+      destColorSpace,
+      kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
+  CGColorSpaceRelease(destColorSpace);
+
+  if (destContext) {
+    // CGImage draws with origin at bottom-left, but we want top-left for QImage
+    // Flip the coordinate system
+    CGContextTranslateCTM(destContext, 0, heightPx);
+    CGContextScaleCTM(destContext, 1, -1);
+
+    CGContextDrawImage(destContext, CGRectMake(0, 0, widthPx, heightPx), cgImage);
+    CGContextRelease(destContext);
+  }
+
+  CGImageRelease(cgImage);
+
+  // Set DPI metadata
+  const int dotsPerMeter = static_cast<int>(dpi / 0.0254 + 0.5);
+  image.setDotsPerMeterX(dotsPerMeter);
+  image.setDotsPerMeterY(dotsPerMeter);
+
+  return image;
+}
+
+#else  // Non-macOS platforms
+
+ImageMetadataLoader::Status PdfReader::readMetadata(QIODevice&,
+                                                    const VirtualFunction<void, const ImageMetadata&>&) {
+  return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
+}
+
+ImageMetadataLoader::Status PdfReader::readMetadata(const QString&,
+                                                    const VirtualFunction<void, const ImageMetadata&>&) {
+  return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
+}
+
+QImage PdfReader::readImage(const QString&, int, int) {
+  return QImage();
+}
+
+#endif  // Q_OS_MACOS
