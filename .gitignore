@@ -1,3 +1,5 @@
 CMakeLists.txt.user
 build/
 *.dmg
+.DS_Store
+**/.DS_Store
