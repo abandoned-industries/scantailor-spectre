@@ -415,3 +415,33 @@
 - Build succeeded with expected warnings (unused midtoneThreshold param in isPureBW - can be removed later)
 - TESTED: Pages 4L (4.2% midtones, region had 42.3%), 6R, 8L, 8R, 9L, 9R, 10R all correctly detected as grayscale
 - Text pages (1L, 1R, 3L, 3R, 7R) correctly remained B&W
+
+---
+2025-12-29 - Release build v2.0a12 (pending)
+- Includes: Detection Settings for art books, color detection fix for embedded photos
+- Building, signing, notarizing, creating DMG
+
+---
+2025-12-29 - Phase 3: Thread safety for MetalMorphology (make -j8)
+- MetalMorphology.mm: Added serial dispatch queue (getMorphologyQueue) 
+- MetalMorphology.mm: Wrapped performMorphOp GPU operations in dispatch_sync with @autoreleasepool
+- Matches thread safety pattern from MetalGaussBlur.mm
+
+---
+2025-12-29 - Phase 3: Thread safety for MetalMorphology (make -j8)
+- MetalMorphology.mm: Added serial dispatch queue (getMorphologyQueue) 
+- MetalMorphology.mm: Wrapped performMorphOp GPU operations in dispatch_sync with @autoreleasepool
+- Matches thread safety pattern from MetalGaussBlur.mm
+- Build succeeded (rpath warnings are normal macdeployqt noise)
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-29 - Phase 1: App lifecycle monitoring (make -j8)
+- NEW: MetalLifecycle.h/mm - Detects app foreground/background state via NSNotifications
+- CMakeLists.txt (acceleration): Added MetalLifecycle files and AppKit framework
+- main.cpp: Initialize metalLifecycleInit() at startup
+- MetalGaussBlur.mm: Re-enabled! Now checks metalIsAppActive() before GPU operations
+- MetalMorphology.mm: Added metalIsAppActive() check
+- Build succeeded (existing warnings: unused params, missing override, reorder-ctor)
+- App bundle refreshed: build/ScanTailor Spectre.app
+- Metal GaussBlur is now ENABLED with lifecycle protection!

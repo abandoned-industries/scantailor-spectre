@@ -13,11 +13,30 @@ cat TODO.md           # Current task and acceptance criteria
 tail -100 BUILD_LOG.md # Recent builds, errors, and known issues
 ```
 
+---
+
+## 🚨 PRIME DIRECTIVE 🚨
+
+**BEFORE running `make` or `cmake --build`, ALWAYS append to BUILD_LOG.md:**
+```bash
+cat >> BUILD_LOG.md << 'EOF'
+
+---
+YYYY-MM-DD HH:MM - Description of changes (make -j8)
+- File changed: what was done
+- File changed: what was done
+EOF
+```
+
+**NO EXCEPTIONS. Log first, build second.**
+
+---
+
 **CRITICAL RULES — These persist across compaction:**
 
-1. **Version/Timestamp**: ALL builds must be timestamped: `ScanTailor-Spectre-X.Y.Z-YYYYMMDD-HHMM.dmg`
-2. **Build Location**: Release DMGs go to `~/Desktop/`, dev builds stay in `build/`
-3. **Logging**: ALWAYS append to `BUILD_LOG.md` BEFORE every build with timestamp and description of changes
+1. **PRIME DIRECTIVE**: Log to BUILD_LOG.md BEFORE every build (see above)
+2. **Version/Timestamp**: ALL builds must be timestamped: `ScanTailor-Spectre-X.Y.Z-YYYYMMDD-HHMM.dmg`
+3. **README/PDF**: Any version increment requires: update README.md, regenerate PDF, include new PDF in DMG
 4. **Task Tracking**: Check off completed tasks in `TODO.md` with timestamp
 
 **Current version**: Check `CMakeLists.txt` line containing `VERSION` or `project()`

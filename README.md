@@ -13,12 +13,12 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 - **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
 - **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
+- **Detection Settings** - Adjustable Fill Factor and Border Tolerance for art books and photo-heavy content
 - **Finalize Stage** - New stage for color mode selection and output format
-- **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages
+- **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages, including embedded photographs
 - **White Balance Tools** - Auto white balance and pick-paper-color for correcting aged paper and lighting
 - **OCR Stage** - Automatic text recognition for searchable PDFs
 - **Export Stage** - New dedicated PDF export with quality presets
-- **Detection Settings** - Adjustable Fill Factor and Border Tolerance for art books and photo-heavy content
 
 ---
 
