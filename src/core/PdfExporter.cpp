@@ -13,6 +13,8 @@
 #include <QPainter>
 #include <QPdfWriter>
 
+#include "TiffReader.h"
+
 #ifdef HAVE_LIBHARU
 #include <hpdf.h>
 #include <cstring>
@@ -169,7 +171,18 @@ bool exportWithLibHaru(const QStringList& imagePaths,
       }
     }
 
-    QImage image(imagePath);
+    // Load image - use TiffReader for TIFF files (handles large files better)
+    QImage image;
+    const QString ext = QFileInfo(imagePath).suffix().toLower();
+    if (ext == "tif" || ext == "tiff") {
+      QFile file(imagePath);
+      if (file.open(QIODevice::ReadOnly)) {
+        image = TiffReader::readImage(file);
+        file.close();
+      }
+    } else {
+      image = QImage(imagePath);
+    }
     if (image.isNull()) {
       qDebug() << "PdfExporter: Failed to load image:" << imagePath;
       continue;
@@ -423,7 +436,18 @@ bool exportWithQt(const QStringList& imagePaths,
       }
     }
 
-    QImage image(imagePath);
+    // Load image - use TiffReader for TIFF files (handles large files better)
+    QImage image;
+    const QString ext = QFileInfo(imagePath).suffix().toLower();
+    if (ext == "tif" || ext == "tiff") {
+      QFile file(imagePath);
+      if (file.open(QIODevice::ReadOnly)) {
+        image = TiffReader::readImage(file);
+        file.close();
+      }
+    } else {
+      image = QImage(imagePath);
+    }
     if (image.isNull()) {
       qDebug() << "PdfExporter: Failed to load image:" << imagePath;
       continue;

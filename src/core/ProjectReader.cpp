@@ -4,6 +4,7 @@
 #include "ProjectReader.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <boost/bind/bind.hpp>
 
 #include "AbstractFilter.h"
@@ -22,6 +23,75 @@ ProjectReader::ProjectReader(const QDomDocument& doc)
   }
 
   m_outDir = projectEl.attribute("outputDirectory");
+
+  Qt::LayoutDirection layoutDirection = Qt::LeftToRight;
+  if (projectEl.attribute("layoutDirection") == "RTL") {
+    layoutDirection = Qt::RightToLeft;
+  }
+
+  const QDomElement dirsEl(projectEl.namedItem("directories").toElement());
+  if (dirsEl.isNull()) {
+    return;
+  }
+  processDirectories(dirsEl);
+
+  const QDomElement filesEl(projectEl.namedItem("files").toElement());
+  if (filesEl.isNull()) {
+    return;
+  }
+  processFiles(filesEl);
+
+  const QDomElement imagesEl(projectEl.namedItem("images").toElement());
+  if (imagesEl.isNull()) {
+    return;
+  }
+  processImages(imagesEl, layoutDirection);
+
+  const QDomElement pagesEl(projectEl.namedItem("pages").toElement());
+  if (pagesEl.isNull()) {
+    return;
+  }
+  processPages(pagesEl);
+  // Load naming disambiguator.  This needs to be done after processing pages.
+  const QDomElement disambigEl(projectEl.namedItem("file-name-disambiguation").toElement());
+  m_disambiguator = std::make_shared<FileNameDisambiguator>(
+      disambigEl, boost::bind(&ProjectReader::expandFilePath, this, boost::placeholders::_1));
+}
+
+ProjectReader::ProjectReader(const QDomDocument& doc, const QString& projectFilePath)
+    : m_doc(doc), m_projectDir(QFileInfo(projectFilePath).absolutePath()),
+      m_disambiguator(std::make_shared<FileNameDisambiguator>()) {
+  QDomElement projectEl(m_doc.documentElement());
+
+  m_version = projectEl.attribute("version");
+  if (m_version.isNull() || (m_version.toInt() != PROJECT_VERSION)) {
+    return;
+  }
+
+  // Resolve output directory - may be relative or absolute
+  QString outDirAttr = projectEl.attribute("outputDirectory");
+  if (!outDirAttr.isEmpty()) {
+    if (QDir::isAbsolutePath(outDirAttr)) {
+      // For absolute paths, check if there's a matching relative path from project dir
+      // This handles the case where a project was moved
+      QString basename = QDir(outDirAttr).dirName();  // e.g., "output"
+      QString relativeOutput = QDir(m_projectDir).absoluteFilePath(basename);
+
+      if (QDir(relativeOutput).exists() && relativeOutput != outDirAttr) {
+        // Relative path exists and is different - prefer it (project was likely moved)
+        m_outDir = relativeOutput;
+      } else if (QDir(outDirAttr).exists()) {
+        // Use absolute path if it exists
+        m_outDir = outDirAttr;
+      } else {
+        // Neither exists, keep absolute (might be created later)
+        m_outDir = outDirAttr;
+      }
+    } else {
+      // Relative path - resolve from project directory
+      m_outDir = QDir(m_projectDir).absoluteFilePath(outDirAttr);
+    }
+  }
 
   Qt::LayoutDirection layoutDirection = Qt::LeftToRight;
   if (projectEl.attribute("layoutDirection") == "RTL") {
@@ -89,9 +159,27 @@ void ProjectReader::processDirectories(const QDomElement& dirsEl) {
       continue;
     }
 
-    const QString path(el.attribute("path"));
+    QString path(el.attribute("path"));
     if (path.isEmpty()) {
       continue;
+    }
+
+    // Resolve relative paths from project directory if available
+    if (!m_projectDir.isEmpty()) {
+      if (QDir::isAbsolutePath(path)) {
+        // Absolute path - use as-is if exists, otherwise try to resolve relative from project dir
+        if (!QDir(path).exists()) {
+          // Try resolving relative path from project dir (for moved projects)
+          QString relative = QDir(m_projectDir).relativeFilePath(path);
+          QString resolved = QDir(m_projectDir).absoluteFilePath(relative);
+          if (QDir(resolved).exists()) {
+            path = resolved;
+          }
+        }
+      } else {
+        // Relative path - resolve from project directory
+        path = QDir(m_projectDir).absoluteFilePath(path);
+      }
     }
 
     m_dirMap.insert(DirMap::value_type(id, path));

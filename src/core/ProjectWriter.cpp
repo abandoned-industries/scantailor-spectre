@@ -3,6 +3,7 @@
 
 #include "ProjectWriter.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTextStream>
@@ -66,14 +67,27 @@ ProjectWriter::ProjectWriter(const std::shared_ptr<ProjectPages>& pageSequence,
 ProjectWriter::~ProjectWriter() = default;
 
 bool ProjectWriter::write(const QString& filePath, const std::vector<FilterPtr>& filters) const {
+  // Compute project directory for relative path conversion
+  const QString projectDir = QFileInfo(filePath).absolutePath();
+
   QDomDocument doc;
   QDomElement rootEl(doc.createElement("project"));
   doc.appendChild(rootEl);
   rootEl.setAttribute("version", PROJECT_VERSION);
-  rootEl.setAttribute("outputDirectory", m_outFileNameGen.outDir());
+
+  // Convert output directory to relative path from project directory
+  QString outDir = m_outFileNameGen.outDir();
+  if (!outDir.isEmpty() && QDir::isAbsolutePath(outDir)) {
+    QString relative = QDir(projectDir).relativeFilePath(outDir);
+    // Only use relative if it doesn't go too far up (e.g., starts with "../../../")
+    if (!relative.startsWith("../../..")) {
+      outDir = relative;
+    }
+  }
+  rootEl.setAttribute("outputDirectory", outDir);
   rootEl.setAttribute("layoutDirection", m_layoutDirection == Qt::LeftToRight ? "LTR" : "RTL");
 
-  rootEl.appendChild(processDirectories(doc));
+  rootEl.appendChild(processDirectories(doc, projectDir));
   rootEl.appendChild(processFiles(doc));
   rootEl.appendChild(processImages(doc));
   rootEl.appendChild(processPages(doc));
@@ -98,13 +112,23 @@ bool ProjectWriter::write(const QString& filePath, const std::vector<FilterPtr>&
   return true;
 }  // ProjectWriter::write
 
-QDomElement ProjectWriter::processDirectories(QDomDocument& doc) const {
+QDomElement ProjectWriter::processDirectories(QDomDocument& doc, const QString& projectDir) const {
   QDomElement dirsEl(doc.createElement("directories"));
 
   for (const Directory& dir : m_dirs.get<Sequenced>()) {
     QDomElement dirEl(doc.createElement("directory"));
     dirEl.setAttribute("id", dir.numericId);
-    dirEl.setAttribute("path", dir.path);
+
+    // Convert absolute path to relative from project directory
+    QString path = dir.path;
+    if (!projectDir.isEmpty() && QDir::isAbsolutePath(path)) {
+      QString relative = QDir(projectDir).relativeFilePath(path);
+      // Only use relative if it doesn't go too far up (e.g., starts with "../../../")
+      if (!relative.startsWith("../../..")) {
+        path = relative;
+      }
+    }
+    dirEl.setAttribute("path", path);
     dirsEl.appendChild(dirEl);
   }
   return dirsEl;

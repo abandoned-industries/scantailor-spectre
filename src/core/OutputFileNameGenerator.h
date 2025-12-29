@@ -61,6 +61,10 @@ class OutputFileNameGenerator {
 
   QString filePathFor(const PageId& page) const;
 
+  // Find existing output file for a page, checking all supported extensions (.tif, .png, .jpg)
+  // Returns the path if found, empty string if not found
+  QString findExistingOutputFile(const PageId& page) const;
+
   // Get file extension for current format (without dot)
   QString formatExtension() const;
 

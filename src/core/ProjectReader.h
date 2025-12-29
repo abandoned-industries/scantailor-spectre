@@ -28,6 +28,9 @@ class ProjectReader {
 
   explicit ProjectReader(const QDomDocument& doc);
 
+  // Constructor with project file path for relative path resolution
+  ProjectReader(const QDomDocument& doc, const QString& projectFilePath);
+
   ~ProjectReader();
 
   void readFilterSettings(const std::vector<FilterPtr>& filters) const;
@@ -82,6 +85,7 @@ class ProjectReader {
   ImageInfo getImageInfo(int id) const;
 
   QDomDocument m_doc;
+  QString m_projectDir;  // Directory containing the project file (for relative path resolution)
   QString m_outDir;
   QString m_version;
   DirMap m_dirMap;

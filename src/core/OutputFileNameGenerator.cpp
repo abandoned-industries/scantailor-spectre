@@ -3,7 +3,9 @@
 
 #include "OutputFileNameGenerator.h"
 
+#include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <stdexcept>
 #include <utility>
@@ -66,4 +68,37 @@ QString OutputFileNameGenerator::fileNameFor(const PageId& page) const {
 QString OutputFileNameGenerator::filePathFor(const PageId& page) const {
   const QString fileName(fileNameFor(page));
   return QDir(m_outDir).absoluteFilePath(fileName);
+}
+
+QString OutputFileNameGenerator::findExistingOutputFile(const PageId& page) const {
+  // Get base name without extension
+  const bool ltr = (m_layoutDirection == Qt::LeftToRight);
+  const PageId::SubPage subPage = page.subPage();
+  const int label = m_disambiguator->getLabel(page.imageId().filePath());
+
+  QString baseName(QFileInfo(page.imageId().filePath()).completeBaseName());
+  if (label != 0) {
+    baseName += QString::fromLatin1("(%1)").arg(label);
+  }
+  if (page.imageId().isMultiPageFile()) {
+    baseName += QString::fromLatin1("_page%1").arg(page.imageId().page(), 4, 10, QLatin1Char('0'));
+  }
+  if (subPage != PageId::SINGLE_PAGE) {
+    baseName += QLatin1Char('_');
+    baseName += QLatin1Char(ltr == (subPage == PageId::LEFT_PAGE) ? '1' : '2');
+    baseName += QLatin1Char(subPage == PageId::LEFT_PAGE ? 'L' : 'R');
+  }
+
+  // Check for files with any supported extension
+  static const QStringList extensions = {".tif", ".png", ".jpg"};
+  const QDir outDir(m_outDir);
+
+  for (const QString& ext : extensions) {
+    const QString filePath = outDir.absoluteFilePath(baseName + ext);
+    if (QFile::exists(filePath)) {
+      return filePath;
+    }
+  }
+
+  return QString();  // Not found
 }
