@@ -375,6 +375,15 @@
 - App bundle refreshed: build/ScanTailor Spectre.app
 
 ---
+2025-12-28 23:31 - Code change (pending rebuild/test)
+- PdfReader.mm: clip to effective box after rotation to prevent bleed outside crop/media bounds.
+
+---
+2025-12-28 23:32 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
 2025-12-28 - Code review fixes (cmake --build . -j4)
 - WhiteBalance.cpp: Replace rand() with std::mt19937 for deterministic sampling (fixed seed 42)
 - AppleVisionDetector.mm: Add null-check for colorSpace, clarify CF reference counting, add zero-width check
