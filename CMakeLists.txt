@@ -9,6 +9,10 @@ endif()
 
 project("ScanTailor Spectre")
 
+if (NOT APPLE)
+  message(FATAL_ERROR "ScanTailor Spectre is supported on macOS only.")
+endif()
+
 # Set compiler flags.
 set(CMAKE_CXX_STANDARD 17)
 
@@ -189,7 +193,7 @@ endif()
 
 find_package(
     Qt6 6.4 REQUIRED
-    COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets Pdf
+    COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets
     CONFIG)
 set(QT_BINDIR "${QT6_INSTALL_PREFIX}/bin")
 
@@ -202,7 +206,6 @@ set(Qt_Svg_lib Qt::Svg)
 set(Qt_Widgets_lib Qt::Widgets)
 set(Qt_Xml_lib Qt::Xml)
 set(Qt_OpenGLWidgets_lib Qt::OpenGLWidgets)
-set(Qt_Pdf_lib Qt::Pdf)
 
 
 #=================================== Threads ===================================#

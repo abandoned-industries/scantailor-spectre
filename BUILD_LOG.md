@@ -353,3 +353,23 @@
 2025-12-28 22:30 - Debug rebuild (cmake --build . -j4)
 - Build succeeded with existing warnings (unused params, duplicate libs, missing override).
 - App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 23:00 - Code change (pending rebuild/test)
+- CMakeLists.txt: hard-fail non-macOS builds (macOS-only support).
+- PdfReader.mm: remove non-macOS PDF stubs.
+- AppleVisionDetector.mm: remove non-macOS stubs.
+
+---
+2025-12-28 23:05 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 - Code review fixes (cmake --build . -j4)
+- WhiteBalance.cpp: Replace rand() with std::mt19937 for deterministic sampling (fixed seed 42)
+- AppleVisionDetector.mm: Add null-check for colorSpace, clarify CF reference counting, add zero-width check
+- PdfReader.mm: Add null-check after ensureLoaded(), release mutex before callbacks to prevent deadlocks
+- finalize/Task.cpp: Remove unused m_downscaledImage member, pass empty QImage (ImageViewBase auto-creates)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
