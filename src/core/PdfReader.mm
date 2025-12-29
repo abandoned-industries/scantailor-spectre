@@ -12,6 +12,7 @@
 
 #include <limits>
 #include <cmath>
+#include <vector>
 
 #include "Dpi.h"
 #include "ImageMetadata.h"
@@ -161,44 +162,62 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
   }
 
   PdfDocumentManager& mgr = PdfDocumentManager::instance();
-  QMutexLocker lock(&mgr.mutex());
 
-  if (!mgr.ensureLoaded(filePath)) {
-    return ImageMetadataLoader::GENERIC_ERROR;
-  }
+  // Collect page metadata under lock, then release before callbacks
+  struct PageInfo {
+    int widthPx;
+    int heightPx;
+  };
+  std::vector<PageInfo> pages;
 
-  CGPDFDocumentRef doc = mgr.document();
-  const size_t pageCount = CGPDFDocumentGetNumberOfPages(doc);
+  {
+    QMutexLocker lock(&mgr.mutex());
 
-  if (pageCount == 0) {
-    qDebug() << "PdfReader: PDF has no pages:" << filePath;
-    return ImageMetadataLoader::NO_IMAGES;
-  }
-
-  constexpr double maxDimension = static_cast<double>(std::numeric_limits<int>::max());
-
-  for (size_t i = 1; i <= pageCount; ++i) {
-    CGPDFPageRef page = CGPDFDocumentGetPage(doc, i);
-    if (!page) {
-      continue;
+    if (!mgr.ensureLoaded(filePath)) {
+      return ImageMetadataLoader::GENERIC_ERROR;
     }
 
-    // Get display size (accounts for rotation)
-    CGSize displaySize = getDisplaySize(page);
-    const CGFloat userUnit = getUserUnit(page);
-
-    const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
-    const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
-
-    if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
-      qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
-      continue;
+    CGPDFDocumentRef doc = mgr.document();
+    if (!doc) {
+      qDebug() << "PdfReader: Document is null after load:" << filePath;
+      return ImageMetadataLoader::GENERIC_ERROR;
     }
 
-    const int widthPx = static_cast<int>(calcWidth);
-    const int heightPx = static_cast<int>(calcHeight);
+    const size_t pageCount = CGPDFDocumentGetNumberOfPages(doc);
 
-    out(ImageMetadata(QSize(widthPx, heightPx), Dpi(DEFAULT_RENDER_DPI, DEFAULT_RENDER_DPI)));
+    if (pageCount == 0) {
+      qDebug() << "PdfReader: PDF has no pages:" << filePath;
+      return ImageMetadataLoader::NO_IMAGES;
+    }
+
+    constexpr double maxDimension = static_cast<double>(std::numeric_limits<int>::max());
+    pages.reserve(pageCount);
+
+    for (size_t i = 1; i <= pageCount; ++i) {
+      CGPDFPageRef page = CGPDFDocumentGetPage(doc, i);
+      if (!page) {
+        continue;
+      }
+
+      // Get display size (accounts for rotation)
+      CGSize displaySize = getDisplaySize(page);
+      const CGFloat userUnit = getUserUnit(page);
+
+      const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
+      const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
+
+      if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
+        qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
+        continue;
+      }
+
+      pages.push_back({static_cast<int>(calcWidth), static_cast<int>(calcHeight)});
+    }
+  }  // Lock released here before callbacks
+
+  // Now invoke callbacks without holding the lock (prevents potential deadlocks)
+  for (const PageInfo& info : pages) {
+    out(ImageMetadata(QSize(info.widthPx, info.heightPx), Dpi(DEFAULT_RENDER_DPI, DEFAULT_RENDER_DPI)));
   }
 
   return ImageMetadataLoader::LOADED;
@@ -299,22 +318,6 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   image.setDotsPerMeterY(dotsPerMeter);
 
   return image;
-}
-
-#else  // Non-macOS platforms
-
-ImageMetadataLoader::Status PdfReader::readMetadata(QIODevice&,
-                                                    const VirtualFunction<void, const ImageMetadata&>&) {
-  return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
-}
-
-ImageMetadataLoader::Status PdfReader::readMetadata(const QString&,
-                                                    const VirtualFunction<void, const ImageMetadata&>&) {
-  return ImageMetadataLoader::FORMAT_NOT_RECOGNIZED;
-}
-
-QImage PdfReader::readImage(const QString&, int, int) {
-  return QImage();
 }
 
 #endif  // Q_OS_MACOS

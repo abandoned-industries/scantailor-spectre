@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <vector>
 
 namespace {
@@ -23,6 +24,13 @@ const int MAX_SATURATION = 60;
 
 // Number of pixels to sample for margin/neutral detection
 const int SAMPLE_COUNT = 1000;
+
+// Thread-local random number generator for deterministic sampling
+// Seeded with a fixed value for reproducibility across runs
+std::mt19937& getRng() {
+  static thread_local std::mt19937 rng(42);  // Fixed seed for reproducibility
+  return rng;
+}
 
 // Helper: compute a simple local variance proxy (average absolute diff to 3x3 mean).
 // Note: caller must ensure image is Format_RGB32 or Format_ARGB32 for safe scanLine access.
@@ -119,38 +127,47 @@ QColor WhiteBalance::sampleMarginColor(const QImage& image, const QRect& content
     }
   };
 
+  // Use deterministic random generator for reproducible results
+  std::mt19937& rng = getRng();
+  std::uniform_int_distribution<int> xDist(0, image.width() - 1);
+  std::uniform_int_distribution<int> yDist(0, image.height() - 1);
+
   // Sample from top margin
   if (topMargin >= MIN_MARGIN_SIZE) {
+    std::uniform_int_distribution<int> topYDist(0, topMargin - 1);
     for (int i = 0; i < SAMPLE_COUNT / 4 && rValues.size() < SAMPLE_COUNT; ++i) {
-      const int x = rand() % image.width();
-      const int y = rand() % topMargin;
+      const int x = xDist(rng);
+      const int y = topYDist(rng);
       samplePixel(x, y);
     }
   }
 
   // Sample from bottom margin
   if (bottomMargin >= MIN_MARGIN_SIZE) {
+    std::uniform_int_distribution<int> bottomYDist(0, bottomMargin - 1);
     for (int i = 0; i < SAMPLE_COUNT / 4 && rValues.size() < SAMPLE_COUNT; ++i) {
-      const int x = rand() % image.width();
-      const int y = contentBox.bottom() + 1 + (rand() % bottomMargin);
+      const int x = xDist(rng);
+      const int y = contentBox.bottom() + 1 + bottomYDist(rng);
       samplePixel(x, y);
     }
   }
 
   // Sample from left margin
   if (leftMargin >= MIN_MARGIN_SIZE) {
+    std::uniform_int_distribution<int> leftXDist(0, leftMargin - 1);
     for (int i = 0; i < SAMPLE_COUNT / 4 && rValues.size() < SAMPLE_COUNT; ++i) {
-      const int x = rand() % leftMargin;
-      const int y = rand() % image.height();
+      const int x = leftXDist(rng);
+      const int y = yDist(rng);
       samplePixel(x, y);
     }
   }
 
   // Sample from right margin
   if (rightMargin >= MIN_MARGIN_SIZE) {
+    std::uniform_int_distribution<int> rightXDist(0, rightMargin - 1);
     for (int i = 0; i < SAMPLE_COUNT / 4 && rValues.size() < SAMPLE_COUNT; ++i) {
-      const int x = contentBox.right() + 1 + (rand() % rightMargin);
-      const int y = rand() % image.height();
+      const int x = contentBox.right() + 1 + rightXDist(rng);
+      const int y = yDist(rng);
       samplePixel(x, y);
     }
   }
@@ -175,9 +192,13 @@ QColor WhiteBalance::findNeutralPixels(const QImage& image) {
   bValues.reserve(SAMPLE_COUNT);
 
   // Sample random pixels looking for bright, low-saturation ones
+  std::mt19937& rng = getRng();
+  std::uniform_int_distribution<int> xDist(0, image.width() - 1);
+  std::uniform_int_distribution<int> yDist(0, image.height() - 1);
+
   for (int attempts = 0; attempts < SAMPLE_COUNT * 10 && rValues.size() < SAMPLE_COUNT; ++attempts) {
-    const int x = rand() % image.width();
-    const int y = rand() % image.height();
+    const int x = xDist(rng);
+    const int y = yDist(rng);
     const QRgb pixel = image.pixel(x, y);
     const int r = qRed(pixel);
     const int g = qGreen(pixel);
@@ -265,9 +286,13 @@ QColor WhiteBalance::findBrightestPixels(const QImage& image) {
   samples.reserve(SAMPLE_COUNT);
 
   // Sample random pixels, excluding pure white and very dark, and require low saturation / low variance
+  std::mt19937& rng = getRng();
+  std::uniform_int_distribution<int> xDist(0, image.width() - 1);
+  std::uniform_int_distribution<int> yDist(0, image.height() - 1);
+
   for (int i = 0; i < SAMPLE_COUNT * 20 && samples.size() < SAMPLE_COUNT; ++i) {
-    const int x = rand() % image.width();
-    const int y = rand() % image.height();
+    const int x = xDist(rng);
+    const int y = yDist(rng);
     const QRgb pixel = image.pixel(x, y);
     const int r = qRed(pixel);
     const int g = qGreen(pixel);

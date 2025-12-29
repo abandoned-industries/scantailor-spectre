@@ -46,7 +46,6 @@ class Task::UiUpdater : public FilterResult {
   std::shared_ptr<Filter> m_filter;
   PageId m_pageId;
   QImage m_image;
-  QImage m_downscaledImage;
   ImageTransformation m_xform;
   ColorMode m_colorMode;
   bool m_batchProcessing;
@@ -227,7 +226,8 @@ void Task::UiUpdater::updateUI(FilterUiInterface* ui) {
   // Apply color mode transformation for preview
   const QImage displayImage = applyColorMode(m_image, m_colorMode);
 
-  auto* view = new ImageView(displayImage, m_downscaledImage, m_xform);
+  // Pass empty QImage for downscaled - ImageViewBase will create one automatically
+  auto* view = new ImageView(displayImage, QImage(), m_xform);
   ui->setImageWidget(view, ui->TRANSFER_OWNERSHIP, nullptr);
 }
 

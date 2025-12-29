@@ -34,8 +34,13 @@ CGImageRef createCGImageFromQImage(const QImage& qimage) {
   }
 
   CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  if (!colorSpace) {
+    CFRelease(pixelData);
+    return nullptr;
+  }
+
   CGDataProviderRef dataProvider = CGDataProviderCreateWithCFData(pixelData);
-  CFRelease(pixelData);  // dataProvider now owns the data
+  CFRelease(pixelData);  // dataProvider retains pixelData internally
 
   if (!dataProvider) {
     CGColorSpaceRelease(colorSpace);
@@ -55,6 +60,8 @@ CGImageRef createCGImageFromQImage(const QImage& qimage) {
       false,                      // should interpolate
       kCGRenderingIntentDefault);
 
+  // CGImageCreate retains both colorSpace and dataProvider internally,
+  // so we must release our references here
   CGDataProviderRelease(dataProvider);
   CGColorSpaceRelease(colorSpace);
 
@@ -151,8 +158,8 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
   }
 
   // Guard against division by zero
-  if (image.height() == 0) {
-    qDebug() << "PageSplit: image has zero height";
+  if (image.width() == 0 || image.height() == 0) {
+    qDebug() << "PageSplit: image has zero dimensions";
     return result;
   }
 
@@ -482,44 +489,6 @@ QStringList AppleVisionDetector::supportedOcrLanguages() {
   }
 
   return languages;
-}
-
-#else  // Non-macOS platforms
-
-bool AppleVisionDetector::isAvailable() {
-  return false;
-}
-
-QVector<AppleVisionDetector::TextRegion> AppleVisionDetector::detectTextRegions(const QImage&) {
-  return QVector<TextRegion>();
-}
-
-AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const QImage&) {
-  PageSplitResult result;
-  result.shouldSplit = false;
-  result.splitLineX = 0.5;
-  result.confidence = 0.0f;
-  result.leftTextRegions = 0;
-  result.rightTextRegions = 0;
-  return result;
-}
-
-AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplitFromFile(const QString&) {
-  PageSplitResult result;
-  result.shouldSplit = false;
-  result.splitLineX = 0.5;
-  result.confidence = 0.0f;
-  result.leftTextRegions = 0;
-  result.rightTextRegions = 0;
-  return result;
-}
-
-QVector<AppleVisionDetector::OcrWordResult> AppleVisionDetector::performOcr(const QImage&, const OcrConfig&) {
-  return QVector<OcrWordResult>();
-}
-
-QStringList AppleVisionDetector::supportedOcrLanguages() {
-  return QStringList();
 }
 
 #endif  // Q_OS_MACOS
