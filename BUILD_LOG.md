@@ -445,3 +445,14 @@
 - Build succeeded (existing warnings: unused params, missing override, reorder-ctor)
 - App bundle refreshed: build/ScanTailor Spectre.app
 - Metal GaussBlur is now ENABLED with lifecycle protection!
+
+## 2025-12-29 12:45 - v2.0a12 RELEASE
+
+- **Status**: ✅ Released
+- **DMG**: ScanTailor-Spectre-2.0a12-20251229-1239.dmg (51MB)
+- **Release**: https://github.com/abandoned-industries/scantailor-spectre/releases/tag/v2.0a12
+- **Changes**:
+  - Detection Settings (Fill Factor, Border Tolerance)
+  - Improved color detection for embedded photographs
+  - Updated README.md and README.pdf
+
