@@ -99,6 +99,20 @@ static CGSize getDisplaySize(CGPDFPageRef page) {
   return box.size;
 }
 
+static CGFloat getUserUnit(CGPDFPageRef page) {
+  const CGPDFDictionaryRef dict = CGPDFPageGetDictionary(page);
+  if (!dict) {
+    return 1.0;
+  }
+  CGPDFReal userUnit = 1.0;
+  if (CGPDFDictionaryGetNumber(dict, "UserUnit", &userUnit)) {
+    if (userUnit > 0.0) {
+      return static_cast<CGFloat>(userUnit);
+    }
+  }
+  return 1.0;
+}
+
 #endif  // Q_OS_MACOS
 
 bool PdfReader::checkMagic(const QByteArray& data) {
@@ -214,11 +228,26 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
     return QImage();
   }
 
+  const CGRect cropBox = CGPDFPageGetBoxRect(page, kCGPDFCropBox);
+  const CGPDFBox boxType = CGRectIsEmpty(cropBox) ? kCGPDFMediaBox : kCGPDFCropBox;
+  const CGRect box = getEffectiveBox(page);
+  const int rotation = CGPDFPageGetRotationAngle(page);
+
   // Get display size (accounts for rotation)
   CGSize displaySize = getDisplaySize(page);
+  const CGRect mediaBox = CGPDFPageGetBoxRect(page, kCGPDFMediaBox);
+  const CGFloat userUnit = getUserUnit(page);
+  qDebug() << "PdfReader: page" << pageNum
+           << "rotation" << rotation
+           << "mediaBox" << mediaBox.origin.x << mediaBox.origin.y << mediaBox.size.width << mediaBox.size.height
+           << "cropBox" << cropBox.origin.x << cropBox.origin.y << cropBox.size.width << cropBox.size.height
+           << "displaySize" << displaySize.width << displaySize.height
+           << "boxSize" << box.size.width << box.size.height
+           << "userUnit" << userUnit
+           << "dpi" << dpi;
 
   constexpr double maxDim = static_cast<double>(std::numeric_limits<int>::max());
-  const CGFloat scale = static_cast<CGFloat>(dpi) / 72.0;
+  const CGFloat scale = static_cast<CGFloat>(dpi) / 72.0 * userUnit;
 
   const double calcWidth = displaySize.width * scale + 0.5;
   const double calcHeight = displaySize.height * scale + 0.5;
@@ -231,81 +260,48 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   const int widthPx = static_cast<int>(calcWidth);
   const int heightPx = static_cast<int>(calcHeight);
 
-  // Create bitmap context for PDF rendering
-  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-  CGContextRef context = CGBitmapContextCreate(
-      nullptr,  // Let CG allocate the buffer
-      widthPx,
-      heightPx,
-      8,
-      0,  // Let CG calculate bytes per row
-      colorSpace,
-      kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
-
-  if (!context) {
-    CGColorSpaceRelease(colorSpace);
-    qDebug() << "PdfReader: Failed to create bitmap context for page" << pageNum;
-    return QImage();
-  }
-
-  // Fill with white background
-  CGContextSetRGBFillColor(context, 1.0, 1.0, 1.0, 1.0);
-  CGContextFillRect(context, CGRectMake(0, 0, widthPx, heightPx));
-
-  // Scale for DPI
-  CGContextScaleCTM(context, scale, scale);
-
-  // Get the drawing transform which handles cropBox offset and page rotation
-  CGRect destRect = CGRectMake(0, 0, displaySize.width, displaySize.height);
-  CGAffineTransform drawTransform = CGPDFPageGetDrawingTransform(
-      page,
-      kCGPDFCropBox,
-      destRect,
-      0,      // No additional rotation
-      true);  // Preserve aspect ratio
-
-  CGContextConcatCTM(context, drawTransform);
-
-  // Draw the PDF page
-  CGContextDrawPDFPage(context, page);
-
-  // Create CGImage from the context - this has correct orientation
-  CGImageRef cgImage = CGBitmapContextCreateImage(context);
-  CGContextRelease(context);
-  CGColorSpaceRelease(colorSpace);
-
-  if (!cgImage) {
-    qDebug() << "PdfReader: Failed to create image for page" << pageNum;
-    return QImage();
-  }
-
-  // Convert CGImage to QImage
   QImage image(widthPx, heightPx, QImage::Format_RGB32);
   image.fill(Qt::white);
 
-  // Draw CGImage into QImage using a new context
-  CGColorSpaceRef destColorSpace = CGColorSpaceCreateDeviceRGB();
-  CGContextRef destContext = CGBitmapContextCreate(
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef context = CGBitmapContextCreate(
       image.bits(),
       widthPx,
       heightPx,
       8,
       image.bytesPerLine(),
-      destColorSpace,
+      colorSpace,
       kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
-  CGColorSpaceRelease(destColorSpace);
+  CGColorSpaceRelease(colorSpace);
 
-  if (destContext) {
-    // CGImage draws with origin at bottom-left, but we want top-left for QImage
-    // Flip the coordinate system
-    CGContextTranslateCTM(destContext, 0, heightPx);
-    CGContextScaleCTM(destContext, 1, -1);
-
-    CGContextDrawImage(destContext, CGRectMake(0, 0, widthPx, heightPx), cgImage);
-    CGContextRelease(destContext);
+  if (!context) {
+    qDebug() << "PdfReader: Failed to create bitmap context for page" << pageNum;
+    return QImage();
   }
 
-  CGImageRelease(cgImage);
+  CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+
+  // Scale to requested DPI in user space (72dpi points).
+  CGContextScaleCTM(context, scale, scale);
+
+  // Manual transform: translate to box origin and apply page rotation.
+  CGContextTranslateCTM(context, -box.origin.x, -box.origin.y);
+  if (rotation == 90) {
+    CGContextTranslateCTM(context, 0, box.size.width);
+    CGContextRotateCTM(context, -M_PI_2);
+  } else if (rotation == 180) {
+    CGContextTranslateCTM(context, box.size.width, box.size.height);
+    CGContextRotateCTM(context, M_PI);
+  } else if (rotation == 270) {
+    CGContextTranslateCTM(context, box.size.height, 0);
+    CGContextRotateCTM(context, M_PI_2);
+  }
+
+  CGContextDrawPDFPage(context, page);
+  CGContextRelease(context);
+
+  // Note: no post-flip; CoreGraphics already draws into the buffer orientation.
+
 
   // Set DPI metadata
   const int dotsPerMeter = static_cast<int>(dpi / 0.0254 + 0.5);

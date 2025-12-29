@@ -1,0 +1,336 @@
+ PDF Orientation Fix Attempts - All Failures
+
+  The Problem
+
+  PDF pages render "upside down and backwards" when using CoreGraphics
+  (CGPDFDocument/CGContextDrawPDFPage) instead of Qt::Pdf.
+
+  What I Was Trying to Do
+
+  Replace Qt::Pdf (requires macOS 12+) with CoreGraphics (available on macOS 11+) for PDF reading.
+
+  ---
+  Attempt 1: Direct buffer with mediaBox origin fix
+
+  Code:
+  CGContextTranslateCTM(context, -mediaBox.origin.x, -mediaBox.origin.y);
+  Result: FAILED - pages still wrong
+
+  Attempt 2: Using CGPDFPageGetDrawingTransform alone
+
+  Code:
+  CGAffineTransform drawTransform = CGPDFPageGetDrawingTransform(page, kCGPDFCropBox, destRect, 0,
+   true);
+  CGContextConcatCTM(context, drawTransform);
+  CGContextDrawPDFPage(context, page);
+  Result: FAILED - made things worse
+
+  Attempt 3: Two-stage render with CGImage intermediate
+
+  Code: Rendered to CGContext, created CGImage, copied to QImage with manual Y-flip
+  Result: FAILED - "did something unexpected"
+
+  Attempt 4: PDFKit (PDFDocument/PDFPage)
+
+  Code: Used Objective-C PDFKit framework instead of CoreGraphics
+  Result: FAILED - "worse for sure"
+
+  Attempt 5: CropBox + CGPDFPageGetDrawingTransform
+
+  Code:
+  CGContextTranslateCTM(context, 0, heightPx);
+  CGContextScaleCTM(context, 1, -1);
+  // Then applied CGPDFPageGetDrawingTransform with kCGPDFCropBox
+  Result: FAILED - "better" but still upside down and backwards, thumbnails bad
+
+  Attempt 6: Double Y-flip (cancelled out)
+
+  Code:
+  CGContextTranslateCTM(context, 0, heightPx);
+  CGContextScaleCTM(context, 1, -1);
+  CGContextTranslateCTM(context, 0, heightPx);
+  CGContextScaleCTM(context, scale, -scale);
+  Result: FAILED - The two flips cancelled each other out. No change.
+
+  Attempt 7: Single Y-flip with DPI scale
+
+  Code:
+  CGContextTranslateCTM(context, 0, heightPx);
+  CGContextScaleCTM(context, scale, -scale);
+  Result: FAILED - Still upside down and backwards
+
+  Attempt 8: Two-stage render (current, untested by user)
+
+  Code:
+  // Stage 1: Render PDF to CG-managed buffer
+  CGContextRef context = CGBitmapContextCreate(nullptr, ...);
+  CGContextScaleCTM(context, scale, scale);
+  CGContextConcatCTM(context, CGPDFPageGetDrawingTransform(...));
+  CGContextDrawPDFPage(context, page);
+  CGImageRef cgImage = CGBitmapContextCreateImage(context);
+
+  // Stage 2: Draw CGImage to QImage buffer with Y-flip
+  CGContextRef destContext = CGBitmapContextCreate(image.bits(), ...);
+  CGContextTranslateCTM(destContext, 0, heightPx);
+  CGContextScaleCTM(destContext, 1, -1);
+  CGContextDrawImage(destContext, rect, cgImage);
+  Result: PENDING - just built, not tested by user yet
+
+  ---
+  Key Coordinate System Facts I've Established
+
+  1. CGBitmapContext: device (0,0) = buffer byte 0 = buffer row 0
+  2. CGContext drawing: Origin at bottom-left, Y goes up (standard Quartz)
+  3. PDF coordinates: Origin at bottom-left, Y goes up (matches Quartz)
+  4. QImage: Buffer row 0 = visual TOP of image
+
+  The Core Problem
+
+  When rendering to a buffer that QImage will interpret:
+  - PDF (0,0) → device (0,0) → buffer row 0 → QImage TOP
+  - But PDF (0,0) is the BOTTOM of page content
+  - So page appears upside down without correction
+
+  References I Found
+
+  - https://github.com/vfr/Reader/blob/master/Sources/ReaderThumbRender.m - Uses
+  CGBitmapContextCreateImage, no manual Y-flip
+  - https://ryanbritton.com/2015/09/correctly-drawing-pdfs-in-cocoa/ - Use CropBox, handle
+  rotation
+  - Apple docs on CGPDFPageGetDrawingTransform
+
+  ---
+  File Modified
+
+  /Users/kazys/Developer/scantailor-weasel/src/core/PdfReader.mm - readImage() function around
+  lines 231-316
+
+  Todos
+  ☒ Rewrite readImage() with two-stage render approach
+  ☐ Build and test the fix
+
+---
+2025-12-28 11:56 - Debug build (cmake + make)
+- CMake: Debug config ok; warnings about CMP0167/WrapVulkanHeaders.
+- First make timed out after 120s (sysctl -n hw.ncpu not permitted in sandbox); reran make -j4 and completed.
+- Build succeeded with existing warnings (unused params, override, duplicate libs).
+- App bundle: build/ScanTailor Spectre.app (ad-hoc signed).
+
+---
+2025-12-28 12:06 - Debug rebuild (make -j4)
+- Updated PdfReader.mm: restore DPI scale before CGPDFPageGetDrawingTransform; destRect in points.
+- Build succeeded; warnings include QImage::mirrored deprecation and existing unused params.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 12:12 - Debug rebuild (make -j4)
+- Updated PdfReader.mm: flip context before drawing; removed QImage::mirrored.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 12:17 - Debug rebuild (make -j4)
+- Updated PdfReader.mm: manual flip->scale->crop-origin translate; added rotation handling without CGPDFPageGetDrawingTransform.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 12:30 - Debug rebuild (make -j4)
+- Added QPainter include and red top-left debug marker in PdfReader.mm.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 12:28 - Debug rebuild (make -j4) FAILED
+- PdfReader.mm debug marker build failed: missing QPainter include.
+- Fixed by adding <QPainter> and rebuilding.
+
+---
+2025-12-28 12:41 - Debug rebuild (make -j4)
+- PdfReader.mm: replaced debug marker with L-shape + bottom-right square.
+- LoadFileTask.cpp: force thumbnail recreation for debug visibility.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 13:00 - Debug rebuild (make -j4)
+- PdfReader.mm: added 180° rotation correction after rotation metadata (TEMP).
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 13:06 - Debug rebuild (make -j4)
+- PdfReader.mm: added horizontal mirror correction after 180° fix (TEMP).
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 13:38 - Debug rebuild (make -j4)
+- PdfReader.mm: added per-page debug logging (media/crop box, rotation, display size).
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 13:55 - Debug rebuild (make -j4)
+- PdfReader.mm: reverted to CGPDFPageGetDrawingTransform (crop/media), removed manual rotations, mirrors, and debug markers/logging.
+- LoadFileTask.cpp: removed forced thumbnail recreation.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:16 - Debug rebuild (make -j4)
+- PdfReader.mm: use CGPDFPageGetDrawingTransform with DPI scale, then vertical flip via QImage::mirrored.
+- Build succeeded with existing warnings (deprecated QImage::mirrored).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:19 - Debug rebuild (make -j4)
+- PdfReader.mm: moved Y-flip into CGContext; removed QImage::mirrored.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:28 - Debug rebuild (make -j4)
+- PdfReader.mm: CGPDFPageGetDrawingTransform in pixel space; removed pre-scale and added QImage::mirrored.
+- Build succeeded with existing warnings (deprecated QImage::mirrored).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:33 - Debug rebuild (make -j4)
+- PdfReader.mm: CGPDFPageGetDrawingTransform with manual upscale around box center when DPI > 72; QImage::mirrored for Y-flip.
+- Build succeeded with existing warnings (deprecated QImage::mirrored).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:49 - Debug rebuild (make -j4)
+- PdfReader.mm: flip context, scale to DPI, CGPDFPageGetDrawingTransform in points (no extra scaling), no post-flip.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 14:58 - Debug rebuild (make -j4)
+- PdfReader.mm: added 180° rotation after CGPDFPageGetDrawingTransform while keeping DPI scaling and top-left flip.
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 15:07 - Debug rebuild (make -j4)
+- PdfReader.mm: replaced CGPDFPageGetDrawingTransform with manual crop+rotation transforms (after DPI scale + top-left flip).
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 15:20 - Code change (pending rebuild/test)
+- PdfReader.mm: fixed 90° rotation translation to use box height (was width), to prevent tiny/cropped renders on rotated pages.
+
+---
+2025-12-28 15:23 - Debug rebuild (cmake --build . -j4)
+- Build initially timed out at 10s, reran with longer timeout and succeeded.
+- Warnings unchanged (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 17:00 - Debug rebuild (cmake --build . -j4)
+- PdfReader.mm: added buffer-origin probe (1x1 red pixel at device origin, read back top-left vs bottom-left).
+- Build succeeded with existing warnings.
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 17:32 - Code change (pending rebuild/test)
+- PdfReader.mm: apply PDF UserUnit when computing DPI scale to avoid tiny renders on PDFs with non-1 UserUnit; removed buffer-origin probe.
+
+---
+2025-12-28 17:34 - Code change (pending rebuild/test)
+- PdfReader.mm: switch to CGPDFPageGetDrawingTransform with DPI/UserUnit scale; remove manual flip/rotation and apply vertical QImage mirror after drawing.
+
+---
+2025-12-28 17:36 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 17:58 - Debug rebuild (cmake --build . -j4)
+- PdfReader.mm: added per-page logging (rotation, media/crop box, displaySize, userUnit, dpi).
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 18:02 - Code change (pending rebuild/test)
+- PdfReader.mm: use box size (not displaySize) for render dims, cancel page rotation in CGPDFPageGetDrawingTransform, then rotate QImage to match rotation; added boxSize to logs.
+
+---
+2025-12-28 18:04 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 18:14 - Code change (pending rebuild/test)
+- PdfReader.mm: log CGPDFPageGetDrawingTransform matrix to diagnose tiny/cropped render scale.
+
+---
+2025-12-28 18:16 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 18:21 - Code change (pending rebuild/test)
+- PdfReader.mm: size render buffer from displaySize again and let CGPDFPageGetDrawingTransform apply PDF rotation; removed QImage rotation step.
+
+---
+2025-12-28 18:23 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 18:46 - Code change (pending rebuild/test)
+- PdfReader.mm: pass page rotation angle into CGPDFPageGetDrawingTransform to avoid identity transform on rotated pages.
+
+---
+2025-12-28 18:47 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (deprecated QImage::mirrored, unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 21:51 - Code change (pending rebuild/test)
+- PdfReader.mm: removed post-draw vertical flip to avoid double-flip/mirror.
+
+---
+2025-12-28 21:53 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 21:55 - Code change (pending rebuild/test)
+- ThumbnailPixmapCache.cpp: bump thumbnail cache key version to invalidate old tiny thumbnails.
+
+---
+2025-12-28 21:57 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 22:00 - Code change (pending rebuild/test)
+- PdfReader.mm: invert rotation sign passed to CGPDFPageGetDrawingTransform to correct 90° direction.
+
+---
+2025-12-28 22:02 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 22:03 - Code change (pending rebuild/test)
+- PdfReader.mm: drop CGPDFPageGetDrawingTransform and use manual translate+rotate without post-flip to respect PDF rotation.
+
+---
+2025-12-28 22:05 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 22:09 - Code change (pending rebuild/test)
+- ThumbnailPixmapCache.cpp: bump thumbnail cache key version to v3 to refresh rotation after reader fix.
+
+---
+2025-12-28 22:11 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app

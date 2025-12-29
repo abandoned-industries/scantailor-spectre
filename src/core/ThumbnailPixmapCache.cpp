@@ -620,6 +620,7 @@ QString ThumbnailPixmapCache::Impl::getThumbFilePath(const ImageId& imageId,
   // Because a project may have several files with the same name (from
   // different directories), we add a hash of the original image path
   // to the thumbnail file name.
+  const QString cacheVersionStr = QString::fromLatin1("v3");
   const QByteArray origPathHash = QCryptographicHash::hash(imageId.filePath().toUtf8(), QCryptographicHash::Md5)
                                       .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
   const QString origPathHashStr = QString::fromLatin1(origPathHash.data(), origPathHash.size());
@@ -631,6 +632,8 @@ QString ThumbnailPixmapCache::Impl::getThumbFilePath(const ImageId& imageId,
   thumbFilePath += origImgPath.completeBaseName();
   thumbFilePath += QChar('_');
   thumbFilePath += QString::number(imageId.zeroBasedPage());
+  thumbFilePath += QChar('_');
+  thumbFilePath += cacheVersionStr;
   thumbFilePath += QChar('_');
   thumbFilePath += origPathHashStr;
   thumbFilePath += QChar('_');
