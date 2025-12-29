@@ -179,14 +179,14 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 
     CGPDFDocumentRef doc = mgr.document();
     if (!doc) {
-      qDebug() << "PdfReader: Document is null after load:" << filePath;
+      qWarning() << "PdfReader: Document is null after load:" << filePath;
       return ImageMetadataLoader::GENERIC_ERROR;
     }
 
     const size_t pageCount = CGPDFDocumentGetNumberOfPages(doc);
 
     if (pageCount == 0) {
-      qDebug() << "PdfReader: PDF has no pages:" << filePath;
+      qWarning() << "PdfReader: PDF has no pages:" << filePath;
       return ImageMetadataLoader::NO_IMAGES;
     }
 
@@ -228,7 +228,7 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   QMutexLocker lock(&mgr.mutex());
 
   if (!mgr.ensureLoaded(filePath)) {
-    qDebug() << "PdfReader: Failed to load PDF for rendering:" << filePath;
+    qWarning() << "PdfReader: Failed to load PDF for rendering:" << filePath;
     return QImage();
   }
 
@@ -238,13 +238,13 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   const size_t totalPages = CGPDFDocumentGetNumberOfPages(doc);
 
   if (pageIndex < 1 || pageIndex > totalPages) {
-    qDebug() << "PdfReader: Invalid page number:" << pageNum << "for PDF with" << totalPages << "pages";
+    qWarning() << "PdfReader: Invalid page number:" << pageNum << "for PDF with" << totalPages << "pages";
     return QImage();
   }
 
   CGPDFPageRef page = CGPDFDocumentGetPage(doc, pageIndex);
   if (!page) {
-    qDebug() << "PdfReader: Failed to get page" << pageNum;
+    qWarning() << "PdfReader: Failed to get page" << pageNum;
     return QImage();
   }
 
@@ -272,45 +272,45 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   QImage image(widthPx, heightPx, QImage::Format_RGB32);
   image.fill(Qt::white);
 
-  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-  CGContextRef context = CGBitmapContextCreate(
-      image.bits(),
-      widthPx,
-      heightPx,
-      8,
-      image.bytesPerLine(),
-      colorSpace,
-      kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
-  CGColorSpaceRelease(colorSpace);
+  // Use autoreleasepool to prevent memory buildup during batch operations
+  @autoreleasepool {
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(
+        image.bits(),
+        widthPx,
+        heightPx,
+        8,
+        image.bytesPerLine(),
+        colorSpace,
+        kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
+    CGColorSpaceRelease(colorSpace);
 
-  if (!context) {
-    qDebug() << "PdfReader: Failed to create bitmap context for page" << pageNum;
-    return QImage();
+    if (!context) {
+      qWarning() << "PdfReader: Failed to create bitmap context for page" << pageNum;
+      return QImage();
+    }
+
+    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+
+    // Scale to requested DPI in user space (72dpi points).
+    CGContextScaleCTM(context, scale, scale);
+
+    // Manual transform: translate to box origin and apply page rotation.
+    CGContextTranslateCTM(context, -box.origin.x, -box.origin.y);
+    if (rotation == 90) {
+      CGContextTranslateCTM(context, 0, box.size.width);
+      CGContextRotateCTM(context, -M_PI_2);
+    } else if (rotation == 180) {
+      CGContextTranslateCTM(context, box.size.width, box.size.height);
+      CGContextRotateCTM(context, M_PI);
+    } else if (rotation == 270) {
+      CGContextTranslateCTM(context, box.size.height, 0);
+      CGContextRotateCTM(context, M_PI_2);
+    }
+
+    CGContextDrawPDFPage(context, page);
+    CGContextRelease(context);
   }
-
-  CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-
-  // Scale to requested DPI in user space (72dpi points).
-  CGContextScaleCTM(context, scale, scale);
-
-  // Manual transform: translate to box origin and apply page rotation.
-  CGContextTranslateCTM(context, -box.origin.x, -box.origin.y);
-  if (rotation == 90) {
-    CGContextTranslateCTM(context, 0, box.size.width);
-    CGContextRotateCTM(context, -M_PI_2);
-  } else if (rotation == 180) {
-    CGContextTranslateCTM(context, box.size.width, box.size.height);
-    CGContextRotateCTM(context, M_PI);
-  } else if (rotation == 270) {
-    CGContextTranslateCTM(context, box.size.height, 0);
-    CGContextRotateCTM(context, M_PI_2);
-  }
-
-  CGContextDrawPDFPage(context, page);
-  CGContextRelease(context);
-
-  // Note: no post-flip; CoreGraphics already draws into the buffer orientation.
-
 
   // Set DPI metadata
   const int dotsPerMeter = static_cast<int>(dpi / 0.0254 + 0.5);
