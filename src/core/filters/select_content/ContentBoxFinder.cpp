@@ -29,6 +29,7 @@
 #include "DebugImages.h"
 #include "Despeckle.h"
 #include "FilterData.h"
+#include "Settings.h"
 #include "TaskStatus.h"
 
 namespace select_content {
@@ -71,7 +72,19 @@ struct PreferVertical {
 QRectF ContentBoxFinder::findContentBox(const TaskStatus& status,
                                         const FilterData& data,
                                         const QRectF& pageRect,
+                                        const std::shared_ptr<Settings>& settings,
                                         DebugImages* dbg) {
+  // Get detection parameters from settings, or use defaults
+  const double maxFillFactorSetting = settings ? settings->contentFillFactor() : 0.65;
+  const int borderToleranceSetting = settings ? settings->borderTolerance() : 2;
+
+  // When Fill Factor is very high (>=0.95), the user wants to capture everything
+  // including images and graphics. Skip the text-focused detection entirely
+  // and just use the page rectangle as content.
+  if (maxFillFactorSetting >= 0.95) {
+    return pageRect;
+  }
+
   ImageTransformation xform150dpi(data.xform());
   xform150dpi.preScaleToDpi(Dpi(150, 150));
 
@@ -162,7 +175,11 @@ QRectF ContentBoxFinder::findContentBox(const TaskStatus& status,
   status.throwIfCancelled();
 
   BinaryImage content(bw150.release());
-  rasterOp<RopSubtract<RopDst, RopSrc>>(content, garbage);
+  // When Fill Factor is high (>0.85), user wants to detect images/graphics.
+  // Skip shadow removal to preserve large dark areas like photo backgrounds.
+  if (maxFillFactorSetting <= 0.85) {
+    rasterOp<RopSubtract<RopDst, RopSrc>>(content, garbage);
+  }
   if (dbg) {
     dbg->add(content, "content");
   }
@@ -257,12 +274,12 @@ QRectF ContentBoxFinder::findContentBox(const TaskStatus& status,
 
   despeckled.release();
 
-  inPlaceRemoveAreasTouchingBorders(contentBlocks, dbg);
+  inPlaceRemoveAreasTouchingBorders(contentBlocks, borderToleranceSetting, dbg);
   if (dbg) {
     dbg->add(contentBlocks, "except_bordering");
   }
 
-  BinaryImage textMask(estimateTextMask(content, contentBlocks, dbg));
+  BinaryImage textMask(estimateTextMask(content, contentBlocks, maxFillFactorSetting, dbg));
   if (dbg) {
     QImage textMaskVisualized(content.size(), QImage::Format_ARGB32_Premultiplied);
     textMaskVisualized.fill(0xffffffff);  // Opaque white.
@@ -472,7 +489,9 @@ void ContentBoxFinder::trimContentBlocksInPlace(const imageproc::BinaryImage& co
   }
 }  // ContentBoxFinder::trimContentBlocksInPlace
 
-void ContentBoxFinder::inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage& contentBlocks, DebugImages* dbg) {
+void ContentBoxFinder::inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage& contentBlocks,
+                                                         int borderTolerance,
+                                                         DebugImages* dbg) {
   // We could just do a seed fill from borders, but that
   // has the potential to remove too much.  Instead, we
   // do something similar to a seed fill, but with a limited
@@ -482,9 +501,11 @@ void ContentBoxFinder::inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage&
   const int width = contentBlocks.width();
   const int height = contentBlocks.height();
 
-  // Reduced from /4 to effectively disabled - photos extending to edge were being clipped
-  // Setting to very small value (just remove thin edge artifacts)
-  const auto maxSpreadDist = static_cast<uint16_t>(std::max(2, std::min(width, height) / 64));
+  // borderTolerance: 0 = aggressive trimming, 20 = preserve edge content
+  // Invert the scale: higher tolerance = lower spread distance
+  const int maxTolerance = 20;
+  const int invertedTolerance = maxTolerance - borderTolerance;  // 20->0, 0->20
+  const auto maxSpreadDist = static_cast<uint16_t>(std::max(1, invertedTolerance));
 
   std::vector<uint16_t> map((width + 2) * (height + 2), ~uint16_t(0));
 
@@ -654,6 +675,7 @@ void ContentBoxFinder::segmentGarbage(const imageproc::BinaryImage& garbage,
 
 imageproc::BinaryImage ContentBoxFinder::estimateTextMask(const imageproc::BinaryImage& content,
                                                           const imageproc::BinaryImage& contentBlocks,
+                                                          double maxFillFactor,
                                                           DebugImages* dbg) {
   // We differentiate between a text line and a slightly skewed straight
   // line (which may have a fill factor similar to that of text) by the
@@ -791,7 +813,7 @@ imageproc::BinaryImage ContentBoxFinder::estimateTextMask(const imageproc::Binar
       }
 
       const double minFillFactor = 0.22;
-      const double maxFillFactor = 0.65;
+      // maxFillFactor is now passed as a parameter
 
       const auto centerY = static_cast<int>((weightedY + totalWeight / 2) / totalWeight);
       int top = centerY - minTextHeight / 2;
@@ -846,7 +868,10 @@ imageproc::BinaryImage ContentBoxFinder::estimateTextMask(const imageproc::Binar
       lineRect.setBottom(cc.rect().top() + bottom);
 
       // Check if there are enough ultimate eroded points on the line.
-      auto uepsTodo = int(0.4 * lineRect.width() / lineRect.height());
+      // UEPs detect text-like patterns (letter stroke ends). When maxFillFactor is high,
+      // the user wants to detect images/graphics which won't have UEPs, so reduce the requirement.
+      double uepFactor = (maxFillFactor > 0.85) ? 0.1 : 0.4;
+      auto uepsTodo = int(uepFactor * lineRect.width() / lineRect.height());
       if (uepsTodo) {
         BinaryImage lineUeps(lineRect.size());
         rasterOp<RopSrc>(lineUeps, lineUeps.rect(), contentBlocks, lineRect.topLeft());
@@ -1234,7 +1259,8 @@ void ContentBoxFinder::filterShadows(const TaskStatus& status,
       dbg->add(mask, "shadows_no_holes");
     }
 
-    BinaryImage textMask(estimateTextMask(invShadows, mask, dbg));
+    // Use default fill factor for shadow filtering (internal use only)
+    BinaryImage textMask(estimateTextMask(invShadows, mask, 0.65, dbg));
     invShadows.release();
     mask.release();
     textMask = seedFill(textMask, shadows, CONN8);

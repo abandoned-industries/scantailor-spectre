@@ -19,6 +19,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   setupUi(this);
 
   setupUiConnections();
+  updateDetectionSettingsUI();
 }
 
 OptionsWidget::~OptionsWidget() = default;
@@ -309,6 +310,11 @@ void OptionsWidget::setupUiConnections() {
           boost::bind(&OptionsWidget::pageDetectToggled, this, MODE_DISABLED));
   CONNECT(fineTuneBtn, SIGNAL(toggled(bool)), this, SLOT(fineTuningChanged(bool)));
   CONNECT(applyToBtn, SIGNAL(clicked()), this, SLOT(showApplyToDialog()));
+  CONNECT(fillFactorSlider, SIGNAL(valueChanged(int)), this, SLOT(fillFactorChanged(int)));
+  CONNECT(borderToleranceSlider, SIGNAL(valueChanged(int)), this, SLOT(borderToleranceChanged(int)));
+  // Trigger re-detection when slider is released (not on every value change)
+  CONNECT(fillFactorSlider, SIGNAL(sliderReleased()), this, SLOT(detectionSettingsChanged()));
+  CONNECT(borderToleranceSlider, SIGNAL(sliderReleased()), this, SLOT(detectionSettingsChanged()));
 }
 
 #undef CONNECT
@@ -353,6 +359,39 @@ void OptionsWidget::updateSelectionIndicator() {
     selectionIndicatorLabel->show();
   } else {
     selectionIndicatorLabel->hide();
+  }
+}
+
+void OptionsWidget::updateDetectionSettingsUI() {
+  auto block = m_connectionManager.getScopedBlock();
+
+  const double fillFactor = m_settings->contentFillFactor();
+  const int borderTolerance = m_settings->borderTolerance();
+
+  fillFactorSlider->setValue(static_cast<int>(fillFactor * 100));
+  fillFactorValueLabel->setText(QString::number(fillFactor, 'f', 2));
+
+  borderToleranceSlider->setValue(borderTolerance);
+  borderToleranceValueLabel->setText(QString("%1 px").arg(borderTolerance));
+}
+
+void OptionsWidget::fillFactorChanged(int value) {
+  const double fillFactor = value / 100.0;
+  m_settings->setContentFillFactor(fillFactor);
+  fillFactorValueLabel->setText(QString::number(fillFactor, 'f', 2));
+}
+
+void OptionsWidget::borderToleranceChanged(int value) {
+  m_settings->setBorderTolerance(value);
+  borderToleranceValueLabel->setText(QString("%1 px").arg(value));
+}
+
+void OptionsWidget::detectionSettingsChanged() {
+  // Only re-run detection if in Auto mode
+  if (m_uiData.contentDetectionMode() == MODE_AUTO) {
+    // Clear cached params to force re-detection with new settings
+    m_settings->clearPageParams(m_pageId);
+    emit reloadRequested();
   }
 }
 

@@ -308,16 +308,6 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
       CGContextRotateCTM(context, M_PI_2);
     }
 
-    // Clip to the effective box in the rotated coordinate space.
-    CGFloat clipWidth = box.size.width;
-    CGFloat clipHeight = box.size.height;
-    if (rotation == 90 || rotation == 270) {
-      clipWidth = box.size.height;
-      clipHeight = box.size.width;
-    }
-    CGContextAddRect(context, CGRectMake(0, 0, clipWidth, clipHeight));
-    CGContextClip(context);
-
     CGContextDrawPDFPage(context, page);
     CGContextRelease(context);
   }

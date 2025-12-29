@@ -111,6 +111,12 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void dimensionsChangedLocally(double);
 
+  void fillFactorChanged(int value);
+
+  void borderToleranceChanged(int value);
+
+  void detectionSettingsChanged();
+
  private:
   void updateContentModeIndication(AutoManualMode mode);
 
@@ -127,6 +133,8 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
   void applyModeToSelectedPages();
 
   void updateSelectionIndicator();
+
+  void updateDetectionSettingsUI();
 
   std::shared_ptr<Settings> m_settings;
   UiData m_uiData;

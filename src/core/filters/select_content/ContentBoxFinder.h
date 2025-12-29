@@ -6,6 +6,8 @@
 
 #include <BinaryThreshold.h>
 
+#include <memory>
+
 class TaskStatus;
 class DebugImages;
 class FilterData;
@@ -21,11 +23,14 @@ class SEDM;
 }  // namespace imageproc
 
 namespace select_content {
+class Settings;
+
 class ContentBoxFinder {
  public:
   static QRectF findContentBox(const TaskStatus& status,
                                const FilterData& data,
                                const QRectF& pageRect,
+                               const std::shared_ptr<Settings>& settings = nullptr,
                                DebugImages* dbg = nullptr);
 
  private:
@@ -38,10 +43,13 @@ class ContentBoxFinder {
 
   static void trimContentBlocksInPlace(const imageproc::BinaryImage& content, imageproc::BinaryImage& contentBlocks);
 
-  static void inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage& contentBlocks, DebugImages* dbg);
+  static void inPlaceRemoveAreasTouchingBorders(imageproc::BinaryImage& contentBlocks,
+                                                int borderTolerance,
+                                                DebugImages* dbg);
 
   static imageproc::BinaryImage estimateTextMask(const imageproc::BinaryImage& content,
                                                  const imageproc::BinaryImage& contentBlocks,
+                                                 double maxFillFactor,
                                                  DebugImages* dbg);
 
   static void filterShadows(const TaskStatus& status, imageproc::BinaryImage& shadows, DebugImages* dbg);

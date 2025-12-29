@@ -47,6 +47,12 @@ class Settings {
 
   const DeviationProvider<PageId>& deviationProvider() const;
 
+  // Content detection parameters
+  double contentFillFactor() const;
+  void setContentFillFactor(double factor);
+  int borderTolerance() const;
+  void setBorderTolerance(int pixels);
+
  private:
   using PageParams = std::unordered_map<PageId, Params>;
 
@@ -55,6 +61,8 @@ class Settings {
   QSizeF m_pageDetectionBox;
   double m_pageDetectionTolerance;
   DeviationProvider<PageId> m_deviationProvider;
+  double m_contentFillFactor = 0.65;
+  int m_borderTolerance = 2;
 };
 }  // namespace select_content
 #endif  // ifndef SCANTAILOR_SELECT_CONTENT_SETTINGS_H_

@@ -100,4 +100,20 @@ const DeviationProvider<PageId>& Settings::deviationProvider() const {
   return m_deviationProvider;
 }
 
+double Settings::contentFillFactor() const {
+  return m_contentFillFactor;
+}
+
+void Settings::setContentFillFactor(double factor) {
+  m_contentFillFactor = factor;
+}
+
+int Settings::borderTolerance() const {
+  return m_borderTolerance;
+}
+
+void Settings::setBorderTolerance(int pixels) {
+  m_borderTolerance = pixels;
+}
+
 }  // namespace select_content

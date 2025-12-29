@@ -18,6 +18,7 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 - **White Balance Tools** - Auto white balance and pick-paper-color for correcting aged paper and lighting
 - **OCR Stage** - Automatic text recognition for searchable PDFs
 - **Export Stage** - New dedicated PDF export with quality presets
+- **Detection Settings** - Adjustable Fill Factor and Border Tolerance for art books and photo-heavy content
 
 ---
 
@@ -132,6 +133,21 @@ The Content Box defines what part of the page contains actual content. Everythin
 - **Disable** - Don't detect content; use the entire page
 - **Auto** - Automatically find text and images on the page
 - **Manual** - Draw the content area yourself
+
+#### Detection Settings
+
+When using Auto mode for Content Box, these settings control how content is detected:
+
+- **Fill Factor** (0.50-1.00, default 0.65) - Controls what density of content is accepted. The default is optimized for text documents. For art books, photo-heavy pages, or pages with large dark areas, increase this value:
+  - **0.65** - Default, works well for text documents
+  - **0.85** - Better for mixed text/image content
+  - **0.95+** - Use the entire page as content (best for art books, covers, full-page images)
+
+- **Border Tolerance** (0-20px, default 2) - Controls how much content touching page edges is preserved:
+  - **Low (0-5)** - Aggressively trim edge content (removes shadows, scanner artifacts)
+  - **High (15-20)** - Preserve content that extends to page edges (for images that bleed to margins)
+
+**Tip:** For art books or pages with large photographs, set Fill Factor to 0.95+ to capture the entire page content. The default settings are optimized for text documents and may clip images.
 
 This excludes:
 - Scanner bed edges
