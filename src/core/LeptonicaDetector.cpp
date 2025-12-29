@@ -173,19 +173,24 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
   bool bimodal = (darkRatio > 0.10f && lightRatio > 0.30f);  // Text on white
   bool extremelyLight = lightRatio > 0.70f;  // Nearly blank page
 
-  // For borderline cases (threshold-45% midtones), check for embedded images
-  // using region-based detection
-  float thresholdFloat = midtoneThreshold / 100.0f;
-  if (midRatio >= thresholdFloat && midRatio < 0.45f) {
-    fprintf(stderr, "  Borderline case (%.1f%% midtones, threshold=%d%%), checking regions...\n",
-            midRatio * 100, midtoneThreshold);
-    if (hasHighMidtoneRegion(pix)) {
-      // Found a region with concentrated midtones - likely an embedded image
-      return false;  // Not B&W, treat as grayscale
+  // Before declaring B&W, ALWAYS check for embedded images using region-based detection.
+  // This catches photographs embedded in pages with lots of white space, where overall
+  // midtone % is low but a localized region has significant midtone content.
+  // Only skip if midtones are truly negligible (<1%) - pure text pages.
+  if (lowMidtones && (bimodal || extremelyLight)) {
+    if (midRatio >= 0.01f) {  // At least 1% midtones - worth checking regions
+      fprintf(stderr, "  Candidate B&W (%.1f%% midtones), checking regions for embedded images...\n",
+              midRatio * 100);
+      if (hasHighMidtoneRegion(pix)) {
+        // Found a region with concentrated midtones - likely an embedded image
+        fprintf(stderr, "  -> Embedded image detected, treating as grayscale\n");
+        return false;  // Not B&W, treat as grayscale
+      }
     }
+    return true;  // B&W
   }
 
-  return lowMidtones && (bimodal || extremelyLight);
+  return false;  // Not B&W (high midtones overall)
 }
 
 /**

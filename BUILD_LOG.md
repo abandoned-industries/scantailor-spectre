@@ -391,3 +391,27 @@
 - finalize/Task.cpp: Remove unused m_downscaledImage member, pass empty QImage (ImageViewBase auto-creates)
 - Build succeeded with existing warnings (unused params, duplicate libs, missing override).
 - App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-29 - Detection Settings for art books (make -j8)
+- Settings.h/cpp: Added contentFillFactor and borderTolerance project-wide settings
+- OptionsWidget.ui: Added Detection Settings collapsible group with Fill Factor and Border Tolerance sliders
+- OptionsWidget.cpp: Connected sliders, clear cached params on settings change to force re-detection
+- ContentBoxFinder.cpp: When Fill Factor ≥0.95, return full page as content (bypass text detection)
+- ContentBoxFinder.cpp: Skip shadow removal when Fill Factor >0.85
+- ContentBoxFinder.cpp: Reduce UEP (text pattern) requirement at high fill factor
+- ContentBoxFinder.cpp: Fix Border Tolerance logic (higher = preserve more edge content)
+- PdfReader.mm: Remove faulty clipping code that was cutting off pages
+- Task.cpp: Pass Settings to ContentBoxFinder
+- README.md: Document Detection Settings in Stage 4 section and What's New
+- Build succeeded, committed and pushed to os-11-compatibility (3b6e7f3)
+
+---
+2025-12-29 - Fix color detection for pages with embedded photos (cmake --build . -j8)
+- LeptonicaDetector.cpp: Always check for embedded images (high midtone regions) before declaring B&W
+- Bug: Pages with small photos on large white backgrounds had <10% overall midtones, so region check was SKIPPED
+- Fix: Now checks regions for ANY candidate B&W page with ≥1% midtones, catching embedded images
+- This should fix pages 4, 5, 6 in krauss-sample.pdf being incorrectly classified as B&W
+- Build succeeded with expected warnings (unused midtoneThreshold param in isPureBW - can be removed later)
+- TESTED: Pages 4L (4.2% midtones, region had 42.3%), 6R, 8L, 8R, 9L, 9R, 10R all correctly detected as grayscale
+- Text pages (1L, 1R, 3L, 3R, 7R) correctly remained B&W
