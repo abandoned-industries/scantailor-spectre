@@ -334,3 +334,13 @@
 2025-12-28 22:11 - Debug rebuild (cmake --build . -j4)
 - Build succeeded with existing warnings (unused params, duplicate libs, missing override).
 - App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 22:23 - Code change (pending rebuild/test)
+- PdfReader.mm: remove per-page debug logging now that orientation is fixed.
+
+---
+2025-12-28 22:27 - Debug rebuild (cmake --build . -j4)
+- PdfReader.mm: apply UserUnit in readMetadata() sizing to match render scale.
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app

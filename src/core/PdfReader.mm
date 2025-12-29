@@ -185,9 +185,10 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 
     // Get display size (accounts for rotation)
     CGSize displaySize = getDisplaySize(page);
+    const CGFloat userUnit = getUserUnit(page);
 
-    const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 + 0.5;
-    const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 + 0.5;
+    const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
+    const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
 
     if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
       qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
@@ -229,22 +230,12 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   }
 
   const CGRect cropBox = CGPDFPageGetBoxRect(page, kCGPDFCropBox);
-  const CGPDFBox boxType = CGRectIsEmpty(cropBox) ? kCGPDFMediaBox : kCGPDFCropBox;
   const CGRect box = getEffectiveBox(page);
   const int rotation = CGPDFPageGetRotationAngle(page);
 
   // Get display size (accounts for rotation)
   CGSize displaySize = getDisplaySize(page);
-  const CGRect mediaBox = CGPDFPageGetBoxRect(page, kCGPDFMediaBox);
   const CGFloat userUnit = getUserUnit(page);
-  qDebug() << "PdfReader: page" << pageNum
-           << "rotation" << rotation
-           << "mediaBox" << mediaBox.origin.x << mediaBox.origin.y << mediaBox.size.width << mediaBox.size.height
-           << "cropBox" << cropBox.origin.x << cropBox.origin.y << cropBox.size.width << cropBox.size.height
-           << "displaySize" << displaySize.width << displaySize.height
-           << "boxSize" << box.size.width << box.size.height
-           << "userUnit" << userUnit
-           << "dpi" << dpi;
 
   constexpr double maxDim = static_cast<double>(std::numeric_limits<int>::max());
   const CGFloat scale = static_cast<CGFloat>(dpi) / 72.0 * userUnit;
