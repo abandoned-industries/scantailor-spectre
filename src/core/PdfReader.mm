@@ -229,7 +229,6 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
     return QImage();
   }
 
-  const CGRect cropBox = CGPDFPageGetBoxRect(page, kCGPDFCropBox);
   const CGRect box = getEffectiveBox(page);
   const int rotation = CGPDFPageGetRotationAngle(page);
 

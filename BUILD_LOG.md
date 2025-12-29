@@ -344,3 +344,12 @@
 - PdfReader.mm: apply UserUnit in readMetadata() sizing to match render scale.
 - Build succeeded with existing warnings (unused params, duplicate libs, missing override).
 - App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-28 22:28 - Code change (pending rebuild/test)
+- PdfReader.mm: remove unused cropBox variable after manual transform switch.
+
+---
+2025-12-28 22:30 - Debug rebuild (cmake --build . -j4)
+- Build succeeded with existing warnings (unused params, duplicate libs, missing override).
+- App bundle refreshed: build/ScanTailor Spectre.app
