@@ -1,5 +1,7 @@
 # CLAUDE.md - ScanTailor Spectre Architecture
 
+**macOS only** - This application requires macOS 11+ and uses Apple-specific frameworks (CoreGraphics, Vision, Metal).
+
 ---
 
 ## ⚠️ SESSION STARTUP — READ THIS FIRST
@@ -15,7 +17,7 @@ tail -100 BUILD_LOG.md # Recent builds, errors, and known issues
 
 1. **Version/Timestamp**: ALL builds must be timestamped: `ScanTailor-Spectre-X.Y.Z-YYYYMMDD-HHMM.dmg`
 2. **Build Location**: Release DMGs go to `~/Desktop/`, dev builds stay in `build/`
-3. **Logging**: ALWAYS append to `BUILD_LOG.md` after EVERY build attempt (success or failure)
+3. **Logging**: ALWAYS append to `BUILD_LOG.md` BEFORE every build with timestamp and description of changes
 4. **Task Tracking**: Check off completed tasks in `TODO.md` with timestamp
 
 **Current version**: Check `CMakeLists.txt` line containing `VERSION` or `project()`
@@ -27,14 +29,13 @@ tail -100 BUILD_LOG.md # Recent builds, errors, and known issues
 | File | Purpose | When to Read |
 |------|---------|--------------|
 | `TODO.md` | Current task, upcoming work | Session start, after compaction |
-| `BUILD_LOG.md` | Build history, known failures, fixes | Before any build, after errors |
-| `MISTAKES.md` | Persistent lessons learned | When stuck or making repeated errors |
+| `BUILD_LOG.md` | Build history, known failures, lessons learned | Before any build, after errors |
 
 ---
 
 ## Overview
 
-ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs through an 8-stage processing pipeline. Fork of ScanTailor Advanced with PDF import/export, intelligent color detection, and native Apple Silicon support.
+ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs through a 9-stage processing pipeline. Fork of ScanTailor Advanced with PDF import/export, intelligent color detection, multi-select batch processing, and native Apple Silicon support.
 
 ## Directory Structure
 
@@ -50,7 +51,7 @@ src/
 └── acceleration/           # Metal GPU shaders (macOS)
 ```
 
-## The 8 Filter Stages
+## The 9 Filter Stages
 
 Each filter lives in `src/core/filters/{stage}/` with consistent structure:
 
@@ -61,9 +62,10 @@ Each filter lives in `src/core/filters/{stage}/` with consistent structure:
 | 3 | `deskew/` | Straighten tilted scans |
 | 4 | `select_content/` | Define page/content boundaries |
 | 5 | `page_layout/` | Set margins and alignment |
-| 6 | `finalize/` | Choose color mode (B&W/Gray/Color) - **NEW** |
+| 6 | `finalize/` | Choose color mode (B&W/Gray/Color) |
 | 7 | `output/` | Apply image processing (binarize, despeckle, dewarp) |
-| 8 | `export_/` | Create final PDF - **NEW** |
+| 8 | `ocr/` | OCR text recognition for searchable PDF |
+| 9 | `export_/` | Create final PDF |
 
 ### Filter Architecture Pattern
 
@@ -95,13 +97,13 @@ filters/{stage}/
 - **CylindricalSurfaceDewarper** (`src/dewarping/`) - Page flattening
 
 ### I/O
-- **PdfReader** (`src/core/PdfReader.h`) - PDF import
-- **PdfExporter** (`src/core/PdfExporter.h`) - PDF export with quality presets
+- **PdfReader** (`src/core/PdfReader.mm`) - PDF import using CoreGraphics (macOS only)
+- **PdfExporter** (`src/core/PdfExporter.cpp`) - PDF export with quality presets
 - **ProjectReader/Writer** (`src/core/`) - .ScanTailor project files (XML)
 
 ### Apple-Specific
-- **AppleVisionDetector** (`src/core/AppleVisionDetector.h`) - Vision framework for auto color detection
-- **MetalContext/MetalGaussBlur/MetalMorphology** (`src/acceleration/`) - GPU acceleration
+- **AppleVisionDetector** (`src/core/AppleVisionDetector.mm`) - Vision framework for page split detection and OCR
+- **MetalContext/MetalGaussBlur/MetalMorphology** (`src/acceleration/`) - GPU acceleration (currently disabled due to background app crashes)
 
 ## Processing Flow
 
@@ -112,14 +114,18 @@ ProjectPages (image collection)
     ↓
 Stage 1-5: Geometry corrections
     ↓
-Stage 6: Color mode decision (AppleVisionDetector)
+Stage 6: Color mode decision (Leptonica-based detection)
     ↓
 Stage 7: Image processing → TIFF/PNG output
     ↓
-Stage 8: PdfExporter → Final PDF
+Stage 8: OCR text layer (Apple Vision framework)
+    ↓
+Stage 9: PdfExporter → Final PDF
 ```
 
 Each page flows through filters independently. Results are cached in project folder.
+
+**Multi-select batch processing**: Hold Cmd/Ctrl to select multiple pages, then apply settings to all selected pages at once.
 
 ## Coordinate Systems (ImageViewBase)
 
@@ -132,16 +138,16 @@ Key transforms: `m_imageToVirtual`, `m_virtualToWidget`
 
 ## Build Commands
 
-**REMEMBER: Log EVERY build attempt to BUILD_LOG.md!**
+**REMEMBER: Log to BUILD_LOG.md BEFORE every build with timestamp and changes!**
 
 ```bash
 # Install dependencies
-brew install qt6 boost libtiff libpng jpeg cmake
+brew install qt6 boost libtiff libpng jpeg cmake libharu leptonica
 
 # Build
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) ..
-make -j$(sysctl -n hw.ncpu)
+cmake --build . -j$(sysctl -n hw.ncpu)  # or: make -j$(sysctl -n hw.ncpu)
 
 # Bundle Qt frameworks
 macdeployqt "ScanTailor Spectre.app" -always-overwrite
@@ -202,7 +208,7 @@ cp "ScanTailor Spectre Readme.pdf" dmg-staging/
 VERSION=$(grep -o 'VERSION [0-9.]*' CMakeLists.txt | awk '{print $2}')
 TIMESTAMP=$(date +%Y%m%d-%H%M)
 hdiutil create -volname "ScanTailor Spectre" -srcfolder dmg-staging \
-    -ov -format UDZO ~/Desktop/ScanTailor-Spectre-${VERSION}-${TIMESTAMP}.dmg
+    -ov -format UDZO ScanTailor-Spectre-${VERSION}-${TIMESTAMP}.dmg
 
 rm -rf dmg-staging
 ```
@@ -210,7 +216,6 @@ rm -rf dmg-staging
 ## Build Artifacts
 
 - **ALWAYS timestamp DMG builds**: `ScanTailor-Spectre-X.Y.Z-YYYYMMDD-HHMM.dmg`
-- **Location**: `~/Desktop/` for releases, `build/` for dev builds
 
 ## PDF Generation from README
 
@@ -305,6 +310,7 @@ The About dialog displays: `version 2.0a12 (20251227.1153)`
 3. Add to StageSequence in `src/core/StageSequence.cpp`
 4. Update CMakeLists.txt in filters directory
 5. Add UI integration in MainWindow
+6. Add `selectionIndicatorLabel` to OptionsWidget.ui for multi-select support
 
 ## Common Modifications
 
