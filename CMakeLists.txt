@@ -9,7 +9,7 @@ endif()
 
 project("ScanTailor Spectre")
 
-if (NOT APPLE)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   message(FATAL_ERROR "ScanTailor Spectre is supported on macOS only.")
 endif()
 
