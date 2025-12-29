@@ -456,3 +456,24 @@
   - Improved color detection for embedded photographs
   - Updated README.md and README.pdf
 
+
+---
+2025-12-29 - Phase 11: Parallel thumbnail generation (make -j8)
+- ThumbnailPixmapCache.cpp: Added QThreadPool for parallel loading
+- ThumbnailPixmapCache.cpp: Modified backgroundProcessing() to dispatch ALL queued items to thread pool
+- ThumbnailPixmapCache.cpp: Uses QThread::idealThreadCount() threads (16 on M4 Max)
+- Previous: single QThread processed one thumbnail at a time
+- Now: all pending thumbnails load in parallel across all CPU cores
+- Build succeeded
+- App bundle refreshed: build/ScanTailor Spectre.app
+
+---
+2025-12-29 - GPU-accelerate page split + re-enable dilation (make -j8)
+- Morphology.cpp: Re-enabled GPU dilation (was #if 0 due to bug)
+- Thread safety fix from Phase 3 may have resolved the dilation bug
+- erodeGray and dilateGray now both use Metal GPU when available
+- page_split/VertLineFinder already uses erodeGray → now GPU accelerated
+- closeGray (dilate+erode) → both operations now GPU accelerated
+- Build succeeded
+- App bundle refreshed: build/ScanTailor Spectre.app
+- NOTE: Test page split and output stages to verify dilation works correctly

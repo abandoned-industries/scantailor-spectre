@@ -16,11 +16,19 @@
 #include "AppController.h"
 #include "MainWindow.h"
 
+#ifdef Q_OS_MAC
+#include "MetalLifecycle.h"
+#endif
+
 int main(int argc, char* argv[]) {
   // Qt6 enables high DPI scaling by default
   Application app(argc, argv);
 
 #ifdef Q_OS_MAC
+  // Initialize Metal lifecycle observer to detect app backgrounding
+  // This must be done after QApplication is created but before any Metal operations
+  metalLifecycleInit();
+
   // macOS style: don't quit when last window is closed, only on Cmd+Q or Quit menu
   Application::setQuitOnLastWindowClosed(false);
 #endif

@@ -3,6 +3,7 @@
 
 #import "MetalGaussBlur.h"
 #import "MetalContext.h"
+#import "MetalLifecycle.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <simd/simd.h>
@@ -54,10 +55,9 @@ static std::vector<float> computeGaussianWeights(float sigma) {
 }
 
 bool metalGaussBlurAvailable(void) {
-    // Disabled due to crashes when app is backgrounded and GPU resources are purged.
-    // CPU fallback is fast enough for most use cases.
-    return false;
-    // return [[MetalContext shared] isAvailable];
+    // Check both: Metal context available AND app is in foreground
+    // Skip GPU when backgrounded to avoid crashes from purged GPU resources
+    return [[MetalContext shared] isAvailable] && metalIsAppActive();
 }
 
 // Serial queue for thread-safe Metal operations

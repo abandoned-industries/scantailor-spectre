@@ -690,11 +690,8 @@ GrayImage dilateGray(const GrayImage& src,
   }
 
 #ifdef Q_OS_MACOS
-  // DISABLED: Metal dilation has a bug causing assertion failures in mokjiThreshold
-  // The in-place dilation is returning incorrect results (dilated > original)
-  // TODO: Fix the Metal shader or the in-place algorithm
-#if 0
   // Try GPU acceleration for simple case where dstArea == src.rect()
+  // Thread safety fix (2025-12-29) may have resolved prior dilation bug
   if (dstArea == src.rect() && metalMorphologyAvailable()) {
     GrayImage dst(src);  // Copy source to destination
     const int brickWidth = brick.width();
@@ -705,7 +702,6 @@ GrayImage dilateGray(const GrayImage& src,
     }
     // Fall through to CPU if GPU failed
   }
-#endif
 #endif
 
   return dilateOrErodeGray<Darker>(src, brick, dstArea, srcSurroundings);

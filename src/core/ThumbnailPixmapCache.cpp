@@ -12,6 +12,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QThread>
+#include <QThreadPool>
+#include <QtConcurrent/QtConcurrent>
 #include <atomic>
 #include <boost/foreach.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -172,6 +174,7 @@ class ThumbnailPixmapCache::Impl : public QThread {
 
   mutable QMutex m_mutex;
   BackgroundLoader m_backgroundLoader;
+  QThreadPool m_threadPool;  // Parallel thumbnail loading
   Container m_items;
   ItemsByKey& m_itemsByKey; /**< ImageId => Item mapping */
 
@@ -318,22 +321,26 @@ ThumbnailPixmapCache::Impl::Impl(const QString& thumbDir,
   // a whole bunch of bogus directories would be created.
   QDir().mkdir(m_thumbDir);
 
+  // Configure thread pool for parallel thumbnail loading
+  // Use all available cores for maximum parallelism
+  m_threadPool.setMaxThreadCount(QThread::idealThreadCount());
+
   m_backgroundLoader.moveToThread(this);
 }
 
 ThumbnailPixmapCache::Impl::~Impl() {
   {
     const QMutexLocker locker(&m_mutex);
-
-    if (!m_threadStarted) {
-      return;
-    }
-
     m_shuttingDown = true;
   }
 
-  quit();
-  wait();
+  // Wait for all parallel thumbnail loads to complete
+  m_threadPool.waitForDone();
+
+  if (m_threadStarted) {
+    quit();
+    wait();
+  }
 }
 
 void ThumbnailPixmapCache::Impl::setThumbDir(const QString& thumbDir) {
@@ -532,65 +539,77 @@ void ThumbnailPixmapCache::Impl::customEvent(QEvent* e) {
 }
 
 void ThumbnailPixmapCache::Impl::backgroundProcessing() {
-  // This method is called from a background thread.
-  assert(QCoreApplication::instance()->thread() != QThread::currentThread());
+  // This method is called from background thread when there are queued items.
+  // We dispatch ALL queued items to the thread pool for parallel loading.
 
-  while (true) {
-    try {
-      // We are going to initialize these while holding the mutex.
-      LoadQueue::iterator lqIt;
-      ImageId imageId;
-      QString thumbDir;
-      QSize maxThumbSize;
+  // Collect items to process while holding the mutex
+  struct LoadTask {
+    LoadQueue::iterator lqIt;
+    ImageId imageId;
+    QString thumbDir;
+    QSize maxThumbSize;
+    bool expired;
+  };
+  std::vector<LoadTask> tasks;
 
-      {
-        const QMutexLocker locker(&m_mutex);
+  {
+    const QMutexLocker locker(&m_mutex);
 
-        if (m_shuttingDown || m_items.empty()) {
-          break;
-        }
-
-        lqIt = m_loadQueue.begin();
-        imageId = lqIt->imageId;
-
-        if (lqIt->status != Item::QUEUED) {
-          // All QUEUED items precede any other items
-          // in the load queue, so it means there are no
-          // QUEUED items at all.
-          assert(m_numQueuedItems == 0);
-          break;
-        }
-
-        // By marking the item as IN_PROGRESS, we prevent it
-        // from being processed again before the GUI thread
-        // receives our LoadResultEvent.
-        queuedToInProgress(lqIt);
-
-        if (m_totalLoadAttempts - lqIt->precedingLoadAttempts > m_expirationThreshold) {
-          // Expire this request.  The reasoning behind
-          // request expiration is described in
-          // ThumbnailLoadResult::REQUEST_EXPIRED
-          // documentation.
-
-          postLoadResult(lqIt, QImage(), ThumbnailLoadResult::REQUEST_EXPIRED);
-          continue;
-        }
-
-        // Expired requests don't count as load attempts.
-        ++m_totalLoadAttempts;
-
-        // Copy those while holding the mutex.
-        thumbDir = m_thumbDir;
-        maxThumbSize = m_maxThumbSize;
-      }  // mutex scope
-      const QImage image(loadSaveThumbnail(imageId, thumbDir, maxThumbSize));
-
-      const ThumbnailLoadResult::Status status
-          = image.isNull() ? ThumbnailLoadResult::LOAD_FAILED : ThumbnailLoadResult::LOADED;
-      postLoadResult(lqIt, image, status);
-    } catch (const std::bad_alloc&) {
-      OutOfMemoryHandler::instance().handleOutOfMemorySituation();
+    if (m_shuttingDown || m_items.empty()) {
+      return;
     }
+
+    // Collect all QUEUED items
+    for (LoadQueue::iterator lqIt = m_loadQueue.begin(); lqIt != m_loadQueue.end(); ++lqIt) {
+      if (lqIt->status != Item::QUEUED) {
+        // All QUEUED items precede any other items in the load queue
+        break;
+      }
+
+      LoadTask task;
+      task.lqIt = lqIt;
+      task.imageId = lqIt->imageId;
+      task.thumbDir = m_thumbDir;
+      task.maxThumbSize = m_maxThumbSize;
+      task.expired = (m_totalLoadAttempts - lqIt->precedingLoadAttempts > m_expirationThreshold);
+
+      if (!task.expired) {
+        ++m_totalLoadAttempts;
+      }
+
+      tasks.push_back(task);
+    }
+
+    // Mark all collected items as IN_PROGRESS
+    for (auto& task : tasks) {
+      queuedToInProgress(task.lqIt);
+    }
+  }  // mutex scope
+
+  // Dispatch all tasks to thread pool for parallel execution
+  for (const auto& task : tasks) {
+    if (task.expired) {
+      postLoadResult(task.lqIt, QImage(), ThumbnailLoadResult::REQUEST_EXPIRED);
+      continue;
+    }
+
+    // Capture by value for thread safety
+    LoadQueue::iterator lqIt = task.lqIt;
+    ImageId imageId = task.imageId;
+    QString thumbDir = task.thumbDir;
+    QSize maxThumbSize = task.maxThumbSize;
+    Impl* self = this;
+
+    QtConcurrent::run(&m_threadPool, [self, lqIt, imageId, thumbDir, maxThumbSize]() {
+      try {
+        const QImage image(loadSaveThumbnail(imageId, thumbDir, maxThumbSize));
+        const ThumbnailLoadResult::Status status
+            = image.isNull() ? ThumbnailLoadResult::LOAD_FAILED : ThumbnailLoadResult::LOADED;
+        self->postLoadResult(lqIt, image, status);
+      } catch (const std::bad_alloc&) {
+        OutOfMemoryHandler::instance().handleOutOfMemorySituation();
+      }
+    });
   }
 }  // ThumbnailPixmapCache::Impl::backgroundProcessing
 

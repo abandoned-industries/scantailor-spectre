@@ -155,7 +155,7 @@ DefaultParams::OutputParams::OutputParams(const Dpi& dpi,
       m_dewarpingOptions(dewarpingOptions),
       m_despeckleLevel(despeckleLevel) {}
 
-DefaultParams::OutputParams::OutputParams() : m_dpi(600, 600), m_despeckleLevel(1.0) {}
+DefaultParams::OutputParams::OutputParams() : m_dpi(300, 300), m_despeckleLevel(1.0) {}
 
 DefaultParams::OutputParams::OutputParams(const QDomElement& el)
     : m_dpi(el.namedItem("dpi").toElement()),

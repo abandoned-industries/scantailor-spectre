@@ -4,6 +4,7 @@
 if(APPLE)
     find_library(METAL_FRAMEWORK Metal REQUIRED)
     find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
 
     # Metal shader compilation
     set(METAL_SOURCES
@@ -31,6 +32,8 @@ if(APPLE)
         MetalContext.mm
         MetalGaussBlur.h
         MetalGaussBlur.mm
+        MetalLifecycle.h
+        MetalLifecycle.mm
         MetalMorphology.h
         MetalMorphology.mm
     )
@@ -41,6 +44,7 @@ if(APPLE)
     target_link_libraries(acceleration
         PUBLIC ${METAL_FRAMEWORK}
         PUBLIC ${FOUNDATION_FRAMEWORK}
+        PUBLIC ${APPKIT_FRAMEWORK}
     )
 
     target_include_directories(acceleration PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
