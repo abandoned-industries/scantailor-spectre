@@ -94,6 +94,16 @@ static QImage monoLsbToGrayscale(const QImage& src) {
 static QImage anyToGrayscale(const QImage& src) {
   const int width = src.width();
   const int height = src.height();
+  const QImage::Format fmt = src.format();
+  const bool directAccess = (fmt == QImage::Format_RGB32 || fmt == QImage::Format_ARGB32
+                             || fmt == QImage::Format_ARGB32_Premultiplied);
+  QImage srcImage = src;
+  if (!directAccess) {
+    srcImage = src.convertToFormat(QImage::Format_ARGB32);
+    if ((width > 0) && (height > 0) && srcImage.isNull()) {
+      throw std::bad_alloc();
+    }
+  }
 
   QImage dst(width, height, QImage::Format_Indexed8);
   dst.setColorTable(createGrayscalePalette());
@@ -105,8 +115,9 @@ static QImage anyToGrayscale(const QImage& src) {
   const int dstBpl = dst.bytesPerLine();
 
   for (int y = 0; y < height; ++y) {
+    const QRgb* srcLine = reinterpret_cast<const QRgb*>(srcImage.constScanLine(y));
     for (int x = 0; x < width; ++x) {
-      dstLine[x] = static_cast<uint8_t>(qGray(src.pixel(x, y)));
+      dstLine[x] = static_cast<uint8_t>(qGray(srcLine[x]));
     }
     dstLine += dstBpl;
   }
@@ -422,10 +433,21 @@ void GrayscaleHistogram::fromGrayscaleImage(const QImage& img, const BinaryImage
 void GrayscaleHistogram::fromAnyImage(const QImage& img) {
   const int w = img.width();
   const int h = img.height();
+  const QImage::Format fmt = img.format();
+  const bool directAccess = (fmt == QImage::Format_RGB32 || fmt == QImage::Format_ARGB32
+                             || fmt == QImage::Format_ARGB32_Premultiplied);
+  QImage srcImage = img;
+  if (!directAccess) {
+    srcImage = img.convertToFormat(QImage::Format_ARGB32);
+    if ((w > 0) && (h > 0) && srcImage.isNull()) {
+      throw std::bad_alloc();
+    }
+  }
 
   for (int y = 0; y < h; ++y) {
+    const QRgb* line = reinterpret_cast<const QRgb*>(srcImage.constScanLine(y));
     for (int x = 0; x < w; ++x) {
-      ++m_pixels[qGray(img.pixel(x, y))];
+      ++m_pixels[qGray(line[x])];
     }
   }
 }
@@ -433,14 +455,25 @@ void GrayscaleHistogram::fromAnyImage(const QImage& img) {
 void GrayscaleHistogram::fromAnyImage(const QImage& img, const BinaryImage& mask) {
   const int w = img.width();
   const int h = img.height();
+  const QImage::Format fmt = img.format();
+  const bool directAccess = (fmt == QImage::Format_RGB32 || fmt == QImage::Format_ARGB32
+                             || fmt == QImage::Format_ARGB32_Premultiplied);
+  QImage srcImage = img;
+  if (!directAccess) {
+    srcImage = img.convertToFormat(QImage::Format_ARGB32);
+    if ((w > 0) && (h > 0) && srcImage.isNull()) {
+      throw std::bad_alloc();
+    }
+  }
   const uint32_t* maskLine = mask.data();
   const int maskWpl = mask.wordsPerLine();
   const uint32_t msb = uint32_t(1) << 31;
 
   for (int y = 0; y < h; ++y, maskLine += maskWpl) {
+    const QRgb* line = reinterpret_cast<const QRgb*>(srcImage.constScanLine(y));
     for (int x = 0; x < w; ++x) {
       if (maskLine[x >> 5] & (msb >> (x & 31))) {
-        ++m_pixels[qGray(img.pixel(x, y))];
+        ++m_pixels[qGray(line[x])];
       }
     }
   }

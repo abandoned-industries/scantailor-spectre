@@ -180,7 +180,7 @@ cp README.pdf "ScanTailor Spectre.app/Contents/Resources/"
 # NOTE: Do this BEFORE signing — modifying the bundle after signing invalidates it!
 
 # Sign - must sign components individually, --deep doesn't work for Qt frameworks
-IDENTITY="Developer ID Application: Your Name (TEAM_ID)"
+IDENTITY="${STS_CODESIGN_IDENTITY}"
 APP="ScanTailor Spectre.app"
 
 # 1. Sign framework binaries inside Versions/A

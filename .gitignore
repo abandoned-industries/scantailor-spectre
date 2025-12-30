@@ -3,3 +3,10 @@ build/
 *.dmg
 .DS_Store
 **/.DS_Store
+app.zip
+dmg-staging/
+pizza/output/
+pizza/cache/thumbs/
+pizza/originals/*.pdf
+trace.trace/
+local.env

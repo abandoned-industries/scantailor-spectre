@@ -291,23 +291,31 @@ bool TiffWriter::writeRGB32Image(const TiffHandle& tif, const QImage& image) {
 
   const int width = image.width();
   const int height = image.height();
+  const uint32_t rowsPerStrip = TIFFDefaultStripSize(tif.handle(), 0);
+  TIFFSetField(tif.handle(), TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
 
-  std::vector<uint8_t> tmpLine(width * 3);
+  const uint32_t stripRows = std::max<uint32_t>(1, rowsPerStrip);
+  std::vector<uint8_t> tmpStrip(width * stripRows * 3);
 
   // Libtiff expects "RR GG BB" sequences regardless of CPU byte order.
 
-  for (int y = 0; y < height; ++y) {
-    const auto* pSrc = (const uint32_t*) image.scanLine(y);
-    uint8_t* pDst = &tmpLine[0];
-    for (int x = 0; x < width; ++x) {
-      const uint32_t ARGB = *pSrc;
-      pDst[0] = static_cast<uint8_t>(ARGB >> 16);
-      pDst[1] = static_cast<uint8_t>(ARGB >> 8);
-      pDst[2] = static_cast<uint8_t>(ARGB);
-      ++pSrc;
-      pDst += 3;
+  for (uint32_t stripStart = 0; stripStart < static_cast<uint32_t>(height); stripStart += stripRows) {
+    const uint32_t rows = std::min(stripRows, static_cast<uint32_t>(height) - stripStart);
+    uint8_t* pDst = tmpStrip.data();
+    for (uint32_t y = 0; y < rows; ++y) {
+      const auto* pSrc = (const uint32_t*) image.scanLine(static_cast<int>(stripStart + y));
+      for (int x = 0; x < width; ++x) {
+        const uint32_t ARGB = *pSrc;
+        pDst[0] = static_cast<uint8_t>(ARGB >> 16);
+        pDst[1] = static_cast<uint8_t>(ARGB >> 8);
+        pDst[2] = static_cast<uint8_t>(ARGB);
+        ++pSrc;
+        pDst += 3;
+      }
     }
-    if (TIFFWriteScanline(tif.handle(), &tmpLine[0], y) == -1) {
+    const tstrip_t stripIndex = static_cast<tstrip_t>(stripStart / stripRows);
+    const tsize_t byteCount = static_cast<tsize_t>(rows) * width * 3;
+    if (TIFFWriteEncodedStrip(tif.handle(), stripIndex, tmpStrip.data(), byteCount) == -1) {
       return false;
     }
   }
@@ -325,24 +333,32 @@ bool TiffWriter::writeARGB32Image(const TiffHandle& tif, const QImage& image) {
 
   const int width = image.width();
   const int height = image.height();
+  const uint32_t rowsPerStrip = TIFFDefaultStripSize(tif.handle(), 0);
+  TIFFSetField(tif.handle(), TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
 
-  std::vector<uint8_t> tmpLine(width * 4);
+  const uint32_t stripRows = std::max<uint32_t>(1, rowsPerStrip);
+  std::vector<uint8_t> tmpStrip(width * stripRows * 4);
 
   // Libtiff expects "RR GG BB AA" sequences regardless of CPU byte order.
 
-  for (int y = 0; y < height; ++y) {
-    const auto* pSrc = (const uint32_t*) image.scanLine(y);
-    uint8_t* pDst = &tmpLine[0];
-    for (int x = 0; x < width; ++x) {
-      const uint32_t ARGB = *pSrc;
-      pDst[0] = static_cast<uint8_t>(ARGB >> 16);
-      pDst[1] = static_cast<uint8_t>(ARGB >> 8);
-      pDst[2] = static_cast<uint8_t>(ARGB);
-      pDst[3] = static_cast<uint8_t>(ARGB >> 24);
-      ++pSrc;
-      pDst += 4;
+  for (uint32_t stripStart = 0; stripStart < static_cast<uint32_t>(height); stripStart += stripRows) {
+    const uint32_t rows = std::min(stripRows, static_cast<uint32_t>(height) - stripStart);
+    uint8_t* pDst = tmpStrip.data();
+    for (uint32_t y = 0; y < rows; ++y) {
+      const auto* pSrc = (const uint32_t*) image.scanLine(static_cast<int>(stripStart + y));
+      for (int x = 0; x < width; ++x) {
+        const uint32_t ARGB = *pSrc;
+        pDst[0] = static_cast<uint8_t>(ARGB >> 16);
+        pDst[1] = static_cast<uint8_t>(ARGB >> 8);
+        pDst[2] = static_cast<uint8_t>(ARGB);
+        pDst[3] = static_cast<uint8_t>(ARGB >> 24);
+        ++pSrc;
+        pDst += 4;
+      }
     }
-    if (TIFFWriteScanline(tif.handle(), &tmpLine[0], y) == -1) {
+    const tstrip_t stripIndex = static_cast<tstrip_t>(stripStart / stripRows);
+    const tsize_t byteCount = static_cast<tsize_t>(rows) * width * 4;
+    if (TIFFWriteEncodedStrip(tif.handle(), stripIndex, tmpStrip.data(), byteCount) == -1) {
       return false;
     }
   }

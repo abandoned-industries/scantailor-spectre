@@ -591,3 +591,19 @@ current format extension only. If format changed after processing, files weren't
 - Bump cache version to v4 to regenerate thumbnails with new shorter names
 - Root cause: QTemporaryFile adds 6 chars, pushing 253-char filenames over 255 limit
 - Removed debug logging, cleaned up code
+
+---
+2025-12-30 10:07 - Output normalization downscale (cmake --build build -j8)
+- OutputGenerator.cpp: render PolynomialSurface at capped size, upscale to full size
+
+---
+2025-12-30 10:14 - Grayscale fast path for RGB32 (cmake --build build -j8)
+- Grayscale.cpp: avoid QImage::pixel in grayscale/histogram loops via scanline access
+
+---
+2025-12-30 10:28 - TIFF strip writes (cmake --build build -j8)
+- TiffWriter.cpp: write RGB/ARGB via encoded strips to reduce per-scanline overhead
+
+---
+2025-12-30 10:35 - Transform identity fast path (cmake --build build -j8)
+- Transform.cpp: early return for identity transforms to avoid per-pixel mapping

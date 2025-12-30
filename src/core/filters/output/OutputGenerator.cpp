@@ -2238,7 +2238,17 @@ GrayImage OutputGenerator::Processor::normalizeIlluminationGray(const QImage& in
   }
   m_status.throwIfCancelled();
 
-  GrayImage bgImg(bgPs.render(toBeNormalized.size()));
+  const QSize fullSize = toBeNormalized.size();
+  QSize renderSize = fullSize;
+  const int maxRenderDim = 800;
+  if (std::max(fullSize.width(), fullSize.height()) > maxRenderDim) {
+    renderSize.scale(maxRenderDim, maxRenderDim, Qt::KeepAspectRatio);
+  }
+
+  GrayImage bgImg(bgPs.render(renderSize));
+  if (renderSize != fullSize) {
+    bgImg = scaleToGray(bgImg, fullSize);
+  }
   if (m_dbg) {
     m_dbg->add(bgImg, "background");
   }

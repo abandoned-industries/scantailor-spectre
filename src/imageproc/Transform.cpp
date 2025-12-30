@@ -305,6 +305,16 @@ QImage transform(const QImage& src,
     throw std::invalid_argument("transform: dstRect is invalid");
   }
 
+  if (xform.isIdentity() && dstRect == src.rect()) {
+    if (src.format() == QImage::Format_Indexed8 || src.format() == QImage::Format_Mono
+        || src.format() == QImage::Format_MonoLSB) {
+      if (src.allGray()) {
+        return GrayImage(src);
+      }
+    }
+    return src;
+  }
+
   auto isOpaqueGray
       = [](QRgb rgba) { return qAlpha(rgba) == 0xff && qRed(rgba) == qBlue(rgba) && qRed(rgba) == qGreen(rgba); };
   switch (src.format()) {
@@ -371,6 +381,10 @@ GrayImage transformToGray(const QImage& src,
   }
   if (!dstRect.isValid()) {
     throw std::invalid_argument("transformToGray: dstRect is invalid");
+  }
+
+  if (xform.isIdentity() && dstRect == src.rect()) {
+    return GrayImage(src);
   }
 
   const GrayImage graySrc(src);

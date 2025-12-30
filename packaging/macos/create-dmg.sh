@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Configuration
-DEVELOPER_ID="Developer ID Application: Your Name (TEAM_ID)"
+DEVELOPER_ID="${STS_CODESIGN_IDENTITY}"
 KEYCHAIN_PROFILE="notarytool"
 APP_NAME="ScanTailor Spectre"
 
