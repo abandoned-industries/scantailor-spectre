@@ -13,6 +13,7 @@
 #include "PageId.h"
 #include "PageSequence.h"
 #include "Settings.h"
+#include "filters/finalize/Settings.h"
 #include "ui_ApplyColorsDialog.h"
 
 class PageSelectionAccessor;
@@ -25,7 +26,8 @@ class ApplyColorsDialog : public QDialog, private Ui::ApplyColorsDialog {
                     const PageId& pageId,
                     const PageSelectionAccessor& pageSelectionAccessor,
                     ColorMode colorMode = BLACK_AND_WHITE,
-                    std::shared_ptr<Settings> settings = nullptr);
+                    std::shared_ptr<Settings> settings = nullptr,
+                    std::shared_ptr<finalize::Settings> finalizeSettings = nullptr);
 
   ~ApplyColorsDialog() override;
 
@@ -47,6 +49,7 @@ class ApplyColorsDialog : public QDialog, private Ui::ApplyColorsDialog {
   QButtonGroup* m_scopeGroup;
   ColorMode m_colorMode;
   std::shared_ptr<Settings> m_settings;
+  std::shared_ptr<finalize::Settings> m_finalizeSettings;
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_APPLYCOLORSDIALOG_H_

@@ -10,14 +10,16 @@ ApplyColorsDialog::ApplyColorsDialog(QWidget* parent,
                                      const PageId& curPage,
                                      const PageSelectionAccessor& pageSelectionAccessor,
                                      ColorMode colorMode,
-                                     std::shared_ptr<Settings> settings)
+                                     std::shared_ptr<Settings> settings,
+                                     std::shared_ptr<finalize::Settings> finalizeSettings)
     : QDialog(parent),
       m_pages(pageSelectionAccessor.allPages()),
       m_selectedPages(pageSelectionAccessor.selectedPages()),
       m_curPage(curPage),
       m_scopeGroup(new QButtonGroup(this)),
       m_colorMode(colorMode),
-      m_settings(std::move(settings)) {
+      m_settings(std::move(settings)),
+      m_finalizeSettings(std::move(finalizeSettings)) {
   setupUi(this);
   m_scopeGroup->addButton(thisPageRB);
   m_scopeGroup->addButton(allPagesRB);
@@ -58,14 +60,38 @@ QString ApplyColorsDialog::colorModeLabel() const {
 }
 
 std::set<PageId> ApplyColorsDialog::filterPagesByColorMode(const std::set<PageId>& pages) const {
-  if (!m_settings) {
+  // Use finalize settings if available (preferred - that's where color mode is set)
+  // Fall back to output settings if finalize not available
+  if (!m_finalizeSettings && !m_settings) {
     return pages;
   }
 
   std::set<PageId> filtered;
   for (const PageId& pageId : pages) {
-    const Params params = m_settings->getParams(pageId);
-    const ColorMode pageMode = params.colorParams().colorMode();
+    ColorMode pageMode;
+
+    if (m_finalizeSettings) {
+      // Get color mode from finalize settings (stage 6)
+      finalize::ColorMode finalizeMode = m_finalizeSettings->getColorMode(pageId);
+      switch (finalizeMode) {
+        case finalize::ColorMode::BlackAndWhite:
+          pageMode = BLACK_AND_WHITE;
+          break;
+        case finalize::ColorMode::Grayscale:
+          pageMode = GRAYSCALE;
+          break;
+        case finalize::ColorMode::Color:
+          pageMode = COLOR;
+          break;
+        default:
+          pageMode = BLACK_AND_WHITE;  // Default
+          break;
+      }
+    } else {
+      // Fall back to output settings
+      const Params params = m_settings->getParams(pageId);
+      pageMode = params.colorParams().colorMode();
+    }
 
     // Match similar modes: treat COLOR and COLOR_GRAYSCALE as same
     bool matches = false;
