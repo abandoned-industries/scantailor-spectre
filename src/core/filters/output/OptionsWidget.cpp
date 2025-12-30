@@ -627,8 +627,26 @@ void OptionsWidget::handleDespeckleLevelChange(const double level, const bool de
 }
 
 void OptionsWidget::applyDespeckleButtonClicked() {
+  // Get color mode from finalize settings (where it's actually set) rather than output settings
+  ColorMode currentMode = m_colorParams.colorMode();
+  if (m_finalizeSettings) {
+    finalize::ColorMode finalizeMode = m_finalizeSettings->getColorMode(m_pageId);
+    switch (finalizeMode) {
+      case finalize::ColorMode::BlackAndWhite:
+        currentMode = BLACK_AND_WHITE;
+        break;
+      case finalize::ColorMode::Grayscale:
+        currentMode = GRAYSCALE;
+        break;
+      case finalize::ColorMode::Color:
+        currentMode = COLOR;
+        break;
+      default:
+        break;
+    }
+  }
   auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
-                                       m_colorParams.colorMode(), m_settings);
+                                       currentMode, m_settings, m_finalizeSettings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->setWindowTitle(tr("Apply Despeckling Level"));
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
@@ -704,8 +722,26 @@ void OptionsWidget::dewarpingChanged(const std::set<PageId>& pages, const Dewarp
 }  // OptionsWidget::dewarpingChanged
 
 void OptionsWidget::applyDepthPerceptionButtonClicked() {
+  // Get color mode from finalize settings (where it's actually set) rather than output settings
+  ColorMode currentMode = m_colorParams.colorMode();
+  if (m_finalizeSettings) {
+    finalize::ColorMode finalizeMode = m_finalizeSettings->getColorMode(m_pageId);
+    switch (finalizeMode) {
+      case finalize::ColorMode::BlackAndWhite:
+        currentMode = BLACK_AND_WHITE;
+        break;
+      case finalize::ColorMode::Grayscale:
+        currentMode = GRAYSCALE;
+        break;
+      case finalize::ColorMode::Color:
+        currentMode = COLOR;
+        break;
+      default:
+        break;
+    }
+  }
   auto* dialog = new ApplyColorsDialog(this, m_pageId, m_pageSelectionAccessor,
-                                       m_colorParams.colorMode(), m_settings);
+                                       currentMode, m_settings, m_finalizeSettings);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->setWindowTitle(tr("Apply Depth Perception"));
   connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this,
