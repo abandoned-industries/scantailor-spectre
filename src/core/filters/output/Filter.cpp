@@ -191,6 +191,10 @@ OptionsWidget* Filter::optionsWidget() {
   return m_optionsWidget.get();
 }
 
+void Filter::setDefaultDpi(const Dpi& dpi) {
+  m_settings->setDefaultDpi(dpi);
+}
+
 void Filter::setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings) {
   m_optionsWidget->setFinalizeSettings(std::move(finalizeSettings));
 }

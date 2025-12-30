@@ -517,3 +517,77 @@ current format extension only. If format changed after processing, files weren't
 - MetalGaussBlur.mm: Lower MIN_GPU_DIMENSION from 64 to 32
 - MetalMorphology.mm: Lower MIN_GPU_SIZE from 64 to 32
 - Morphology.cpp: Add vImage SIMD acceleration for erosion/dilation CPU fallback
+
+---
+2024-12-29 21:15 - Release build 2.0a14 (make -j16)
+- Full release build for DMG
+- Version 2.0a14 with performance optimizations
+
+---
+2024-12-29 21:50 - Fix Apply To B&W bug (make -j16)
+- ApplyColorsDialog.h/cpp: Add finalize::Settings parameter
+- Use finalize settings (stage 6) for color mode filtering instead of output settings
+- OptionsWidget.cpp: Pass m_finalizeSettings to ApplyColorsDialog
+
+---
+2025-12-30 - PDF Import DPI Auto-Detection (cmake --build)
+- src/core/PdfReader.h: Added PdfInfo struct, readPdfInfo(), setImportDpi(), getImportDpi()
+- src/core/PdfReader.mm: Added detectEffectiveDpi() to scan embedded images, added DPI storage map
+- src/core/ImageLoader.cpp: Use stored import DPI when loading PDF pages
+- src/app/PdfImportDialog.h/cpp: New dialog to show detected DPI with dropdown override
+- src/app/CMakeLists.txt: Added PdfImportDialog
+- src/app/MainWindow.cpp: Show import dialog after PDF selection, store selected DPI
+
+---
+2025-12-30 00:27 - Add OCR progress logging (make -j16)
+- src/core/filters/ocr/Task.cpp: Add page number log at start of OCR processing
+
+---
+2025-12-30 10:45 - Color detection tolerance for aged paper (make -j16)
+- LeptonicaDetector.cpp: Changed diffthresh from 18 to 35 to tolerate aged/yellowed paper
+  This fixes false "color" detection on old B&W books like "Common Landscape of America"
+
+---
+2025-12-30 10:46 - Version bump to 2.0a15 (make -j16)
+- version.h.in: 2.0a14 → 2.0a15
+
+---
+2025-12-30 10:52 - Show DPI dialog when importing PDF from StartupWindow (make -j16)
+- AppController.cpp: Added PdfImportDialog to onImportPdfRequested()
+  Now importing PDF from welcome screen also shows the DPI selection dialog
+
+---
+2025-12-30 10:58 - Raise color detection threshold further (make -j16)
+- LeptonicaDetector.cpp: Changed diffthresh from 35 to 50 for heavily yellowed paper
+
+---
+2025-12-30 11:08 - More aggressive B&W detection for old books (make -j16)
+- LeptonicaDetector.cpp: Expanded "lights" zone from 150-255 to 130-255
+  (grayish/yellowed paper pixels 130-149 now count as "paper" not "midtones")
+- LeptonicaDetector.cpp: Raised region midtone threshold from 30% to 40%
+  (more tolerant of stained/shadowed areas in old books)
+
+---
+2025-12-30 - Color mode thumbnail filters + DPI inheritance (make -j16)
+- src/core/filters/output/Settings.h: Added m_defaultDpi with getter/setter for project-level output DPI
+- src/core/filters/output/Settings.cpp: Modified getParams() to use default DPI for new pages
+- src/app/MainWindow.cpp: Set output default DPI from PDF import DPI
+- src/app/MainWindow.ui: Added filterBwBtn, filterGrayBtn, filterColorBtn toggle buttons
+- src/app/MainWindow.cpp: Connect filter buttons to refresh thumbnail sequence
+- src/app/MainWindow.cpp: Modified currentPageSequence() to filter by color mode
+
+---
+2025-12-30 17:10 - Fix thumbnail not updating after output regeneration (make -j8)
+- ThumbnailPixmapCache.cpp: Modified recreateThumbnail() to immediately cache the new thumbnail pixmap
+  - Previously only removed old item from cache, relying on background loader to re-read
+  - Now directly inserts new thumbnail into cache after writing to disk
+  - Handles all states: LOADED, LOAD_FAILED, QUEUED - removes old and inserts new
+  - IN_PROGRESS still sets needsReload flag (background thread may have stale data)
+  - Also handles case where item was not in cache at all - inserts directly
+
+---
+2024-12-30 09:05 - Fix thumbnail filename length exceeding 255 char limit (make -j8)
+- ThumbnailPixmapCache.cpp: Truncate base name to 180 chars max in getThumbFilePath()
+- Bump cache version to v4 to regenerate thumbnails with new shorter names
+- Root cause: QTemporaryFile adds 6 chars, pushing 253-char filenames over 255 limit
+- Removed debug logging, cleaned up code

@@ -503,23 +503,29 @@ void ThumbnailPixmapCache::Impl::recreateThumbnail(const ImageId& imageId, const
   }
 
   if (!thumbWritten) {
+    qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << thumbFilePath;
     return;
   }
+
+  // Convert to pixmap for caching
+  const QPixmap newPixmap = QPixmap::fromImage(thumbnail);
 
   const QMutexLocker locker2(&m_mutex);
 
   const ItemsByKey::iterator kIt(m_itemsByKey.find(imageId));
   if (kIt == m_itemsByKey.end()) {
+    // Item not in cache - insert the new thumbnail directly
+    cachePixmapLocked(imageId, newPixmap);
     return;
   }
 
   switch (kIt->status) {
     case Item::LOADED:
     case Item::LOAD_FAILED:
-      removeItemLocked(m_items.project<RemoveQueueTag>(kIt));
-      break;
     case Item::QUEUED:
-      // Load hasn't started yet, will get the fresh file from disk.
+      // Remove old item and insert new one with fresh pixmap
+      removeItemLocked(m_items.project<RemoveQueueTag>(kIt));
+      cachePixmapLocked(imageId, newPixmap);
       break;
     case Item::IN_PROGRESS:
       // Background thread may have already loaded the old file.
@@ -639,16 +645,27 @@ QString ThumbnailPixmapCache::Impl::getThumbFilePath(const ImageId& imageId,
   // Because a project may have several files with the same name (from
   // different directories), we add a hash of the original image path
   // to the thumbnail file name.
-  const QString cacheVersionStr = QString::fromLatin1("v3");
+  const QString cacheVersionStr = QString::fromLatin1("v4");  // v4: truncate long names
   const QByteArray origPathHash = QCryptographicHash::hash(imageId.filePath().toUtf8(), QCryptographicHash::Md5)
                                       .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
   const QString origPathHashStr = QString::fromLatin1(origPathHash.data(), origPathHash.size());
   const QString thumbnailQualityStr = QChar('q') + QString::number(maxThumbSize.width());
 
   const QFileInfo origImgPath(imageId.filePath());
+  QString baseName = origImgPath.completeBaseName();
+
+  // Truncate base name if needed to keep total filename under 255 chars
+  // (macOS/HFS+ filename limit). QTemporaryFile adds 6 chars for atomic writes.
+  // Fixed parts: _pageNNNN_v4_HASH(22)_qNNN.png = ~45 chars, plus 6 for temp = 51
+  // Max base name: 255 - 51 = 204. Use 180 for safety margin.
+  const int maxBaseNameLen = 180;
+  if (baseName.length() > maxBaseNameLen) {
+    baseName = baseName.left(maxBaseNameLen);
+  }
+
   QString thumbFilePath(thumbDir);
   thumbFilePath += QChar('/');
-  thumbFilePath += origImgPath.completeBaseName();
+  thumbFilePath += baseName;
   thumbFilePath += QChar('_');
   thumbFilePath += QString::number(imageId.zeroBasedPage());
   thumbFilePath += QChar('_');

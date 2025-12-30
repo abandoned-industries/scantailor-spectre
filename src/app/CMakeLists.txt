@@ -31,7 +31,8 @@ set(gui_only_sources
     DefaultParamsDialog.cpp DefaultParamsDialog.h
     BatchProcessingSummaryDialog.cpp BatchProcessingSummaryDialog.h
     ContentCoverageSummaryDialog.cpp ContentCoverageSummaryDialog.h
-    PageSizeWarningDialog.cpp PageSizeWarningDialog.h)
+    PageSizeWarningDialog.cpp PageSizeWarningDialog.h
+    PdfImportDialog.cpp PdfImportDialog.h)
 
 set(gui_only_ui_files
     AboutDialog.ui

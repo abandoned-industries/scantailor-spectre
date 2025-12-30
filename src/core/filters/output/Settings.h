@@ -163,6 +163,12 @@ class Settings {
   bool m_autoWhiteBalance = true;  // Auto white balance enabled by default
   std::unordered_set<PageId> m_forceWhiteBalanceDisabled;  // Pages with force WB explicitly disabled (default is ON)
   std::unordered_map<PageId, QColor> m_manualWhiteBalanceColors;  // User-picked paper colors per page
+  Dpi m_defaultDpi{300, 300};  // Project-level default DPI (inherited from PDF import)
+
+ public:
+  // Project-level default DPI (for new pages without params)
+  Dpi defaultDpi() const { return m_defaultDpi; }
+  void setDefaultDpi(const Dpi& dpi) { m_defaultDpi = dpi; }
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_SETTINGS_H_

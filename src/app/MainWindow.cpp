@@ -70,6 +70,8 @@
 #include "RelinkingDialog.h"
 #include "ScopedIncDec.h"
 #include "SettingsDialog.h"
+#include "PdfImportDialog.h"
+#include "PdfReader.h"
 #include "SkinnedButton.h"
 #include "SmartFilenameOrdering.h"
 #include "StageSequence.h"
@@ -85,6 +87,7 @@
 #include "filters/fix_orientation/CacheDrivenTask.h"
 #include "filters/fix_orientation/Task.h"
 #include "filters/output/CacheDrivenTask.h"
+#include "filters/output/Filter.h"
 #include "filters/output/TabbedImageView.h"
 #include "filters/output/Task.h"
 #include "filters/export/CacheDrivenTask.h"
@@ -353,6 +356,14 @@ MainWindow::MainWindow(bool restoreGeometry)
     settings.setHighlightDeviationEnabled(checked);
     m_thumbSequence->invalidateAllThumbnails();
   });
+
+  // Color mode filter buttons - filter thumbnails by detected color mode
+  auto updateColorModeFilter = [this]() {
+    resetThumbSequence(currentPageOrderProvider(), ThumbnailSequence::KEEP_SELECTION);
+  };
+  connect(filterBwBtn, &QToolButton::toggled, this, updateColorModeFilter);
+  connect(filterGrayBtn, &QToolButton::toggled, this, updateColorModeFilter);
+  connect(filterColorBtn, &QToolButton::toggled, this, updateColorModeFilter);
 
   connect(actionFixDpi, SIGNAL(triggered(bool)), SLOT(fixDpiDialogRequested()));
   connect(actionRelinking, SIGNAL(triggered(bool)), SLOT(showRelinkingDialog()));
@@ -2149,6 +2160,21 @@ void MainWindow::importPdf() {
   // Save the directory for next time
   settings.setValue("lastInputDir", QFileInfo(pdfPath).absolutePath());
 
+  // Detect PDF info and show import dialog
+  PdfReader::PdfInfo pdfInfo = PdfReader::readPdfInfo(pdfPath);
+  if (pdfInfo.pageCount == 0) {
+    QMessageBox::warning(this, tr("Error"), tr("Failed to read PDF file."));
+    return;
+  }
+
+  PdfImportDialog dialog(this, pdfPath, pdfInfo.pageCount, pdfInfo.detectedDpi);
+  if (dialog.exec() != QDialog::Accepted) {
+    return;
+  }
+
+  // Store the selected import DPI for this PDF
+  PdfReader::setImportDpi(pdfPath, dialog.selectedDpi());
+
 #ifdef Q_OS_MAC
   // On macOS, if we have a project loaded, import in a new window
   if (isProjectLoaded()) {
@@ -2178,7 +2204,7 @@ void MainWindow::importPdf() {
   }
 #endif
 
-  // Load PDF metadata to get page count and sizes
+  // Load PDF metadata to get page count and sizes (uses stored import DPI)
   std::vector<ImageFileInfo> files;
   const ImageMetadataLoader::Status status = ImageMetadataLoader::load(
       pdfPath, [&](const ImageMetadata& metadata) {
@@ -2209,6 +2235,12 @@ void MainWindow::importPdf() {
   // Create project pages
   auto pages = std::make_shared<ProjectPages>(consolidatedFiles, ProjectPages::AUTO_PAGES, Qt::LeftToRight);
   switchToNewProject(pages, outDir);
+
+  // Set output DPI to match PDF import DPI (preserves original scan resolution)
+  const int importDpi = PdfReader::getImportDpi(pdfPath);
+  if (m_stages && m_stages->outputFilter()) {
+    m_stages->outputFilter()->setDefaultDpi(Dpi(importDpi, importDpi));
+  }
 }
 
 void MainWindow::newProjectCreated(ProjectCreationContext* context) {
@@ -2245,6 +2277,12 @@ void MainWindow::importPdfFile(const QString& pdfPath) {
   // Create project pages
   auto pages = std::make_shared<ProjectPages>(consolidatedFiles, ProjectPages::AUTO_PAGES, Qt::LeftToRight);
   switchToNewProject(pages, outDir);
+
+  // Set output DPI to match PDF import DPI (preserves original scan resolution)
+  const int importDpi = PdfReader::getImportDpi(pdfPath);
+  if (m_stages && m_stages->outputFilter()) {
+    m_stages->outputFilter()->setDefaultDpi(Dpi(importDpi, importDpi));
+  }
 }
 
 void MainWindow::createProjectFromFiles(const QString& inputDir,
@@ -3305,7 +3343,48 @@ PageSequence MainWindow::currentPageSequence() {
   if (sortingOrderBtn->isChecked()) {
     std::reverse(pageSequence.begin(), pageSequence.end());
   }
-  return pageSequence;
+
+  // Apply color mode filter if any filter button is unchecked
+  const bool showBw = filterBwBtn->isChecked();
+  const bool showGray = filterGrayBtn->isChecked();
+  const bool showColor = filterColorBtn->isChecked();
+
+  // If all filters are on, no filtering needed
+  if (showBw && showGray && showColor) {
+    return pageSequence;
+  }
+
+  // Get finalize settings to check color modes
+  if (!m_stages) {
+    return pageSequence;
+  }
+  auto finalizeSettings = m_stages->finalizeFilter()->settings();
+  if (!finalizeSettings) {
+    return pageSequence;
+  }
+
+  // Filter the page sequence based on color mode
+  PageSequence filteredSequence;
+  for (const PageInfo& pageInfo : pageSequence) {
+    finalize::ColorMode colorMode = finalizeSettings->getColorMode(pageInfo.id());
+    bool include = false;
+    switch (colorMode) {
+      case finalize::ColorMode::BlackAndWhite:
+        include = showBw;
+        break;
+      case finalize::ColorMode::Grayscale:
+        include = showGray;
+        break;
+      case finalize::ColorMode::Color:
+        include = showColor;
+        break;
+    }
+    if (include) {
+      filteredSequence.append(pageInfo);
+    }
+  }
+
+  return filteredSequence;
 }
 
 void MainWindow::reloadCurrentPage() {

@@ -101,8 +101,9 @@ bool hasHighMidtoneRegion(PIX* pix) {
 
       if (cellTotal > 0) {
         float cellMidtoneRatio = (float)cellMidtones / cellTotal;
-        // If any cell has >30% midtones, there's likely an embedded image
-        if (cellMidtoneRatio > 0.30f) {
+        // If any cell has >40% midtones, there's likely an embedded image
+        // (raised from 30% to be more tolerant of stained/yellowed paper)
+        if (cellMidtoneRatio > 0.40f) {
           fprintf(stderr, "  Region [%d,%d]: %.1f%% midtones -> embedded image detected\n",
                   gx, gy, cellMidtoneRatio * 100);
           pixDestroy(&gray);
@@ -138,8 +139,8 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
   l_int32 n = numaGetCount(histo);
   l_float32 total = 0;
   l_float32 darks = 0;      // 0-79: black zone (text + dark edges)
-  l_float32 midtones = 0;   // 80-149: true midtone zone (photos, illustrations)
-  l_float32 lights = 0;     // 150-255: white zone (paper, including off-white/grayish)
+  l_float32 midtones = 0;   // 80-129: true midtone zone (photos, illustrations)
+  l_float32 lights = 0;     // 130-255: white zone (paper, including yellowed/grayish)
 
   for (int i = 0; i < n; i++) {
     l_float32 val;
@@ -147,8 +148,8 @@ bool isPureBW(PIX* pix, float* midtoneRatio, int midtoneThreshold = 10) {
     total += val;
     if (i <= 79) {
       darks += val;
-    } else if (i >= 150) {
-      lights += val;
+    } else if (i >= 130) {
+      lights += val;  // Lowered from 150 to include grayish/yellowed paper
     } else {
       midtones += val;
     }
@@ -208,7 +209,7 @@ bool isGrayscale(PIX* pix, float* colorFraction) {
   l_int32 result = pixColorFraction(pix,
                                      10,    // darkthresh - lowered from 20 to include dark photos
                                      240,   // lightthresh - raised from 235 to include more highlights
-                                     18,    // diffthresh - lowered from 25 to detect muted colors (browns, tans)
+                                     50,    // diffthresh - raised from 35 to tolerate heavily yellowed old paper
                                      4,     // factor (subsample for speed)
                                      &pixfract,   // fraction of pixels analyzed
                                      &colorfract); // fraction of those that are color

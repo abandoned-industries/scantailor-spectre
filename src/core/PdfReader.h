@@ -18,6 +18,24 @@ class PdfReader {
   // Default DPI for rendering PDF pages (300 is standard scanning resolution)
   static constexpr int DEFAULT_RENDER_DPI = 300;
 
+  // Info returned when analyzing a PDF file
+  struct PdfInfo {
+    int pageCount = 0;
+    int detectedDpi = DEFAULT_RENDER_DPI;  // Effective DPI of embedded images
+  };
+
+  /**
+   * \brief Analyzes a PDF file to get page count and detect optimal render DPI.
+   *
+   * Scans first few pages for embedded images and calculates their effective
+   * resolution (image_pixels / display_inches). Returns the maximum found,
+   * rounded to standard values (300, 400, 600).
+   *
+   * \param filePath Path to the PDF file.
+   * \return PdfInfo with page count and detected DPI.
+   */
+  static PdfInfo readPdfInfo(const QString& filePath);
+
   static bool canRead(QIODevice& device);
 
   static bool canRead(const QString& filePath);
@@ -37,6 +55,26 @@ class PdfReader {
    * \return The resulting image, or a null image in case of failure.
    */
   static QImage readImage(const QString& filePath, int pageNum = 0, int dpi = DEFAULT_RENDER_DPI);
+
+  /**
+   * \brief Sets the import DPI for a specific PDF file.
+   *
+   * When a PDF is imported, the user-selected DPI is stored here.
+   * Subsequent calls to readImage for this file will use this DPI
+   * unless explicitly overridden.
+   *
+   * \param filePath The absolute path to the PDF file.
+   * \param dpi The DPI to use for rendering.
+   */
+  static void setImportDpi(const QString& filePath, int dpi);
+
+  /**
+   * \brief Gets the import DPI for a specific PDF file.
+   *
+   * \param filePath The absolute path to the PDF file.
+   * \return The stored DPI, or DEFAULT_RENDER_DPI if not set.
+   */
+  static int getImportDpi(const QString& filePath);
 
  private:
   static bool checkMagic(const QByteArray& data);

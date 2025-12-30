@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "AbstractFilter.h"
+#include "Dpi.h"
 #include "FillZonePropFactory.h"
 #include "FilterResult.h"
 #include "NonCopyable.h"
@@ -68,6 +69,8 @@ class Filter : public AbstractFilter {
   OptionsWidget* optionsWidget();
 
   std::shared_ptr<Settings> settings() const { return m_settings; }
+
+  void setDefaultDpi(const Dpi& dpi);
 
   void setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings);
 

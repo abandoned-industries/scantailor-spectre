@@ -95,7 +95,10 @@ Params Settings::getParams(const PageId& pageId) const {
   if (it != m_perPageParams.end()) {
     return it->second;
   } else {
-    return Params();
+    // Return default params with project-level DPI
+    Params params;
+    params.setOutputDpi(m_defaultDpi);
+    return params;
   }
 }
 

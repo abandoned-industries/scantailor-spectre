@@ -4,13 +4,17 @@
 #include "AppController.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFileDialog>
 #include <QGuiApplication>
+#include <QMessageBox>
 #include <QScreen>
 #include <QSettings>
 #include <QTimer>
 
 #include "MainWindow.h"
+#include "PdfImportDialog.h"
+#include "PdfReader.h"
 #include "ProjectCreationContext.h"
 #include "StartupWindow.h"
 
@@ -165,6 +169,22 @@ void AppController::onImportPdfRequested() {
 
   // Save directory for next time
   settings.setValue("lastInputDir", QFileInfo(pdfFile).absolutePath());
+
+  // Read PDF info to get page count and detected DPI
+  const PdfReader::PdfInfo pdfInfo = PdfReader::readPdfInfo(pdfFile);
+  if (pdfInfo.pageCount == 0) {
+    QMessageBox::warning(m_startupWindow, tr("Error"), tr("Failed to read PDF file."));
+    return;
+  }
+
+  // Show DPI selection dialog
+  PdfImportDialog dialog(m_startupWindow, pdfFile, pdfInfo.pageCount, pdfInfo.detectedDpi);
+  if (dialog.exec() != QDialog::Accepted) {
+    return;  // User cancelled
+  }
+
+  // Store the selected import DPI for this PDF
+  PdfReader::setImportDpi(pdfFile, dialog.selectedDpi());
 
   // Create new MainWindow and import the PDF
   MainWindow* window = createNewMainWindow();

@@ -18,7 +18,9 @@ QImage ImageLoader::load(const ImageId& imageId) {
 QImage ImageLoader::load(const QString& filePath, const int pageNum) {
   // Check for PDF first (requires file path, not QIODevice)
   if (PdfReader::canRead(filePath)) {
-    return PdfReader::readImage(filePath, pageNum);
+    // Use stored import DPI if available, otherwise default
+    const int dpi = PdfReader::getImportDpi(filePath);
+    return PdfReader::readImage(filePath, pageNum, dpi);
   }
 
   QFile file(filePath);

@@ -1364,6 +1364,48 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
 
   // Apply per-page brightness / contrast adjustments (after WB / illumination, before inversion).
   const OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+
+  // Auto levels: stretch histogram to full 0-255 range
+  if (opp.autoLevels()) {
+    QImage work = wbOrigImage.convertToFormat(QImage::Format_ARGB32);
+    const int w = work.width();
+    const int h = work.height();
+
+    // First pass: find min/max values
+    int minVal = 255, maxVal = 0;
+    for (int y = 0; y < h; ++y) {
+      const QRgb* line = reinterpret_cast<const QRgb*>(work.constScanLine(y));
+      for (int x = 0; x < w; ++x) {
+        const QRgb p = line[x];
+        const int gray = (qRed(p) * 299 + qGreen(p) * 587 + qBlue(p) * 114) / 1000;
+        minVal = std::min(minVal, gray);
+        maxVal = std::max(maxVal, gray);
+      }
+    }
+
+    qDebug() << "OutputGenerator: Auto levels min=" << minVal << "max=" << maxVal;
+
+    // Second pass: stretch histogram if there's a meaningful range to stretch
+    if (maxVal > minVal && (minVal > 0 || maxVal < 255)) {
+      const double scale = 255.0 / (maxVal - minVal);
+      for (int y = 0; y < h; ++y) {
+        QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+          const QRgb p = line[x];
+          int r = static_cast<int>((qRed(p) - minVal) * scale);
+          int g = static_cast<int>((qGreen(p) - minVal) * scale);
+          int b = static_cast<int>((qBlue(p) - minVal) * scale);
+          r = std::clamp(r, 0, 255);
+          g = std::clamp(g, 0, 255);
+          b = std::clamp(b, 0, 255);
+          line[x] = qRgb(r, g, b);
+        }
+      }
+      wbOrigImage = work.convertToFormat(wbOrigImage.format());
+      qDebug() << "OutputGenerator: Auto levels applied, stretched" << minVal << "-" << maxVal << "to 0-255";
+    }
+  }
+
   qDebug() << "OutputGenerator: brightness=" << opp.brightness() << "contrast=" << opp.contrast();
   if (opp.brightness() != 0.0 || opp.contrast() != 0.0) {
     // brightness: [-1, 1] mapped to roughly [-255, 255] additive

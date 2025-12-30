@@ -142,6 +142,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void contrastChanged(int value);
 
+  void autoLevelsToggled(bool checked);
+
   void savitzkyGolaySmoothingToggled(bool checked);
 
   void morphologicalSmoothingToggled(bool checked);

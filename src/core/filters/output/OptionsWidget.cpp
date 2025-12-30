@@ -447,6 +447,14 @@ void OptionsWidget::contrastChanged(int value) {
   emit invalidateThumbnail(m_pageId);
 }
 
+void OptionsWidget::autoLevelsToggled(bool checked) {
+  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  opp.setAutoLevels(checked);
+  m_settings->setOutputProcessingParams(m_pageId, opp);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
 void OptionsWidget::binarizationSettingsChanged() {
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
@@ -910,6 +918,7 @@ void OptionsWidget::updateColorsDisplay() {
   const OutputProcessingParams& opp = m_settings->getOutputProcessingParams(m_pageId);
   brightnessSlider->setValue(static_cast<int>(opp.brightness() * 100.0));
   contrastSlider->setValue(static_cast<int>(opp.contrast() * 100.0));
+  autoLevelsCB->setChecked(opp.autoLevels());
 
   // Paper detection thresholds - populate from settings (using colorCommonOptions from line 794)
   paperBrightnessSB->setValue(colorCommonOptions.paperBrightnessThreshold());
@@ -1289,6 +1298,7 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(clearPaperColorBtn, SIGNAL(clicked()), this, SLOT(clearPaperColorClicked()));
   CONNECT(brightnessSlider, SIGNAL(valueChanged(int)), this, SLOT(brightnessChanged(int)));
   CONNECT(contrastSlider, SIGNAL(valueChanged(int)), this, SLOT(contrastChanged(int)));
+  CONNECT(autoLevelsCB, SIGNAL(clicked(bool)), this, SLOT(autoLevelsToggled(bool)));
   CONNECT(savitzkyGolaySmoothingCB, SIGNAL(clicked(bool)), this, SLOT(savitzkyGolaySmoothingToggled(bool)));
   CONNECT(morphologicalSmoothingCB, SIGNAL(clicked(bool)), this, SLOT(morphologicalSmoothingToggled(bool)));
   CONNECT(splittingCB, SIGNAL(clicked(bool)), this, SLOT(splittingToggled(bool)));

@@ -72,6 +72,9 @@ Task::~Task() = default;
 FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, const QPolygonF& contentRectPhys) {
   status.throwIfCancelled();
 
+  qDebug() << "OCR STAGE: Processing page" << m_pageId.imageId().page() + 1
+           << "file:" << m_pageId.imageId().filePath().section('/', -1);
+
   // First, delegate to output task for actual image processing
   // This creates the output TIFF file that we'll OCR
   FilterResultPtr outputResult;

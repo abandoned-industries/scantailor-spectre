@@ -12,7 +12,12 @@
 
 #include <limits>
 #include <cmath>
+#include <map>
 #include <vector>
+
+// Static storage for PDF import DPI settings
+static QMutex s_importDpiMutex;
+static std::map<QString, int> s_importDpiMap;
 
 #include "Dpi.h"
 #include "ImageMetadata.h"
@@ -114,6 +119,110 @@ static CGFloat getUserUnit(CGPDFPageRef page) {
   return 1.0;
 }
 
+// Callback context for scanning XObjects in a page's content stream
+struct XObjectScanContext {
+  CGPDFDictionaryRef pageResources;
+  CGFloat pageWidth;   // Display width in points
+  CGFloat pageHeight;  // Display height in points
+  CGFloat userUnit;
+  int maxDpi;
+};
+
+// Scan a Resources dictionary for image XObjects and calculate their effective DPI
+static void scanResourcesForImages(CGPDFDictionaryRef resources, CGFloat pageWidth, CGFloat pageHeight,
+                                    CGFloat userUnit, int& maxDpi) {
+  if (!resources) return;
+
+  CGPDFDictionaryRef xobjects = nullptr;
+  if (!CGPDFDictionaryGetDictionary(resources, "XObject", &xobjects) || !xobjects) {
+    return;
+  }
+
+  // Context to pass to the applier callback
+  struct ApplyContext {
+    CGFloat pageWidth;
+    CGFloat pageHeight;
+    CGFloat userUnit;
+    int* maxDpi;
+  };
+  ApplyContext ctx = {pageWidth, pageHeight, userUnit, &maxDpi};
+
+  // Iterate over all XObjects using block with 3 parameters
+  CGPDFDictionaryApplyBlock(xobjects, ^bool(const char* key, CGPDFObjectRef value, void* info) {
+    (void)key;  // Unused
+    ApplyContext* ctxPtr = static_cast<ApplyContext*>(info);
+
+    CGPDFStreamRef stream = nullptr;
+    if (CGPDFObjectGetValue(value, kCGPDFObjectTypeStream, &stream) && stream) {
+      CGPDFDictionaryRef streamDict = CGPDFStreamGetDictionary(stream);
+      if (streamDict) {
+        const char* subtype = nullptr;
+        if (CGPDFDictionaryGetName(streamDict, "Subtype", &subtype) && subtype) {
+          if (strcmp(subtype, "Image") == 0) {
+            // Found an image! Get its dimensions
+            CGPDFInteger imgWidth = 0, imgHeight = 0;
+            if (CGPDFDictionaryGetInteger(streamDict, "Width", &imgWidth) &&
+                CGPDFDictionaryGetInteger(streamDict, "Height", &imgHeight) &&
+                imgWidth > 0 && imgHeight > 0) {
+              // Calculate effective DPI
+              // Assume image fills the page (conservative estimate)
+              // DPI = image_pixels / (page_points / 72)
+              const CGFloat pgWidthInches = (ctxPtr->pageWidth * ctxPtr->userUnit) / 72.0;
+              const CGFloat pgHeightInches = (ctxPtr->pageHeight * ctxPtr->userUnit) / 72.0;
+
+              int effectiveDpiX = (pgWidthInches > 0) ? static_cast<int>(imgWidth / pgWidthInches) : 0;
+              int effectiveDpiY = (pgHeightInches > 0) ? static_cast<int>(imgHeight / pgHeightInches) : 0;
+
+              // Use the larger dimension's DPI (more conservative)
+              int effectiveDpi = std::max(effectiveDpiX, effectiveDpiY);
+              if (effectiveDpi > *ctxPtr->maxDpi) {
+                *ctxPtr->maxDpi = effectiveDpi;
+              }
+            }
+          }
+        }
+      }
+    }
+    return true;  // Continue iterating
+  }, &ctx);
+}
+
+// Detect effective DPI from embedded images in PDF
+// Samples first few pages and returns maximum DPI found, rounded to standard values
+static int detectEffectiveDpi(CGPDFDocumentRef document, int samplePages = 5) {
+  if (!document) return PdfReader::DEFAULT_RENDER_DPI;
+
+  const size_t pageCount = CGPDFDocumentGetNumberOfPages(document);
+  if (pageCount == 0) return PdfReader::DEFAULT_RENDER_DPI;
+
+  int maxDpi = 0;
+  const int pagesToSample = std::min(samplePages, static_cast<int>(pageCount));
+
+  for (int i = 1; i <= pagesToSample; ++i) {
+    CGPDFPageRef page = CGPDFDocumentGetPage(document, i);
+    if (!page) continue;
+
+    CGRect mediaBox = CGPDFPageGetBoxRect(page, kCGPDFMediaBox);
+    CGFloat userUnit = getUserUnit(page);
+
+    // Get page resources dictionary
+    CGPDFDictionaryRef pageDict = CGPDFPageGetDictionary(page);
+    if (pageDict) {
+      CGPDFDictionaryRef resources = nullptr;
+      if (CGPDFDictionaryGetDictionary(pageDict, "Resources", &resources) && resources) {
+        scanResourcesForImages(resources, mediaBox.size.width, mediaBox.size.height, userUnit, maxDpi);
+      }
+    }
+  }
+
+  // Round to nearest standard DPI value
+  if (maxDpi > 500) return 600;
+  if (maxDpi > 350) return 400;
+  if (maxDpi > 0) return 300;
+
+  return PdfReader::DEFAULT_RENDER_DPI;  // Default fallback
+}
+
 #endif  // Q_OS_MACOS
 
 bool PdfReader::checkMagic(const QByteArray& data) {
@@ -163,6 +272,9 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 
   PdfDocumentManager& mgr = PdfDocumentManager::instance();
 
+  // Use stored import DPI if available, otherwise default
+  const int renderDpi = getImportDpi(filePath);
+
   // Collect page metadata under lock, then release before callbacks
   struct PageInfo {
     int widthPx;
@@ -203,8 +315,8 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
       CGSize displaySize = getDisplaySize(page);
       const CGFloat userUnit = getUserUnit(page);
 
-      const double calcWidth = displaySize.width * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
-      const double calcHeight = displaySize.height * DEFAULT_RENDER_DPI / 72.0 * userUnit + 0.5;
+      const double calcWidth = displaySize.width * renderDpi / 72.0 * userUnit + 0.5;
+      const double calcHeight = displaySize.height * renderDpi / 72.0 * userUnit + 0.5;
 
       if (calcWidth <= 0 || calcHeight <= 0 || calcWidth > maxDimension || calcHeight > maxDimension) {
         qWarning() << "PdfReader: Invalid page dimensions for page" << i << "- skipping";
@@ -217,7 +329,7 @@ ImageMetadataLoader::Status PdfReader::readMetadata(const QString& filePath,
 
   // Now invoke callbacks without holding the lock (prevents potential deadlocks)
   for (const PageInfo& info : pages) {
-    out(ImageMetadata(QSize(info.widthPx, info.heightPx), Dpi(DEFAULT_RENDER_DPI, DEFAULT_RENDER_DPI)));
+    out(ImageMetadata(QSize(info.widthPx, info.heightPx), Dpi(renderDpi, renderDpi)));
   }
 
   return ImageMetadataLoader::LOADED;
@@ -318,6 +430,49 @@ QImage PdfReader::readImage(const QString& filePath, int pageNum, int dpi) {
   image.setDotsPerMeterY(dotsPerMeter);
 
   return image;
+}
+
+PdfReader::PdfInfo PdfReader::readPdfInfo(const QString& filePath) {
+  PdfInfo info;
+
+  if (!canRead(filePath)) {
+    return info;
+  }
+
+  PdfDocumentManager& mgr = PdfDocumentManager::instance();
+  QMutexLocker lock(&mgr.mutex());
+
+  if (!mgr.ensureLoaded(filePath)) {
+    return info;
+  }
+
+  CGPDFDocumentRef doc = mgr.document();
+  if (!doc) {
+    return info;
+  }
+
+  info.pageCount = static_cast<int>(CGPDFDocumentGetNumberOfPages(doc));
+  info.detectedDpi = detectEffectiveDpi(doc);
+
+  qDebug() << "PdfReader: Detected DPI for" << filePath << ":" << info.detectedDpi
+           << "pages:" << info.pageCount;
+
+  return info;
+}
+
+void PdfReader::setImportDpi(const QString& filePath, int dpi) {
+  QMutexLocker lock(&s_importDpiMutex);
+  s_importDpiMap[filePath] = dpi;
+  qDebug() << "PdfReader: Set import DPI for" << filePath << "to" << dpi;
+}
+
+int PdfReader::getImportDpi(const QString& filePath) {
+  QMutexLocker lock(&s_importDpiMutex);
+  auto it = s_importDpiMap.find(filePath);
+  if (it != s_importDpiMap.end()) {
+    return it->second;
+  }
+  return DEFAULT_RENDER_DPI;
 }
 
 #endif  // Q_OS_MACOS

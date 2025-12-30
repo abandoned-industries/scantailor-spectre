@@ -472,6 +472,16 @@
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QCheckBox" name="autoLevelsCB">
+            <property name="toolTip">
+             <string>Stretch histogram to full 0-255 range for maximum contrast</string>
+            </property>
+            <property name="text">
+             <string>Auto levels</string>
+            </property>
+           </widget>
+          </item>
            <item>
             <widget class="QCheckBox" name="savitzkyGolaySmoothingCB">
              <property name="text">

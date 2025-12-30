@@ -35,11 +35,15 @@ class OutputProcessingParams {
   double contrast() const { return m_contrast; }
   void setContrast(double val) { m_contrast = val; }
 
+  bool autoLevels() const { return m_autoLevels; }
+  void setAutoLevels(bool val) { m_autoLevels = val; }
+
  private:
   bool m_autoZonesFound;
   bool m_blackOnWhiteSetManually;
   double m_brightness;
   double m_contrast;
+  bool m_autoLevels;
 };
 
 
