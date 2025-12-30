@@ -58,6 +58,8 @@ add_library(imageproc STATIC ${sources})
 target_link_libraries(imageproc PUBLIC foundation math)
 if(APPLE)
     target_link_libraries(imageproc PUBLIC acceleration)
+    # Link Accelerate framework for vImage (SIMD-optimized image processing)
+    target_link_libraries(imageproc PUBLIC "-framework Accelerate")
 endif()
 target_include_directories(imageproc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 

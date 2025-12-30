@@ -477,3 +477,37 @@
 - Build succeeded
 - App bundle refreshed: build/ScanTailor Spectre.app
 - NOTE: Test page split and output stages to verify dilation works correctly
+
+---
+2024-12-29 15:30 - Apple Silicon performance optimizations (make -j8)
+- src/imageproc/Scale.cpp: Add vImage-accelerated scaling (SIMD Lanczos)
+- src/imageproc/Binarize.cpp: Add dispatch_apply for parallel Sauvola
+- src/imageproc/CMakeLists.txt: Link Accelerate framework
+
+---
+2025-12-29 15:45 - Fix PDF export finding output files with any extension (make -j8)
+- OutputFileNameGenerator.h: Add findExistingOutputFile() declaration
+- OutputFileNameGenerator.cpp: Implement findExistingOutputFile() to search .tif, .png, .jpg
+- MainWindow.cpp: Update exportToPdf() to use findExistingOutputFile()
+- MainWindow.cpp: Update exportToPdfFromFilter() to use findExistingOutputFile()
+- MainWindow.cpp: Update OCR data collection to use findExistingOutputFile()
+
+Bug: 447-page book was only exporting 1 page because export searched for files with
+current format extension only. If format changed after processing, files weren't found.
+
+---
+2025-12-29 16:00 - Add debug logging to PDF export (make -j8)
+- MainWindow.cpp: Add qDebug statements to see page count and which files are found
+
+---
+2025-12-29 16:15 - Implement relative path storage in project files (make -j8)
+- ProjectReader.h: Added new constructor with project file path parameter, added m_projectDir member
+- ProjectReader.cpp: New constructor resolves relative paths on load, processDirectories() handles both absolute and relative paths with fallback logic
+- ProjectWriter.h: Updated processDirectories() signature to accept projectDir
+- ProjectWriter.cpp: Added QDir include, write() converts output directory to relative, processDirectories() converts directory paths to relative
+- ProjectOpeningContext.cpp: Updated to use new ProjectReader constructor with project file path
+
+---
+2025-12-29 16:50 - Fix PDF export for large TIFF files (make -j8)
+- PdfExporter.cpp: Added TiffReader include
+- PdfExporter.cpp: Updated both image loading locations (libharu and Qt PDF) to use TiffReader::readImage() for TIFF files instead of QImage - TiffReader uses libtiff directly which handles large files better than Qt's TIFF plugin

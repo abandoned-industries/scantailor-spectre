@@ -8,6 +8,10 @@
 
 #include "GrayImage.h"
 
+#ifdef Q_OS_MACOS
+#include <Accelerate/Accelerate.h>
+#endif
+
 namespace imageproc {
 /**
  * This is an optimized implementation for the case when every destination
@@ -342,6 +346,46 @@ static GrayImage scaleGrayToGray(const GrayImage& src, const QSize& dstSize) {
   return dst;
 }  // scaleGrayToGray
 
+#ifdef Q_OS_MACOS
+/**
+ * vImage-accelerated scaling using Apple's Accelerate framework.
+ * Uses SIMD-optimized Lanczos resampling for high quality scaling.
+ * Returns null GrayImage if vImage fails, allowing fallback to CPU implementation.
+ */
+static GrayImage vImageScaleGray(const GrayImage& src, const QSize& dstSize) {
+  const int sw = src.width();
+  const int sh = src.height();
+  const int dw = dstSize.width();
+  const int dh = dstSize.height();
+
+  // Set up source buffer
+  vImage_Buffer srcBuffer;
+  srcBuffer.data = const_cast<uint8_t*>(src.data());
+  srcBuffer.width = sw;
+  srcBuffer.height = sh;
+  srcBuffer.rowBytes = src.stride();
+
+  // Create destination image
+  GrayImage dst(dstSize);
+
+  // Set up destination buffer
+  vImage_Buffer dstBuffer;
+  dstBuffer.data = dst.data();
+  dstBuffer.width = dw;
+  dstBuffer.height = dh;
+  dstBuffer.rowBytes = dst.stride();
+
+  // Perform scaling with high-quality Lanczos resampling
+  vImage_Error err = vImageScale_Planar8(&srcBuffer, &dstBuffer, nullptr, kvImageHighQualityResampling);
+
+  if (err != kvImageNoError) {
+    return GrayImage();  // Signal failure, caller will use fallback
+  }
+
+  return dst;
+}
+#endif
+
 GrayImage scaleToGray(const GrayImage& src, const QSize& dstSize) {
   if (src.isNull()) {
     return src;
@@ -354,6 +398,16 @@ GrayImage scaleToGray(const GrayImage& src, const QSize& dstSize) {
   if (dstSize.isEmpty()) {
     return GrayImage();
   }
+
+#ifdef Q_OS_MACOS
+  // Try vImage-accelerated scaling first (uses SIMD, much faster on Apple Silicon)
+  GrayImage result = vImageScaleGray(src, dstSize);
+  if (!result.isNull()) {
+    return result;
+  }
+  // Fall through to CPU implementation if vImage fails
+#endif
+
   return scaleGrayToGray(src, dstSize);
 }
 }  // namespace imageproc

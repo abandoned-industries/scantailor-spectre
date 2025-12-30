@@ -15,6 +15,10 @@
 #include "Grayscale.h"
 #include "IntegralImage.h"
 
+#ifdef Q_OS_MACOS
+#include <dispatch/dispatch.h>
+#endif
+
 namespace imageproc {
 BinaryImage binarizeOtsu(const QImage& src) {
   return BinaryImage(src, BinaryThreshold::otsuThreshold(src));
@@ -69,10 +73,51 @@ BinaryImage binarizeSauvola(const QImage& src, const QSize windowSize, const dou
   const int windowRightHalf = windowSize.width() - windowLeftHalf;
 
   BinaryImage bwImg(w, h);
-  uint32_t* bwLine = bwImg.data();
+  uint32_t* bwData = bwImg.data();
   const int bwWpl = bwImg.wordsPerLine();
+  const uint8_t* grayData = gray.bits();
 
+#ifdef Q_OS_MACOS
+  // Parallel row processing using Grand Central Dispatch
+  // Capture pointers to integral images (read-only, thread-safe)
+  const IntegralImage<uint32_t>* integralPtr = &integralImage;
+  const IntegralImage<uint64_t>* integralSqPtr = &integralSqimage;
+
+  dispatch_apply(h, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^(size_t y) {
+    const int top = std::max(0, (int)y - windowLowerHalf);
+    const int bottom = std::min(h, (int)y + windowUpperHalf);
+    const uint8_t* grayRow = grayData + y * grayBpl;
+    uint32_t* bwRow = bwData + y * bwWpl;
+
+    for (int x = 0; x < w; ++x) {
+      const int left = std::max(0, x - windowLeftHalf);
+      const int right = std::min(w, x + windowRightHalf);
+      const int area = (bottom - top) * (right - left);
+      const QRect rect(left, top, right - left, bottom - top);
+      const double windowSum = integralPtr->sum(rect);
+      const double windowSqsum = integralSqPtr->sum(rect);
+
+      const double rArea = 1.0 / area;
+      const double mean = windowSum * rArea;
+      const double sqmean = windowSqsum * rArea;
+
+      const double variance = sqmean - mean * mean;
+      const double deviation = std::sqrt(std::fabs(variance));
+
+      const double threshold = mean * (1.0 + k * ((deviation + delta) / 128.0 - 1.0));
+
+      const uint32_t msb = uint32_t(1) << 31;
+      const uint32_t mask = msb >> (x & 31);
+      if (int(grayRow[x]) < threshold) {
+        bwRow[x >> 5] |= mask;
+      } else {
+        bwRow[x >> 5] &= ~mask;
+      }
+    }
+  });
+#else
   grayLine = gray.bits();
+  uint32_t* bwLine = bwData;
   for (int y = 0; y < h; ++y) {
     const int top = std::max(0, y - windowLowerHalf);
     const int bottom = std::min(h, y + windowUpperHalf);  // exclusive
@@ -107,6 +152,7 @@ BinaryImage binarizeSauvola(const QImage& src, const QSize windowSize, const dou
     grayLine += grayBpl;
     bwLine += bwWpl;
   }
+#endif
   return bwImg;
 }  // binarizeSauvola
 
