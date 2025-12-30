@@ -2,7 +2,7 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a12** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a14** | macOS (Apple Silicon) | Requires macOS 12 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
@@ -10,6 +10,12 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 
 ## What's New in Spectre
 
+### Version 2.0a14
+- **Portable Projects** - Projects now use relative paths; move projects between machines without relinking
+- **Large Project Export** - Fixed PDF export for books with 100+ pages
+- **Performance Boost** - Parallel Sauvola binarization, vImage SIMD acceleration, Metal GPU optimizations
+
+### Features
 - **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
 - **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
