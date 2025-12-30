@@ -10,7 +10,7 @@
 // Minimum image size to use GPU (smaller images are faster on CPU)
 // On Apple Silicon with unified memory, GPU overhead is minimal, allowing
 // acceleration for smaller images.
-static const int MIN_GPU_SIZE = 64;
+static const int MIN_GPU_SIZE = 32;  // Lower for Apple Silicon unified memory
 
 // Serial queue for thread-safe Metal operations
 static dispatch_queue_t getMorphologyQueue(void) {

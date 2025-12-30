@@ -511,3 +511,9 @@ current format extension only. If format changed after processing, files weren't
 2025-12-29 16:50 - Fix PDF export for large TIFF files (make -j8)
 - PdfExporter.cpp: Added TiffReader include
 - PdfExporter.cpp: Updated both image loading locations (libharu and Qt PDF) to use TiffReader::readImage() for TIFF files instead of QImage - TiffReader uses libtiff directly which handles large files better than Qt's TIFF plugin
+
+---
+2025-12-29 19:25 - Performance optimizations (make -j8)
+- MetalGaussBlur.mm: Lower MIN_GPU_DIMENSION from 64 to 32
+- MetalMorphology.mm: Lower MIN_GPU_SIZE from 64 to 32
+- Morphology.cpp: Add vImage SIMD acceleration for erosion/dilation CPU fallback

@@ -15,9 +15,94 @@
 
 #ifdef Q_OS_MACOS
 #include "MetalMorphology.h"
+#include <Accelerate/Accelerate.h>
 #endif
 
 namespace imageproc {
+
+#ifdef Q_OS_MACOS
+/**
+ * vImage-accelerated grayscale dilation using Apple's Accelerate framework.
+ * Uses SIMD-optimized max filter. Returns null GrayImage if vImage fails.
+ */
+static GrayImage vImageDilateGray(const GrayImage& src, const Brick& brick, unsigned char /*borderValue*/) {
+  const int width = src.width();
+  const int height = src.height();
+  const int brickWidth = brick.width();
+  const int brickHeight = brick.height();
+
+  // vImage needs odd kernel dimensions for symmetric operation
+  if (brickWidth < 1 || brickHeight < 1) {
+    return GrayImage();
+  }
+
+  // Create rectangular kernel (all 255 for max filter)
+  std::vector<uint8_t> kernel(brickWidth * brickHeight, 255);
+
+  // Set up source buffer
+  vImage_Buffer srcBuf;
+  srcBuf.data = const_cast<uint8_t*>(src.data());
+  srcBuf.width = width;
+  srcBuf.height = height;
+  srcBuf.rowBytes = src.stride();
+
+  // Create destination
+  GrayImage dst(src.size());
+  vImage_Buffer dstBuf;
+  dstBuf.data = dst.data();
+  dstBuf.width = width;
+  dstBuf.height = height;
+  dstBuf.rowBytes = dst.stride();
+
+  vImage_Error err = vImageDilate_Planar8(&srcBuf, &dstBuf, 0, 0,
+                                           kernel.data(), brickHeight, brickWidth,
+                                           kvImageEdgeExtend);
+  if (err != kvImageNoError) {
+    return GrayImage();
+  }
+  return dst;
+}
+
+/**
+ * vImage-accelerated grayscale erosion using Apple's Accelerate framework.
+ * Uses SIMD-optimized min filter. Returns null GrayImage if vImage fails.
+ */
+static GrayImage vImageErodeGray(const GrayImage& src, const Brick& brick, unsigned char /*borderValue*/) {
+  const int width = src.width();
+  const int height = src.height();
+  const int brickWidth = brick.width();
+  const int brickHeight = brick.height();
+
+  if (brickWidth < 1 || brickHeight < 1) {
+    return GrayImage();
+  }
+
+  // Create rectangular kernel (all 255 for min filter)
+  std::vector<uint8_t> kernel(brickWidth * brickHeight, 255);
+
+  vImage_Buffer srcBuf;
+  srcBuf.data = const_cast<uint8_t*>(src.data());
+  srcBuf.width = width;
+  srcBuf.height = height;
+  srcBuf.rowBytes = src.stride();
+
+  GrayImage dst(src.size());
+  vImage_Buffer dstBuf;
+  dstBuf.data = dst.data();
+  dstBuf.width = width;
+  dstBuf.height = height;
+  dstBuf.rowBytes = dst.stride();
+
+  vImage_Error err = vImageErode_Planar8(&srcBuf, &dstBuf, 0, 0,
+                                          kernel.data(), brickHeight, brickWidth,
+                                          kvImageEdgeExtend);
+  if (err != kvImageNoError) {
+    return GrayImage();
+  }
+  return dst;
+}
+#endif  // Q_OS_MACOS
+
 Brick::Brick(const QSize& size) {
   const int xOrigin = size.width() >> 1;
   const int yOrigin = size.height() >> 1;
@@ -691,16 +776,21 @@ GrayImage dilateGray(const GrayImage& src,
 
 #ifdef Q_OS_MACOS
   // Try GPU acceleration for simple case where dstArea == src.rect()
-  // Thread safety fix (2025-12-29) may have resolved prior dilation bug
-  if (dstArea == src.rect() && metalMorphologyAvailable()) {
-    GrayImage dst(src);  // Copy source to destination
-    const int brickWidth = brick.width();
-    const int brickHeight = brick.height();
-    if (metalDilateGray(dst.data(), dst.width(), dst.height(), dst.stride(),
-                        brickWidth, brickHeight, srcSurroundings)) {
-      return dst;
+  if (dstArea == src.rect()) {
+    if (metalMorphologyAvailable()) {
+      GrayImage dst(src);
+      const int brickWidth = brick.width();
+      const int brickHeight = brick.height();
+      if (metalDilateGray(dst.data(), dst.width(), dst.height(), dst.stride(),
+                          brickWidth, brickHeight, srcSurroundings)) {
+        return dst;
+      }
     }
-    // Fall through to CPU if GPU failed
+    // Try vImage SIMD acceleration
+    GrayImage result = vImageDilateGray(src, brick, srcSurroundings);
+    if (!result.isNull()) {
+      return result;
+    }
   }
 #endif
 
@@ -753,15 +843,21 @@ GrayImage erodeGray(const GrayImage& src,
 
 #ifdef Q_OS_MACOS
   // Try GPU acceleration for simple case where dstArea == src.rect()
-  if (dstArea == src.rect() && metalMorphologyAvailable()) {
-    GrayImage dst(src);  // Copy source to destination
-    const int brickWidth = brick.width();
-    const int brickHeight = brick.height();
-    if (metalErodeGray(dst.data(), dst.width(), dst.height(), dst.stride(),
-                       brickWidth, brickHeight, srcSurroundings)) {
-      return dst;
+  if (dstArea == src.rect()) {
+    if (metalMorphologyAvailable()) {
+      GrayImage dst(src);
+      const int brickWidth = brick.width();
+      const int brickHeight = brick.height();
+      if (metalErodeGray(dst.data(), dst.width(), dst.height(), dst.stride(),
+                         brickWidth, brickHeight, srcSurroundings)) {
+        return dst;
+      }
     }
-    // Fall through to CPU if GPU failed
+    // Try vImage SIMD acceleration
+    GrayImage result = vImageErodeGray(src, brick, srcSurroundings);
+    if (!result.isNull()) {
+      return result;
+    }
   }
 #endif
 
