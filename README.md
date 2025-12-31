@@ -2,13 +2,20 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a14** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a15** | macOS (Apple Silicon) | Requires macOS 12 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.  
 
 ## What's New in Spectre
+
+### Version 2.0a15
+- **Auto Levels** - One-click tonal correction for cleaner pages
+- **PDF DPI Detection** - Import honors embedded DPI for more accurate sizing
+- **Image Quality Improvements** - Better results across output processing
+- **Apply To Fixes** - Despeckle and Depth Perception batch dialogs behave correctly
+- **Output Performance** - Faster illumination normalization, transforms, and TIFF writing
 
 ### Version 2.0a14
 - **Portable Projects** - Projects now use relative paths; move projects between machines without relinking
