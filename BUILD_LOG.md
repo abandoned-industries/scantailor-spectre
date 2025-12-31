@@ -519,6 +519,16 @@ current format extension only. If format changed after processing, files weren't
 - Morphology.cpp: Add vImage SIMD acceleration for erosion/dilation CPU fallback
 
 ---
+2025-12-30 19:40 - v2.0a15 RELEASE
+- **Status**: ✅ Released
+- **DMG**: ScanTailor-Spectre-2.0a15-20251230-1934.dmg
+- **Release**: https://github.com/abandoned-industries/scantailor-spectre/releases/tag/v2.0a15
+- **Notes**:
+  - README updated to 2.0a15, PDF regenerated and bundled before signing
+  - App notarized + stapled, DMG notarized + stapled
+  - DMG creation: `hdiutil create -srcfolder` failed with `Operation not permitted` (likely /Volumes permission), so used `hdiutil makehybrid` to create `*.cdr.dmg` then `hdiutil convert -format UDZO` to produce the final DMG
+
+---
 2024-12-29 21:15 - Release build 2.0a14 (make -j16)
 - Full release build for DMG
 - Version 2.0a14 with performance optimizations
