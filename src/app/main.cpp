@@ -61,6 +61,10 @@ int main(int argc, char* argv[]) {
 #ifdef Q_OS_MAC
   // macOS: Use AppController to manage StartupWindow and MainWindow
   AppController controller;
+
+  // Connect file open events (from Finder double-click, drag-drop, Open With)
+  QObject::connect(&app, &Application::fileOpenRequested, &controller, &AppController::openProject);
+
   if (args.size() > 1) {
     controller.openProject(args.at(1));
   } else {

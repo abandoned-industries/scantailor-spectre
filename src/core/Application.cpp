@@ -7,6 +7,7 @@
 
 #include <QDir>
 #include <QDirIterator>
+#include <QFileOpenEvent>
 #include <QFontDatabase>
 #include <QTemporaryDir>
 
@@ -25,6 +26,15 @@ bool Application::notify(QObject* receiver, QEvent* e) {
     OutOfMemoryHandler::instance().handleOutOfMemorySituation();
     return false;
   }
+}
+
+bool Application::event(QEvent* e) {
+  if (e->type() == QEvent::FileOpen) {
+    QFileOpenEvent* fileEvent = static_cast<QFileOpenEvent*>(e);
+    emit fileOpenRequested(fileEvent->file());
+    return true;
+  }
+  return QApplication::event(e);
 }
 
 void Application::installLanguage(const QString& locale) {

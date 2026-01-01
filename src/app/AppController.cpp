@@ -27,9 +27,40 @@ void AppController::start() {
 }
 
 void AppController::openProject(const QString& path) {
+  // Check if this is a PDF file - if so, use the PDF import flow
+  if (path.endsWith(".pdf", Qt::CaseInsensitive)) {
+    openPdfFile(path);
+    return;
+  }
+
+  // Otherwise treat as a .ScanTailor project file
   MainWindow* window = createNewMainWindow();
   if (window) {
     window->openProject(path);
+  }
+}
+
+void AppController::openPdfFile(const QString& pdfFile) {
+  // Read PDF info to get page count and detected DPI
+  const PdfReader::PdfInfo pdfInfo = PdfReader::readPdfInfo(pdfFile);
+  if (pdfInfo.pageCount == 0) {
+    QMessageBox::warning(nullptr, tr("Error"), tr("Failed to read PDF file."));
+    return;
+  }
+
+  // Show DPI selection dialog
+  PdfImportDialog dialog(nullptr, pdfFile, pdfInfo.pageCount, pdfInfo.detectedDpi);
+  if (dialog.exec() != QDialog::Accepted) {
+    return;  // User cancelled
+  }
+
+  // Store the selected import DPI for this PDF
+  PdfReader::setImportDpi(pdfFile, dialog.selectedDpi());
+
+  // Create new MainWindow and import the PDF
+  MainWindow* window = createNewMainWindow();
+  if (window) {
+    window->importPdfFile(pdfFile);
   }
 }
 

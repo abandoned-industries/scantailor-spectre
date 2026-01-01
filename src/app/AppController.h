@@ -24,6 +24,7 @@ class AppController : public QObject {
 
   void start();
   void openProject(const QString& path);
+  void openPdfFile(const QString& pdfFile);
 
  public slots:
   void showStartupWindow();

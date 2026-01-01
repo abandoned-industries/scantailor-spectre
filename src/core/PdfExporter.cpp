@@ -351,24 +351,40 @@ bool exportWithLibHaru(const QStringList& imagePaths,
         const float pdfX = word.bounds.x() * scaleX;
         const float pdfY = pageHeight - (word.bounds.y() + word.bounds.height()) * scaleY;
 
-        // Calculate font size to match word height
-        const float wordHeight = word.bounds.height() * scaleY;
-        // Use 80% of box height as font size (typical line height ratio)
-        const float fontSize = wordHeight * 0.8f;
+        // Target dimensions in PDF points
+        const float targetWidth = word.bounds.width() * scaleX;
+        const float targetHeight = word.bounds.height() * scaleY;
+
+        // Use full box height as font size (not 0.8x - we want exact coverage)
+        const float fontSize = targetHeight;
 
         if (fontSize < 1.0f || fontSize > 1000.0f) {
           continue;  // Skip invalid sizes
         }
 
+        // Calculate the natural width of the text at this font size
+        const QByteArray textUtf8 = word.text.toUtf8();
+        const HPDF_TextWidth tw = HPDF_Font_TextWidth(font,
+            reinterpret_cast<const HPDF_BYTE*>(textUtf8.constData()),
+            static_cast<HPDF_UINT>(textUtf8.length()));
+        const float naturalWidth = tw.width * fontSize / 1000.0f;
+
+        // Calculate horizontal scaling to match target width
+        float hScale = 100.0f;  // 100% = normal
+        if (naturalWidth > 0.01f) {
+          hScale = (targetWidth / naturalWidth) * 100.0f;
+          // Clamp to reasonable range
+          if (hScale < 50.0f) hScale = 50.0f;
+          if (hScale > 200.0f) hScale = 200.0f;
+        }
+
         // Each word gets its own text object for absolute positioning
         HPDF_Page_BeginText(page);
         HPDF_Page_SetFontAndSize(page, font, fontSize);
+        HPDF_Page_SetHorizontalScalling(page, hScale);
         // Set text to invisible (render mode 3 = neither fill nor stroke)
         HPDF_Page_SetTextRenderingMode(page, HPDF_INVISIBLE);
         HPDF_Page_MoveTextPos(page, pdfX, pdfY);
-
-        // Convert to UTF-8 for PDF
-        const QByteArray textUtf8 = word.text.toUtf8();
         HPDF_Page_ShowText(page, textUtf8.constData());
         HPDF_Page_EndText(page);
       }

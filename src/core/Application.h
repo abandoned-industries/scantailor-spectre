@@ -14,7 +14,12 @@ class Application : public QApplication {
   Application(int& argc, char** argv);
 
   bool notify(QObject* receiver, QEvent* e) override;
+  bool event(QEvent* e) override;
 
+ signals:
+  void fileOpenRequested(const QString& filePath);
+
+ public:
   const QString& getCurrentLocale() const;
 
   void installLanguage(const QString& locale);

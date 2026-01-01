@@ -59,6 +59,18 @@
             <key>LSHandlerRank</key>
             <string>Alternate</string>
         </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>PDF Document</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>pdf</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+        </dict>
     </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
