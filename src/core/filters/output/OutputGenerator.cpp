@@ -640,18 +640,21 @@ void fillMarginsInPlace(QImage& image,
                         const QPolygonF& contentPoly,
                         const QColor& color,
                         const bool antialiasing = true) {
-  if (contentPoly.intersected(QRectF(image.rect())) != contentPoly) {
-    throw std::invalid_argument("fillMarginsInPlace: the content area exceeds image rect.");
+  // Clip the content polygon to image bounds instead of throwing.
+  // This handles edge cases from dewarping where the polygon may slightly exceed bounds.
+  const QPolygonF clippedPoly = contentPoly.intersected(QRectF(image.rect()));
+  if (clippedPoly.isEmpty()) {
+    return;  // Nothing to preserve, entire image would be filled
   }
 
   if ((image.format() == QImage::Format_Mono) || (image.format() == QImage::Format_MonoLSB)) {
     BinaryImage binaryImage(image);
-    PolygonRasterizer::fillExcept(binaryImage, (color == Qt::black) ? BLACK : WHITE, contentPoly, Qt::WindingFill);
+    PolygonRasterizer::fillExcept(binaryImage, (color == Qt::black) ? BLACK : WHITE, clippedPoly, Qt::WindingFill);
     image = binaryImage.toQImage();
     return;
   }
   if ((image.format() == QImage::Format_Indexed8) && image.isGrayscale()) {
-    PolygonRasterizer::grayFillExcept(image, static_cast<unsigned char>(qGray(color.rgb())), contentPoly,
+    PolygonRasterizer::grayFillExcept(image, static_cast<unsigned char>(qGray(color.rgb())), clippedPoly,
                                       Qt::WindingFill);
     return;
   }
@@ -669,7 +672,7 @@ void fillMarginsInPlace(QImage& image,
     QPainterPath outerPath;
     outerPath.addRect(image.rect());
     QPainterPath innerPath;
-    innerPath.addPolygon(PolygonUtils::round(contentPoly));
+    innerPath.addPolygon(PolygonUtils::round(clippedPoly));
 
     painter.drawPath(outerPath.subtracted(innerPath));
   }
@@ -677,11 +680,14 @@ void fillMarginsInPlace(QImage& image,
 }
 
 void fillMarginsInPlace(BinaryImage& image, const QPolygonF& contentPoly, const BWColor color) {
-  if (contentPoly.intersected(QRectF(image.rect())) != contentPoly) {
-    throw std::invalid_argument("fillMarginsInPlace: the content area exceeds image rect.");
+  // Clip the content polygon to image bounds instead of throwing.
+  // This handles edge cases from dewarping where the polygon may slightly exceed bounds.
+  const QPolygonF clippedPoly = contentPoly.intersected(QRectF(image.rect()));
+  if (clippedPoly.isEmpty()) {
+    return;  // Nothing to preserve, entire image would be filled
   }
 
-  PolygonRasterizer::fillExcept(image, color, contentPoly, Qt::WindingFill);
+  PolygonRasterizer::fillExcept(image, color, clippedPoly, Qt::WindingFill);
 }
 
 void fillMarginsInPlace(BinaryImage& image, const BinaryImage& contentMask, const BWColor color) {

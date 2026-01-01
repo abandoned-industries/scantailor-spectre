@@ -15,6 +15,7 @@
 
 #include "DebugImages.h"
 #include "NumericTraits.h"
+#include "TaskStatus.h"
 
 using namespace imageproc;
 
@@ -79,7 +80,7 @@ class TextLineRefiner::Optimizer {
 TextLineRefiner::TextLineRefiner(const GrayImage& image, const Dpi& dpi, const Vec2f& unitDownVector)
     : m_image(image), m_dpi(dpi), m_unitDownVec(unitDownVector) {}
 
-void TextLineRefiner::refine(std::list<std::vector<QPointF>>& polylines, const int iterations, DebugImages* dbg) const {
+void TextLineRefiner::refine(std::list<std::vector<QPointF>>& polylines, const int iterations, DebugImages* dbg, const TaskStatus* status) const {
   if (polylines.empty()) {
     return;
   }
@@ -103,8 +104,11 @@ void TextLineRefiner::refine(std::list<std::vector<QPointF>>& polylines, const i
   float vSigma = (4.0f / 200.f) * m_dpi.vertical();
   calcBlurredGradient(gradient, hSigma, vSigma);
 
+  if (status) status->throwIfCancelled();
+
   for (Snake& snake : snakes) {
     evolveSnake(snake, gradient, ON_CONVERGENCE_STOP);
+    if (status) status->throwIfCancelled();
   }
   if (dbg) {
     dbg->add(visualizeSnakes(snakes, &gradient), "evolved_snakes1");
@@ -115,8 +119,11 @@ void TextLineRefiner::refine(std::list<std::vector<QPointF>>& polylines, const i
   vSigma *= 0.5f;
   calcBlurredGradient(gradient, hSigma, vSigma);
 
+  if (status) status->throwIfCancelled();
+
   for (Snake& snake : snakes) {
     evolveSnake(snake, gradient, ON_CONVERGENCE_GO_FINER);
+    if (status) status->throwIfCancelled();
   }
   if (dbg) {
     dbg->add(visualizeSnakes(snakes, &gradient), "evolved_snakes2");

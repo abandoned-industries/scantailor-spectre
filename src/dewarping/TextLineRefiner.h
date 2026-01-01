@@ -19,13 +19,14 @@
 class Dpi;
 class DebugImages;
 class QImage;
+class TaskStatus;
 
 namespace dewarping {
 class TextLineRefiner {
  public:
   TextLineRefiner(const imageproc::GrayImage& image, const Dpi& dpi, const Vec2f& unitDownVector);
 
-  void refine(std::list<std::vector<QPointF>>& polylines, int iterations, DebugImages* dbg) const;
+  void refine(std::list<std::vector<QPointF>>& polylines, int iterations, DebugImages* dbg, const TaskStatus* status = nullptr) const;
 
  private:
   enum OnConvergence { ON_CONVERGENCE_STOP, ON_CONVERGENCE_GO_FINER };

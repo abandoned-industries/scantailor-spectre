@@ -617,3 +617,9 @@ current format extension only. If format changed after processing, files weren't
 ---
 2025-12-30 10:35 - Transform identity fast path (cmake --build build -j8)
 - Transform.cpp: early return for identity transforms to avoid per-pixel mapping
+
+---
+2026-01-01 - Fix fillMarginsInPlace exception during dewarping (make -j8)
+- OutputGenerator.cpp: Changed fillMarginsInPlace to clip polygon to image bounds instead of throwing
+  exception when content area exceeds image rect. This handles edge cases from dewarping where the
+  polygon may slightly extend beyond boundaries. Two overloads fixed (QImage and BinaryImage versions).

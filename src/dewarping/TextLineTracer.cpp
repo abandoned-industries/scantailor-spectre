@@ -50,6 +50,8 @@ void TextLineTracer::trace(const GrayImage& input,
     dbg->add(downscaled, "downscaled");
   }
 
+  status.throwIfCancelled();
+
   const int downscaledWidth = downscaled.width();
   const int downscaledHeight = downscaled.height();
 
@@ -65,16 +67,23 @@ void TextLineTracer::trace(const GrayImage& input,
   if (dbg) {
     dbg->add(binarized, "binarized");
   }
+
+  status.throwIfCancelled();
+
   // detectVertContentBounds() is sensitive to clutter and speckles, so let's try to remove it.
   sanitizeBinaryImage(binarized, downscaledContentRect);
   if (dbg) {
     dbg->add(binarized, "sanitized");
   }
 
+  status.throwIfCancelled();
+
   std::pair<QLineF, QLineF> vertBounds(detectVertContentBounds(binarized, dbg));
   if (dbg) {
     dbg->add(visualizeVerticalBounds(binarized.toQImage(), vertBounds), "vertBounds");
   }
+
+  status.throwIfCancelled();
 
   std::list<std::vector<QPointF>> polylines;
   extractTextLines(polylines, stretchGrayRange(downscaled), vertBounds, dbg);
@@ -82,11 +91,15 @@ void TextLineTracer::trace(const GrayImage& input,
     dbg->add(visualizePolylines(downscaled, polylines), "traced");
   }
 
+  status.throwIfCancelled();
+
   filterShortCurves(polylines, vertBounds.first, vertBounds.second);
   filterOutOfBoundsCurves(polylines, vertBounds.first, vertBounds.second);
   if (dbg) {
     dbg->add(visualizePolylines(downscaled, polylines), "filtered1");
   }
+
+  status.throwIfCancelled();
 
   Vec2f unitDownVector(calcAvgUnitVector(vertBounds));
   unitDownVector /= std::sqrt(unitDownVector.squaredNorm());
@@ -94,7 +107,9 @@ void TextLineTracer::trace(const GrayImage& input,
     unitDownVector = -unitDownVector;
   }
   TextLineRefiner refiner(downscaled, Dpi(200, 200), unitDownVector);
-  refiner.refine(polylines, /*iterations=*/100, dbg);
+  refiner.refine(polylines, /*iterations=*/100, dbg, &status);
+
+  status.throwIfCancelled();
 
   filterEdgyCurves(polylines);
   if (dbg) {
