@@ -623,3 +623,23 @@ current format extension only. If format changed after processing, files weren't
 - OutputGenerator.cpp: Changed fillMarginsInPlace to clip polygon to image bounds instead of throwing
   exception when content area exceeds image rect. This handles edge cases from dewarping where the
   polygon may slightly extend beyond boundaries. Two overloads fixed (QImage and BinaryImage versions).
+
+---
+2026-01-01 - Add L/R suffix for split pages in thumbnail labels (make -j8)
+- ThumbnailSequence.cpp: Append "L" or "R" to thumbnail label text for split pages
+- StatusBarPanel.cpp: Removed redundant page info display from status bar (now shown in thumbnails)
+
+---
+2026-01-02 13:47 - Harden thumbnail write failures (no build)
+- src/core/ThumbnailPixmapCache.cpp: ensure thumbnail directory exists before writes
+- src/core/ThumbnailPixmapCache.cpp: log and continue caching when disk write fails
+- src/core/ThumbnailPixmapCache.cpp: log failed thumbnail writes during background load
+
+---
+2026-01-02 13:47 - Add thumbnail filename fallback (no build)
+- src/core/ThumbnailPixmapCache.cpp: add shorter fallback filename and retry save
+- src/core/ThumbnailPixmapCache.cpp: load from fallback if primary missing
+
+---
+2026-01-02 13:47 - Build after thumbnail fallback (make -j8)
+- built after ThumbnailPixmapCache fallback change

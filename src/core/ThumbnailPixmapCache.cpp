@@ -154,6 +154,8 @@ class ThumbnailPixmapCache::Impl : public QThread {
 
   static QString getThumbFilePath(const ImageId& imageId, const QString& thumbDir, const QSize& maxThumbSize);
 
+  static QString getThumbFilePathAlt(const ImageId& imageId, const QString& thumbDir, const QSize& maxThumbSize);
+
   static QImage makeThumbnail(const QImage& image, const QSize& maxThumbSize);
 
   void queuedToInProgress(const LoadQueue::iterator& lqIt);
@@ -461,6 +463,11 @@ void ThumbnailPixmapCache::Impl::ensureThumbnailExists(const ImageId& imageId, c
   const QSize maxThumbSize(m_maxThumbSize);
   locker.unlock();
 
+  if (!QDir().mkpath(thumbDir)) {
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
+    return;
+  }
+
   const QString thumbFilePath(getThumbFilePath(imageId, thumbDir, m_maxThumbSize));
   if (QFile::exists(thumbFilePath)) {
     return;
@@ -490,24 +497,36 @@ void ThumbnailPixmapCache::Impl::recreateThumbnail(const ImageId& imageId, const
   locker.unlock();
 
   const QString thumbFilePath(getThumbFilePath(imageId, thumbDir, m_maxThumbSize));
+  const QString altThumbFilePath(getThumbFilePathAlt(imageId, thumbDir, m_maxThumbSize));
   const QImage thumbnail(makeThumbnail(image, maxThumbSize));
   bool thumbWritten = false;
 
-  // Note that we may be called from multiple threads at the same time.
-  AtomicFileOverwriter overwriter;
-  QIODevice* iodev = overwriter.startWriting(thumbFilePath);
-  if (iodev && thumbnail.save(iodev, "PNG")) {
-    thumbWritten = overwriter.commit();
+  if (QDir().mkpath(thumbDir)) {
+    // Note that we may be called from multiple threads at the same time.
+    AtomicFileOverwriter overwriter;
+    QIODevice* iodev = overwriter.startWriting(thumbFilePath);
+    if (iodev && thumbnail.save(iodev, "PNG")) {
+      thumbWritten = overwriter.commit();
+    } else {
+      overwriter.abort();
+    }
+    if (!thumbWritten) {
+      QIODevice* altIodev = overwriter.startWriting(altThumbFilePath);
+      if (altIodev && thumbnail.save(altIodev, "PNG")) {
+        thumbWritten = overwriter.commit();
+      } else {
+        overwriter.abort();
+      }
+    }
   } else {
-    overwriter.abort();
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
   }
 
   if (!thumbWritten) {
     qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << thumbFilePath;
-    return;
   }
 
-  // Convert to pixmap for caching
+  // Convert to pixmap for caching even if disk write failed.
   const QPixmap newPixmap = QPixmap::fromImage(thumbnail);
 
   const QMutexLocker locker2(&m_mutex);
@@ -623,8 +642,13 @@ QImage ThumbnailPixmapCache::Impl::loadSaveThumbnail(const ImageId& imageId,
                                                      const QString& thumbDir,
                                                      const QSize& maxThumbSize) {
   const QString thumbFilePath(getThumbFilePath(imageId, thumbDir, maxThumbSize));
+  const QString altThumbFilePath(getThumbFilePathAlt(imageId, thumbDir, maxThumbSize));
 
   QImage image(ImageLoader::load(thumbFilePath, 0));
+  if (!image.isNull()) {
+    return image;
+  }
+  image = ImageLoader::load(altThumbFilePath, 0);
   if (!image.isNull()) {
     return image;
   }
@@ -635,7 +659,16 @@ QImage ThumbnailPixmapCache::Impl::loadSaveThumbnail(const ImageId& imageId,
   }
 
   const QImage thumbnail(makeThumbnail(image, maxThumbSize));
-  thumbnail.save(thumbFilePath, "PNG");
+  if (QDir().mkpath(thumbDir)) {
+    if (!thumbnail.save(thumbFilePath, "PNG")) {
+      qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << thumbFilePath;
+      if (!thumbnail.save(altThumbFilePath, "PNG")) {
+        qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << altThumbFilePath;
+      }
+    }
+  } else {
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
+  }
   return thumbnail;
 }
 
@@ -666,6 +699,30 @@ QString ThumbnailPixmapCache::Impl::getThumbFilePath(const ImageId& imageId,
   QString thumbFilePath(thumbDir);
   thumbFilePath += QChar('/');
   thumbFilePath += baseName;
+  thumbFilePath += QChar('_');
+  thumbFilePath += QString::number(imageId.zeroBasedPage());
+  thumbFilePath += QChar('_');
+  thumbFilePath += cacheVersionStr;
+  thumbFilePath += QChar('_');
+  thumbFilePath += origPathHashStr;
+  thumbFilePath += QChar('_');
+  thumbFilePath += thumbnailQualityStr;
+  thumbFilePath += QString::fromLatin1(".png");
+  return thumbFilePath;
+}
+
+QString ThumbnailPixmapCache::Impl::getThumbFilePathAlt(const ImageId& imageId,
+                                                        const QString& thumbDir,
+                                                        const QSize& maxThumbSize) {
+  const QString cacheVersionStr = QString::fromLatin1("v4s");  // short filename fallback
+  const QByteArray origPathHash = QCryptographicHash::hash(imageId.filePath().toUtf8(), QCryptographicHash::Md5)
+                                      .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
+  const QString origPathHashStr = QString::fromLatin1(origPathHash.data(), origPathHash.size());
+  const QString thumbnailQualityStr = QChar('q') + QString::number(maxThumbSize.width());
+
+  QString thumbFilePath(thumbDir);
+  thumbFilePath += QChar('/');
+  thumbFilePath += QString::fromLatin1("thumb");
   thumbFilePath += QChar('_');
   thumbFilePath += QString::number(imageId.zeroBasedPage());
   thumbFilePath += QChar('_');
