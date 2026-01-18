@@ -10,7 +10,9 @@
 #include <core/TiffWriter.h>
 
 #include <QDir>
+#include <algorithm>
 #include <boost/bind/bind.hpp>
+#include <cmath>
 #include <utility>
 
 #include "DebugImagesImpl.h"
@@ -320,30 +322,128 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
   }
 
   if (needReprocess) {
-    // Even in batch processing mode we should still write automask, because it
-    // will be needed when we view the results back in interactive mode.
-    // The same applies even more to speckles file, as we need it not only
-    // for visualization purposes, but also for re-doing despeckling at
-    // different levels without going through the whole output generation process.
-    const bool writeAutomask = renderParams.mixedOutput();
-    const bool writeSpecklesFile = ((params.despeckleLevel() != .0) && renderParams.needBinarization());
+    // Check if pass-through mode is enabled - skip all processing
+    const OutputProcessingParams outputProcessingParams = m_settings->getOutputProcessingParams(m_pageId);
+    const bool isPassThrough = outputProcessingParams.passThrough();
 
-    automaskImg = BinaryImage();
-    specklesImg = BinaryImage();
+    if (isPassThrough) {
+      // Pass-through mode: scale to output DPI, but still apply adjustments (brightness/contrast)
+      const QImage& origImage = data.origImage();
+      const QSize outputSize = newXform.resultingRect().size().toSize();
+      outImg = origImage.scaled(outputSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
-    // OutputGenerator will write a new distortion model
-    // there, if dewarping mode is AUTO.
-    DistortionModel distortionModel;
-    if (params.dewarpingOptions().dewarpingMode() == MANUAL) {
-      distortionModel = params.distortionModel();
-    }
+      // Apply brightness/contrast adjustments even in pass-through mode
+      const double brightness = outputProcessingParams.brightness();
+      const double contrast = outputProcessingParams.contrast();
+      const bool autoLevels = outputProcessingParams.autoLevels();
 
-    bool invalidateParams = false;
-    {
-      std::unique_ptr<OutputImage> outputImage
-          = generator.process(status, data, newPictureZones, newFillZones, distortionModel, params.depthPerception(),
-                              writeAutomask ? &automaskImg : nullptr, writeSpecklesFile ? &specklesImg : nullptr,
-                              m_dbg.get(), m_pageId, m_settings);
+      if (autoLevels || brightness != 0.0 || contrast != 0.0) {
+        QImage work = outImg.convertToFormat(QImage::Format_ARGB32);
+        const int w = work.width();
+        const int h = work.height();
+
+        // Auto levels: stretch histogram to full 0-255 range
+        if (autoLevels) {
+          int minVal = 255, maxVal = 0;
+          for (int y = 0; y < h; ++y) {
+            const QRgb* line = reinterpret_cast<const QRgb*>(work.constScanLine(y));
+            for (int x = 0; x < w; ++x) {
+              const QRgb p = line[x];
+              const int gray = (qRed(p) + qGreen(p) + qBlue(p)) / 3;
+              minVal = std::min(minVal, gray);
+              maxVal = std::max(maxVal, gray);
+            }
+          }
+          if (maxVal > minVal) {
+            const double scale = 255.0 / (maxVal - minVal);
+            for (int y = 0; y < h; ++y) {
+              QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
+              for (int x = 0; x < w; ++x) {
+                const QRgb p = line[x];
+                int r = static_cast<int>((qRed(p) - minVal) * scale);
+                int g = static_cast<int>((qGreen(p) - minVal) * scale);
+                int b = static_cast<int>((qBlue(p) - minVal) * scale);
+                r = std::clamp(r, 0, 255);
+                g = std::clamp(g, 0, 255);
+                b = std::clamp(b, 0, 255);
+                line[x] = qRgb(r, g, b);
+              }
+            }
+          }
+        }
+
+        // Apply brightness/contrast
+        if (brightness != 0.0 || contrast != 0.0) {
+          const int bShift = static_cast<int>(brightness * 255.0);
+          const double cMul = std::max(0.2, std::pow(2.0, contrast * 1.3));
+
+          for (int y = 0; y < h; ++y) {
+            QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
+            for (int x = 0; x < w; ++x) {
+              const QRgb p = line[x];
+              int r = static_cast<int>((qRed(p) - 128) * cMul + 128 + bShift);
+              int g = static_cast<int>((qGreen(p) - 128) * cMul + 128 + bShift);
+              int b = static_cast<int>((qBlue(p) - 128) * cMul + 128 + bShift);
+              r = std::clamp(r, 0, 255);
+              g = std::clamp(g, 0, 255);
+              b = std::clamp(b, 0, 255);
+              line[x] = qRgb(r, g, b);
+            }
+          }
+        }
+
+        outImg = work.convertToFormat(outImg.format());
+      }
+
+      bool invalidateParams = false;
+      if (!writeOutputImage(outFilePath, outImg, m_outFileNameGen)) {
+        invalidateParams = true;
+      } else {
+        deleteMutuallyExclusiveOutputFiles();
+      }
+
+      // Clean up any split output files since pass-through doesn't generate them
+      QFile::remove(foregroundFilePath);
+      QFile::remove(backgroundFilePath);
+      QFile::remove(originalBackgroundFilePath);
+
+      if (invalidateParams) {
+        m_settings->removeOutputParams(m_pageId);
+      } else {
+        const OutputParams outParams(
+            newOutputImageParams, OutputFileParams(sourceFileInfo), OutputFileParams(QFileInfo(outFilePath)),
+            OutputFileParams(), OutputFileParams(), OutputFileParams(), OutputFileParams(), OutputFileParams(),
+            newPictureZones, newFillZones);
+        m_settings->setOutputParams(m_pageId, outParams);
+      }
+
+      m_thumbnailCache->recreateThumbnail(ImageId(outFilePath), outImg);
+    } else {
+      // Normal processing path
+      // Even in batch processing mode we should still write automask, because it
+      // will be needed when we view the results back in interactive mode.
+      // The same applies even more to speckles file, as we need it not only
+      // for visualization purposes, but also for re-doing despeckling at
+      // different levels without going through the whole output generation process.
+      const bool writeAutomask = renderParams.mixedOutput();
+      const bool writeSpecklesFile = ((params.despeckleLevel() != .0) && renderParams.needBinarization());
+
+      automaskImg = BinaryImage();
+      specklesImg = BinaryImage();
+
+      // OutputGenerator will write a new distortion model
+      // there, if dewarping mode is AUTO.
+      DistortionModel distortionModel;
+      if (params.dewarpingOptions().dewarpingMode() == MANUAL) {
+        distortionModel = params.distortionModel();
+      }
+
+      bool invalidateParams = false;
+      {
+        std::unique_ptr<OutputImage> outputImage
+            = generator.process(status, data, newPictureZones, newFillZones, distortionModel, params.depthPerception(),
+                                writeAutomask ? &automaskImg : nullptr, writeSpecklesFile ? &specklesImg : nullptr,
+                                m_dbg.get(), m_pageId, m_settings);
 
       params = m_settings->getParams(m_pageId);
 
@@ -453,7 +553,8 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
     }
 
     m_thumbnailCache->recreateThumbnail(ImageId(outFilePath), outImg);
-  }
+    }  // end of else (normal processing path)
+  }  // end of if (needReprocess)
 
   const DespeckleState despeckleState(outImg, specklesImg, params.despeckleLevel(), params.outputDpi());
 

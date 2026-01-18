@@ -9,6 +9,8 @@
 #include <QActionGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QKeyEvent>
+#include <QShortcut>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -87,7 +89,10 @@
 #include "filters/fix_orientation/CacheDrivenTask.h"
 #include "filters/fix_orientation/Task.h"
 #include "filters/output/CacheDrivenTask.h"
+#include "filters/output/ColorParams.h"
 #include "filters/output/Filter.h"
+#include "filters/output/OutputProcessingParams.h"
+#include "filters/output/Settings.h"
 #include "filters/output/TabbedImageView.h"
 #include "filters/output/Task.h"
 #include "filters/export/CacheDrivenTask.h"
@@ -254,6 +259,8 @@ MainWindow::MainWindow(bool restoreGeometry)
   addAction(actionPrevPage);
   addAction(actionPrevPageQ);
   addAction(actionNextPageW);
+  addAction(actionPrevPageLeft);
+  addAction(actionNextPageRight);
   addAction(actionNextSelectedPage);
   addAction(actionPrevSelectedPage);
   addAction(actionNextSelectedPageW);
@@ -280,6 +287,8 @@ MainWindow::MainWindow(bool restoreGeometry)
   connect(actionNextPage, SIGNAL(triggered(bool)), SLOT(goNextPage()));
   connect(actionPrevPageQ, SIGNAL(triggered(bool)), this, SLOT(goPrevPage()));
   connect(actionNextPageW, SIGNAL(triggered(bool)), this, SLOT(goNextPage()));
+  connect(actionPrevPageLeft, SIGNAL(triggered(bool)), this, SLOT(goPrevPage()));
+  connect(actionNextPageRight, SIGNAL(triggered(bool)), this, SLOT(goNextPage()));
   connect(actionPrevSelectedPage, SIGNAL(triggered(bool)), SLOT(goPrevSelectedPage()));
   connect(actionNextSelectedPage, SIGNAL(triggered(bool)), SLOT(goNextSelectedPage()));
   connect(actionPrevSelectedPageQ, SIGNAL(triggered(bool)), this, SLOT(goPrevSelectedPage()));
@@ -364,6 +373,82 @@ MainWindow::MainWindow(bool restoreGeometry)
   connect(filterBwBtn, &QToolButton::toggled, this, updateColorModeFilter);
   connect(filterGrayBtn, &QToolButton::toggled, this, updateColorModeFilter);
   connect(filterColorBtn, &QToolButton::toggled, this, updateColorModeFilter);
+
+  // Color mode keyboard shortcuts for Finalize and Output stages
+  // Helper to check if we're in Finalize or Output filter
+  auto isFinalizeOrOutputFilter = [this]() {
+    return m_stages &&
+           (m_curFilter == m_stages->finalizeFilterIdx() || m_curFilter == m_stages->outputFilterIdx());
+  };
+
+  // Helper to set color mode for selected pages (updates both Output and Finalize settings)
+  auto setColorModeForSelectedPages = [this](output::ColorMode mode) {
+    const std::set<PageId> pages = selectedPages();
+    if (!pages.empty() && m_stages) {
+      auto outputSettings = m_stages->outputFilter()->settings();
+      auto finalizeSettings = m_stages->finalizeFilter()->settings();
+
+      // Map output::ColorMode to finalize::ColorMode
+      finalize::ColorMode finalizeMode;
+      switch (mode) {
+        case output::BLACK_AND_WHITE:
+          finalizeMode = finalize::ColorMode::BlackAndWhite;
+          break;
+        case output::GRAYSCALE:
+          finalizeMode = finalize::ColorMode::Grayscale;
+          break;
+        case output::COLOR:
+        case output::MIXED:
+        default:
+          finalizeMode = finalize::ColorMode::Color;
+          break;
+      }
+
+      for (const PageId& pageId : pages) {
+        // Update Output settings
+        output::ColorParams colorParams = outputSettings->getParams(pageId).colorParams();
+        colorParams.setColorMode(mode);
+        colorParams.setColorModeUserSet(true);
+        outputSettings->setColorParams(pageId, colorParams);
+
+        // Update Finalize settings
+        finalizeSettings->setColorMode(pageId, finalizeMode);
+      }
+      for (const PageId& pageId : pages) {
+        m_thumbSequence->invalidateThumbnail(pageId);
+      }
+      reloadRequested();
+    }
+  };
+
+  // c/g/b/p - Set color mode (Finalize & Output stages)
+  auto* shortcutC = new QShortcut(QKeySequence("c"), this);
+  connect(shortcutC, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) setColorModeForSelectedPages(output::COLOR);
+  });
+  auto* shortcutG = new QShortcut(QKeySequence("g"), this);
+  connect(shortcutG, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) setColorModeForSelectedPages(output::GRAYSCALE);
+  });
+  auto* shortcutB = new QShortcut(QKeySequence("b"), this);
+  connect(shortcutB, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) setColorModeForSelectedPages(output::BLACK_AND_WHITE);
+  });
+  // Note: 'p' for pass-through is handled in keyPressEvent to avoid falling through to QMainWindow
+
+  // Shift+C/G/B - Toggle page filters (Finalize & Output stages)
+  auto* shortcutShiftC = new QShortcut(QKeySequence("Shift+c"), this);
+  connect(shortcutShiftC, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) filterColorBtn->toggle();
+  });
+  auto* shortcutShiftG = new QShortcut(QKeySequence("Shift+g"), this);
+  connect(shortcutShiftG, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) filterGrayBtn->toggle();
+  });
+  auto* shortcutShiftB = new QShortcut(QKeySequence("Shift+b"), this);
+  connect(shortcutShiftB, &QShortcut::activated, this, [=]() {
+    if (isFinalizeOrOutputFilter()) filterBwBtn->toggle();
+  });
 
   connect(actionFixDpi, SIGNAL(triggered(bool)), SLOT(fixDpiDialogRequested()));
   connect(actionRelinking, SIGNAL(triggered(bool)), SLOT(showRelinkingDialog()));
@@ -3268,6 +3353,95 @@ void MainWindow::changeEvent(QEvent* event) {
         break;
     }
   }
+}
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+  // Color mode shortcuts for Finalize (stage 6) and Output (stage 7) filters
+  // Use text() for keyboard layout independence (Dvorak, etc.)
+  const bool isFinalizeOrOutput = m_stages &&
+      (m_curFilter == m_stages->finalizeFilterIdx() || m_curFilter == m_stages->outputFilterIdx());
+
+  if (isFinalizeOrOutput) {
+    const bool shiftPressed = event->modifiers() & Qt::ShiftModifier;
+    const QString text = event->text().toLower();
+
+    // Shift+C/G/B: Toggle page filter buttons
+    if (shiftPressed) {
+      if (text == "c") {
+        filterColorBtn->toggle();
+        event->accept();
+        return;
+      } else if (text == "g") {
+        filterGrayBtn->toggle();
+        event->accept();
+        return;
+      } else if (text == "b") {
+        filterBwBtn->toggle();
+        event->accept();
+        return;
+      }
+    } else {
+      // c/g/b: Change color mode for selected pages
+      output::ColorMode newMode;
+      bool validKey = true;
+
+      if (text == "c") {
+        newMode = output::COLOR;
+      } else if (text == "g") {
+        newMode = output::GRAYSCALE;
+      } else if (text == "b") {
+        newMode = output::BLACK_AND_WHITE;
+      } else {
+        validKey = false;
+      }
+
+      if (validKey) {
+        // Apply to all selected pages
+        const std::set<PageId> pages = selectedPages();
+        if (!pages.empty()) {
+          auto outputSettings = m_stages->outputFilter()->settings();
+          for (const PageId& pageId : pages) {
+            output::ColorParams colorParams = outputSettings->getParams(pageId).colorParams();
+            colorParams.setColorMode(newMode);
+            colorParams.setColorModeUserSet(true);
+            outputSettings->setColorParams(pageId, colorParams);
+          }
+          // Invalidate thumbnails and reload
+          for (const PageId& pageId : pages) {
+            m_thumbSequence->invalidateThumbnail(pageId);
+          }
+          reloadRequested();
+        }
+        event->accept();
+        return;
+      }
+
+      // p: Toggle pass-through (Output stage only, but accept in both Finalize/Output to prevent fallthrough)
+      if (text == "p") {
+        if (m_curFilter == m_stages->outputFilterIdx()) {
+          const std::set<PageId> pages = selectedPages();
+          if (!pages.empty()) {
+            auto outputSettings = m_stages->outputFilter()->settings();
+            // Toggle based on first selected page's current state
+            const PageId& firstPage = *pages.begin();
+            const bool newState = !outputSettings->getOutputProcessingParams(firstPage).passThrough();
+            for (const PageId& pageId : pages) {
+              output::OutputProcessingParams opp = outputSettings->getOutputProcessingParams(pageId);
+              opp.setPassThrough(newState);
+              outputSettings->setOutputProcessingParams(pageId, opp);
+              m_thumbSequence->invalidateThumbnail(pageId);
+            }
+            reloadRequested();
+          }
+        }
+        // Accept 'p' in both Finalize and Output to prevent event fallthrough
+        event->accept();
+        return;
+      }
+    }
+  }
+
+  QMainWindow::keyPressEvent(event);
 }
 
 void MainWindow::setDockWidgetsVisible(bool state) {

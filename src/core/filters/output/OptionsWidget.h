@@ -182,6 +182,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void sendReloadRequested();
 
+  void passThroughToggled(bool checked);
+
  private:
   void handleDespeckleLevelChange(double level, bool delay = false);
 

@@ -1310,6 +1310,12 @@ std::unique_ptr<ThumbnailSequence::LabelGroup> ThumbnailSequence::Impl::getLabel
   if (pageInfo.imageId().isMultiPageFile()) {
     text = ThumbnailSequence::tr("%1 (page %2)").arg(text).arg(pageId.imageId().page());
   }
+  // Add L/R suffix for split pages
+  if (pageId.subPage() == PageId::LEFT_PAGE) {
+    text += "L";
+  } else if (pageId.subPage() == PageId::RIGHT_PAGE) {
+    text += "R";
+  }
 
   auto normalTextItem = std::make_unique<QGraphicsSimpleTextItem>();
   normalTextItem->setText(text);

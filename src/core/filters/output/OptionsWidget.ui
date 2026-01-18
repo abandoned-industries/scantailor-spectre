@@ -160,6 +160,16 @@
           <number>0</number>
          </property>
            <item>
+            <widget class="QCheckBox" name="passThroughCheckBox">
+             <property name="toolTip">
+              <string>Skip heavy processing (binarization, despeckling, dewarping). Adjustments (brightness/contrast) still apply.</string>
+             </property>
+             <property name="text">
+              <string>Pass-through (skip processing)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="fillOffcutCB">
              <property name="text">
               <string>Fill offcut</string>
@@ -411,77 +421,6 @@
              </item>
             </layout>
            </item>
-          <item>
-           <widget class="QLabel" name="brightnessLabel">
-            <property name="styleSheet">
-             <string>margin-top: 8px;</string>
-            </property>
-            <property name="text">
-             <string>Brightness</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CenteredTickSlider" name="brightnessSlider">
-            <property name="minimum">
-             <number>-100</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="singleStep">
-             <number>1</number>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="tickPosition">
-             <enum>QSlider::TicksBelow</enum>
-            </property>
-            <property name="tickInterval">
-             <number>50</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="contrastLabel">
-            <property name="text">
-             <string>Contrast</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CenteredTickSlider" name="contrastSlider">
-            <property name="minimum">
-             <number>-100</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="singleStep">
-             <number>1</number>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="tickPosition">
-             <enum>QSlider::TicksBelow</enum>
-            </property>
-            <property name="tickInterval">
-             <number>50</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="autoLevelsCB">
-            <property name="toolTip">
-             <string>Stretch histogram to full 0-255 range for maximum contrast</string>
-            </property>
-            <property name="text">
-             <string>Auto levels</string>
-            </property>
-           </widget>
-          </item>
            <item>
             <widget class="QCheckBox" name="savitzkyGolaySmoothingCB">
              <property name="text">
@@ -1121,6 +1060,92 @@
             </widget>
          </item>
         </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="adjustmentsPanel">
+     <property name="title">
+      <string>Adjustments</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <layout class="QVBoxLayout" name="adjustmentsVLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="brightnessLabel">
+        <property name="text">
+         <string>Brightness</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="CenteredTickSlider" name="brightnessSlider">
+        <property name="minimum">
+         <number>-100</number>
+        </property>
+        <property name="maximum">
+         <number>100</number>
+        </property>
+        <property name="singleStep">
+         <number>1</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="tickPosition">
+         <enum>QSlider::TicksBelow</enum>
+        </property>
+        <property name="tickInterval">
+         <number>50</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="contrastLabel">
+        <property name="text">
+         <string>Contrast</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="CenteredTickSlider" name="contrastSlider">
+        <property name="minimum">
+         <number>-100</number>
+        </property>
+        <property name="maximum">
+         <number>100</number>
+        </property>
+        <property name="singleStep">
+         <number>1</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="tickPosition">
+         <enum>QSlider::TicksBelow</enum>
+        </property>
+        <property name="tickInterval">
+         <number>50</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="autoLevelsCB">
+        <property name="toolTip">
+         <string>Stretch histogram to full 0-255 range for maximum contrast</string>
+        </property>
+        <property name="text">
+         <string>Auto levels</string>
+        </property>
        </widget>
       </item>
      </layout>

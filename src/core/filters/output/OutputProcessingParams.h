@@ -38,12 +38,16 @@ class OutputProcessingParams {
   bool autoLevels() const { return m_autoLevels; }
   void setAutoLevels(bool val) { m_autoLevels = val; }
 
+  bool passThrough() const { return m_passThrough; }
+  void setPassThrough(bool val) { m_passThrough = val; }
+
  private:
   bool m_autoZonesFound;
   bool m_blackOnWhiteSetManually;
   double m_brightness;
   double m_contrast;
   bool m_autoLevels;
+  bool m_passThrough;
 };
 
 

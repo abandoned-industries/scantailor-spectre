@@ -90,7 +90,8 @@ target_link_libraries(
 target_include_directories(
     scantailor
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
-    "$<TARGET_PROPERTY:TIFF::TIFF,INTERFACE_INCLUDE_DIRECTORIES>")
+    "$<TARGET_PROPERTY:TIFF::TIFF,INTERFACE_INCLUDE_DIRECTORIES>"
+    "${CMAKE_SOURCE_DIR}/src/dewarping")
 
 # macOS bundle configuration
 if(APPLE)

@@ -2,13 +2,17 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a17** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a18** | macOS (Apple Silicon) | Requires macOS 12 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
 
 ## What's New in Spectre
+
+### Version 2.0a18
+- **Pass-through Adjustments** - Brightness, contrast, and auto levels now apply even with pass-through enabled
+- **UI Reorganization** - Adjustments panel separated from processing options for clarity
 
 ### Version 2.0a17
 - **Dewarping Stability** - Fixed crash when AUTO dewarping produced edge-case geometry; pages now process reliably
@@ -122,7 +126,9 @@ Double-click any page to jump to it for inspection. Use the action buttons to fo
 
 Straightens pages that were slightly tilted during scanning. Even 1-2° of tilt is noticeable in output.
 
-**Tip:** Sort by "decreasing deviation" to review the most-skewed pages first. The sort order is located at the bottom of the thumbnail panel on the right. 
+**Tip:** Sort by "decreasing deviation" to review the most-skewed pages first. The sort order is located at the bottom of the thumbnail panel on the right.
+
+**Thumbnail Filters:** The B, G, C buttons at the bottom of the thumbnail panel filter pages by color mode (B&W, Grayscale, Color). Click to show only pages of that type—useful for reviewing all color pages at once or focusing on B&W pages that need adjustment.
 
 ### Stage 4: Select Content
 
@@ -238,12 +244,22 @@ Applies image processing to generate the output files. Options vary by color mod
 - **Normalize Illumination** - Evens out lighting variations.
 - **Sharpen/Blur filters** - Enhance or soften the image.
 
+#### Pass-through Mode
+
+Enable **Pass-through** to skip heavy processing (binarization, despeckling, dewarping) while still applying adjustments. Useful for:
+- Pre-processed pages that only need brightness/contrast tweaks
+- Covers and illustrations that should remain untouched except for tonal adjustments
+- Pages where automatic processing produces poor results
+
+When pass-through is enabled, the page is scaled to output DPI and adjustments (brightness, contrast, auto levels) are applied, but no other processing occurs.
+
 #### Brightness & Contrast
 
 - **Brightness** - Adjusts overall image lightness. Slide right to brighten, left to darken.
 - **Contrast** - Adjusts tonal range. Slide right to increase contrast, left to decrease.
+- **Auto Levels** - Stretches the histogram to use the full 0-255 range for maximum contrast.
 
-The sliders have tick marks at -100, 0, and +100, with a center detent that snaps to 0 for easy reset.
+The sliders have tick marks at -100, 0, and +100, with a center detent that snaps to 0 for easy reset. These adjustments apply even when pass-through mode is enabled.
 
 #### Paper Detection (Equalize Illumination)
 
@@ -317,6 +333,23 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 | `Page Up/Down` | Previous/next page |
 | `Home` / `End` | First/last page |
 | `Cmd+S` | Save project |
+
+**Finalize (6) & Output (7) Stage Shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| `C` | Set selected page(s) to Color mode |
+| `G` | Set selected page(s) to Grayscale mode |
+| `B` | Set selected page(s) to Black & White mode |
+| `Shift+C` | Toggle Color page filter |
+| `Shift+G` | Toggle Grayscale page filter |
+| `Shift+B` | Toggle B&W page filter |
+
+**Output (7) Stage Only:**
+
+| Key | Action |
+|-----|--------|
+| `P` | Toggle Pass-through mode |
 
 ## Tips
 

@@ -643,3 +643,90 @@ current format extension only. If format changed after processing, files weren't
 ---
 2026-01-02 13:47 - Build after thumbnail fallback (make -j8)
 - built after ThumbnailPixmapCache fallback change
+
+---
+2026-01-02 13:47 - Build after thumbnail breadcrumb logging (make -j8)
+- built after ThumbnailPixmapCache failure logs
+
+---
+2026-01-12 21:30 - Noted intermittent crash after long runtime
+- Crash in worker thread 44 after ~29 hours uptime
+- EXC_BAD_ACCESS at invalid address 0x79ed9866a290
+- Likely use-after-free or dangling pointer in background processing
+- Not reproducible on demand - needs investigation
+
+---
+2026-01-18 - Fix OCR thumbnails showing pre-output image
+- src/core/filters/ocr/CacheDrivenTask.h: add OutputFileNameGenerator and output::Settings members
+- src/core/filters/ocr/CacheDrivenTask.cpp: use output file path for thumbnail instead of source image
+- src/core/filters/ocr/Filter.h: update createCacheDrivenTask signature
+- src/core/filters/ocr/Filter.cpp: update createCacheDrivenTask implementation
+- src/app/MainWindow.cpp: pass OutputFileNameGenerator and output::Settings when creating OCR cache task
+- src/core/filters/ocr/CMakeLists.txt: added dewarping to link libraries for DistortionModel.h include
+- Build successful
+
+---
+2026-01-18 - Add keyboard shortcuts for Output filter color mode and page filters
+- src/app/MainWindow.h: add keyPressEvent override
+- src/app/MainWindow.cpp: implement c/g/b for color mode, Shift+C/G/B for filter toggles
+- README.md: document new keyboard shortcuts
+- src/app/CMakeLists.txt: added dewarping include path for Settings.h dependency
+- Build successful
+
+---
+2026-01-18 - Fix keyboard shortcuts: layout support, finalize stage, focus issues
+- src/app/MainWindow.cpp: use event->text() for Dvorak/alternate layouts
+- src/app/MainWindow.cpp: add Finalize stage support for c/g/b shortcuts
+- src/app/MainWindow.cpp: handle key events in eventFilter for proper focus handling
+- Used QShortcut instead of keyPressEvent for proper focus handling
+- Build successful - timestamp 20260118.1201
+
+---
+2026-01-18 12:15 - Finalize sync fix and pass-through shortcut (make -j8)
+- MainWindow.cpp: Updated setColorModeForSelectedPages to update BOTH Output and Finalize settings
+- MainWindow.cpp: Added 'p' shortcut for MIXED (pass-through) mode
+
+---
+2026-01-18 12:20 - Debug P shortcut (make -j8)
+- MainWindow.cpp: Added qDebug output to P shortcut to verify it fires
+
+---
+2026-01-18 12:22 - White fill default + P shortcut debug (make -j8)
+- ColorCommonOptions.cpp: Changed default fill margins from FILL_BACKGROUND to FILL_WHITE
+- MainWindow.cpp: Added qDebug output to P shortcut
+
+---
+2026-01-18 12:28 - Fix P shortcut to toggle pass-through (make -j8)
+- MainWindow.cpp: Changed 'p' shortcut to toggle pass-through mode instead of MIXED color mode
+- MainWindow.cpp: Added #include for OutputProcessingParams.h
+- README.md: Updated 'P' shortcut description to "Toggle Pass-through mode"
+
+---
+2026-01-18 12:35 - Fix P shortcut stage change bug (make -j8)
+- MainWindow.cpp: Moved 'p' handling to keyPressEvent to properly accept the event
+- MainWindow.cpp: Removed QShortcut for 'p' (was causing event to fall through)
+
+---
+2026-01-18 13:05 - Fix P key fallthrough in all stages (make -j8)
+- MainWindow.cpp: Accept 'p' key in both Finalize and Output stages to prevent event fallthrough
+- The action only runs in Output stage, but the key is consumed in both
+
+---
+2026-01-18 - Fix P key shortcut conflict for pass-through toggle (make -j8)
+- MainWindow.ui: Changed actionSwitchFilter6 shortcut from "P" to "F"
+- Root cause: QAction shortcuts have higher priority than keyPressEvent, so the Finalize stage shortcut was intercepting 'P' before the pass-through handler could see it
+- Now: P = Toggle pass-through mode, F = Switch to Finalize stage
+
+---
+2026-01-18 - Add left/right arrow keys for page navigation (make -j8)
+- MainWindow.ui: Added actionPrevPageLeft (Left arrow) for Previous Page
+- MainWindow.ui: Added actionNextPageRight (Right arrow) for Next Page
+- MainWindow.cpp: Connected new actions to goToPrevPage/goToNextPage slots
+
+---
+2026-01-18 - Fix brightness/contrast to work with pass-through mode (make -j8)
+- OptionsWidget.ui: Moved passThroughCheckBox into commonOptions (Options panel)
+- OptionsWidget.ui: Created new adjustmentsPanel CollapsibleGroupBox for brightness/contrast/autoLevels
+- OptionsWidget.ui: Updated tooltip to clarify that adjustments still apply with pass-through
+- Task.cpp: Added brightness/contrast and auto levels application in pass-through mode
+- Task.cpp: Added <algorithm> and <cmath> includes for std::clamp and std::pow

@@ -464,7 +464,10 @@ void ThumbnailPixmapCache::Impl::ensureThumbnailExists(const ImageId& imageId, c
   locker.unlock();
 
   if (!QDir().mkpath(thumbDir)) {
-    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory"
+               << "dir=" << thumbDir
+               << "image=" << imageId.filePath()
+               << "page=" << imageId.zeroBasedPage();
     return;
   }
 
@@ -519,11 +522,18 @@ void ThumbnailPixmapCache::Impl::recreateThumbnail(const ImageId& imageId, const
       }
     }
   } else {
-    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory"
+               << "dir=" << thumbDir
+               << "image=" << imageId.filePath()
+               << "page=" << imageId.zeroBasedPage();
   }
 
   if (!thumbWritten) {
-    qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << thumbFilePath;
+    qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail"
+               << "primary=" << thumbFilePath
+               << "fallback=" << altThumbFilePath
+               << "image=" << imageId.filePath()
+               << "page=" << imageId.zeroBasedPage();
   }
 
   // Convert to pixmap for caching even if disk write failed.
@@ -661,13 +671,22 @@ QImage ThumbnailPixmapCache::Impl::loadSaveThumbnail(const ImageId& imageId,
   const QImage thumbnail(makeThumbnail(image, maxThumbSize));
   if (QDir().mkpath(thumbDir)) {
     if (!thumbnail.save(thumbFilePath, "PNG")) {
-      qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << thumbFilePath;
+      qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail"
+                 << "primary=" << thumbFilePath
+                 << "image=" << imageId.filePath()
+                 << "page=" << imageId.zeroBasedPage();
       if (!thumbnail.save(altThumbFilePath, "PNG")) {
-        qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail to" << altThumbFilePath;
+        qWarning() << "ThumbnailPixmapCache: Failed to write thumbnail"
+                   << "fallback=" << altThumbFilePath
+                   << "image=" << imageId.filePath()
+                   << "page=" << imageId.zeroBasedPage();
       }
     }
   } else {
-    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory" << thumbDir;
+    qWarning() << "ThumbnailPixmapCache: Failed to create thumbnail directory"
+               << "dir=" << thumbDir
+               << "image=" << imageId.filePath()
+               << "page=" << imageId.zeroBasedPage();
   }
   return thumbnail;
 }

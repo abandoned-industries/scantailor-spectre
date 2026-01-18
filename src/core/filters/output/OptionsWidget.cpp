@@ -172,6 +172,10 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   m_depthPerception = params.depthPerception();
   m_despeckleLevel = params.despeckleLevel();
 
+  // Update pass-through checkbox
+  const OutputProcessingParams opp = m_settings->getOutputProcessingParams(pageId);
+  passThroughCheckBox->setChecked(opp.passThrough());
+
   updateSelectionIndicator();
   updateDpiDisplay();
   updateColorsDisplay();
@@ -450,6 +454,14 @@ void OptionsWidget::contrastChanged(int value) {
 void OptionsWidget::autoLevelsToggled(bool checked) {
   OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
   opp.setAutoLevels(checked);
+  m_settings->setOutputProcessingParams(m_pageId, opp);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::passThroughToggled(bool checked) {
+  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  opp.setPassThrough(checked);
   m_settings->setOutputProcessingParams(m_pageId, opp);
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
@@ -1264,6 +1276,7 @@ void OptionsWidget::sendReloadRequested() {
 #define CONNECT(...) m_connectionManager.addConnection(connect(__VA_ARGS__))
 
 void OptionsWidget::setupUiConnections() {
+  CONNECT(passThroughCheckBox, SIGNAL(clicked(bool)), this, SLOT(passThroughToggled(bool)));
   CONNECT(changeDpiButton, SIGNAL(clicked()), this, SLOT(changeDpiButtonClicked()));
   CONNECT(colorModeSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(colorModeChanged(int)));
   CONNECT(thresholdMethodBox, SIGNAL(currentIndexChanged(int)), this, SLOT(thresholdMethodChanged(int)));

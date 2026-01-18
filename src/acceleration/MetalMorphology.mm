@@ -23,9 +23,14 @@ static dispatch_queue_t getMorphologyQueue(void) {
 }
 
 bool metalMorphologyAvailable(void) {
+    // Temporarily disabled due to crash in Mixed mode picture zone detection
+    // Crash occurs in objc_msgSend during dispatch_sync on MetalContext queue
+    // TODO: Investigate root cause - possible race condition or object lifetime issue
+    return false;
+
     // Check both: Metal context available AND app is in foreground
     // Skip GPU when backgrounded to avoid crashes from purged GPU resources
-    return metalIsAvailable() && metalIsAppActive();
+    // return metalIsAvailable() && metalIsAppActive();
 }
 
 // Helper to perform a two-pass morphological operation (horizontal then vertical)

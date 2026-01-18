@@ -37,21 +37,13 @@ void StatusBarPanel::onImageViewInfoProviderStopped() {
 }
 
 void StatusBarPanel::updatePage(int pageNumber, size_t pageCount, const PageId& pageId) {
-  // Page number display removed - it was causing lag during batch processing
+  // Page info display removed - redundant with thumbnail labels showing filename + L/R suffix
   (void)pageNumber;
   (void)pageCount;
+  (void)pageId;
 
-  QString pageFileInfo = QFileInfo(pageId.imageId().filePath()).completeBaseName();
-  if (pageFileInfo.size() > 15) {
-    pageFileInfo = "..." + pageFileInfo.right(13);
-  }
-  if (pageId.subPage() != PageId::SINGLE_PAGE) {
-    pageFileInfo = pageFileInfo.right(11) + ((pageId.subPage() == PageId::LEFT_PAGE) ? tr(" [L]") : tr(" [R]"));
-  }
-
-  ui.pageInfoLine->setVisible(true);
-  ui.pageInfoLabel->setText(pageFileInfo);
-  ui.pageInfoLabel->setVisible(true);
+  ui.pageInfoLine->setVisible(false);
+  ui.pageInfoLabel->setVisible(false);
 }
 
 namespace {

@@ -11,7 +11,7 @@ ColorCommonOptions::ColorCommonOptions()
     : m_fillOffcut(true),
       m_fillMargins(true),
       m_normalizeIllumination(true),
-      m_fillingColor(FILL_BACKGROUND),
+      m_fillingColor(FILL_WHITE),
       m_wienerCoef(0.0),
       m_wienerWindowSize(5),
       m_paperBrightnessThreshold(120),

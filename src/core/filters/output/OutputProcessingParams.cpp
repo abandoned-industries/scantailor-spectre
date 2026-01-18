@@ -10,14 +10,15 @@
 namespace output {
 
 OutputProcessingParams::OutputProcessingParams()
-    : m_autoZonesFound(false), m_blackOnWhiteSetManually(false), m_brightness(0.0), m_contrast(0.0), m_autoLevels(false) {}
+    : m_autoZonesFound(false), m_blackOnWhiteSetManually(false), m_brightness(0.0), m_contrast(0.0), m_autoLevels(false), m_passThrough(false) {}
 
 OutputProcessingParams::OutputProcessingParams(const QDomElement& el)
     : m_autoZonesFound(el.attribute("autoZonesFound") == "1"),
       m_blackOnWhiteSetManually(el.attribute("blackOnWhiteSetManually") == "1"),
       m_brightness(el.attribute("brightness").toDouble()),
       m_contrast(el.attribute("contrast").toDouble()),
-      m_autoLevels(el.attribute("autoLevels") == "1") {}
+      m_autoLevels(el.attribute("autoLevels") == "1"),
+      m_passThrough(el.attribute("passThrough") == "1") {}
 
 QDomElement OutputProcessingParams::toXml(QDomDocument& doc, const QString& name) const {
   QDomElement el(doc.createElement(name));
@@ -26,13 +27,14 @@ QDomElement OutputProcessingParams::toXml(QDomDocument& doc, const QString& name
   el.setAttribute("brightness", m_brightness);
   el.setAttribute("contrast", m_contrast);
   el.setAttribute("autoLevels", m_autoLevels ? "1" : "0");
+  el.setAttribute("passThrough", m_passThrough ? "1" : "0");
   return el;
 }
 
 bool OutputProcessingParams::operator==(const OutputProcessingParams& other) const {
   return (m_autoZonesFound == other.m_autoZonesFound) && (m_blackOnWhiteSetManually == other.m_blackOnWhiteSetManually)
          && (m_brightness == other.m_brightness) && (m_contrast == other.m_contrast)
-         && (m_autoLevels == other.m_autoLevels);
+         && (m_autoLevels == other.m_autoLevels) && (m_passThrough == other.m_passThrough);
 }
 
 bool OutputProcessingParams::operator!=(const OutputProcessingParams& other) const {

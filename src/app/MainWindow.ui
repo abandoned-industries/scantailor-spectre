@@ -1346,6 +1346,28 @@ QToolButton:checked {
     <bool>false</bool>
    </property>
   </action>
+  <action name="actionPrevPageLeft">
+   <property name="text">
+    <string>Previous Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Left</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextPageRight">
+   <property name="text">
+    <string>Next Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Right</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
   <action name="actionCloseProject">
    <property name="text">
     <string>Close Project</string>
@@ -1509,7 +1531,7 @@ QToolButton:checked {
     <string>Switch filter to output</string>
    </property>
    <property name="shortcut">
-    <string notr="true">P</string>
+    <string notr="true">F</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>

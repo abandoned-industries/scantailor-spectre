@@ -93,6 +93,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void changeEvent(QEvent* event) override;
 
+  void keyPressEvent(QKeyEvent* event) override;
+
  public slots:
 
   void openProject(const QString& projectFile);
