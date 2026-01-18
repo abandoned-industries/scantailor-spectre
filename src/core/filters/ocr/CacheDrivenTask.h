@@ -8,6 +8,7 @@
 
 #include "AbstractCacheDrivenOutputTask.h"
 #include "NonCopyable.h"
+#include "OutputFileNameGenerator.h"
 
 class QPolygonF;
 class PageInfo;
@@ -16,7 +17,8 @@ class ImageTransformation;
 
 namespace output {
 class CacheDrivenTask;
-}
+class Settings;
+}  // namespace output
 
 namespace ocr {
 class Settings;
@@ -25,7 +27,10 @@ class CacheDrivenTask : public AbstractCacheDrivenOutputTask {
   DECLARE_NON_COPYABLE(CacheDrivenTask)
 
  public:
-  CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask, std::shared_ptr<Settings> settings);
+  CacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask,
+                  std::shared_ptr<Settings> settings,
+                  const OutputFileNameGenerator& outFileNameGen,
+                  std::shared_ptr<output::Settings> outputSettings);
 
   ~CacheDrivenTask() override;
 
@@ -37,6 +42,8 @@ class CacheDrivenTask : public AbstractCacheDrivenOutputTask {
  private:
   std::shared_ptr<output::CacheDrivenTask> m_outputTask;
   std::shared_ptr<Settings> m_settings;
+  OutputFileNameGenerator m_outFileNameGen;
+  std::shared_ptr<output::Settings> m_outputSettings;
 };
 }  // namespace ocr
 #endif  // SCANTAILOR_OCR_CACHEDRIVENTASK_H_

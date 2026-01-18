@@ -23,6 +23,7 @@ class QString;
 namespace output {
 class Task;
 class CacheDrivenTask;
+class Settings;
 }  // namespace output
 
 namespace ocr {
@@ -67,7 +68,9 @@ class Filter : public AbstractFilter {
                                    const OutputFileNameGenerator& outFileNameGen,
                                    bool batch);
 
-  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask);
+  std::shared_ptr<CacheDrivenTask> createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask,
+                                                         const OutputFileNameGenerator& outFileNameGen,
+                                                         std::shared_ptr<output::Settings> outputSettings);
 
   OptionsWidget* optionsWidget();
 

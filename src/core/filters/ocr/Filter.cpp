@@ -149,8 +149,10 @@ std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
                                 pageId, outFileNameGen, batch);
 }
 
-std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask) {
-  return std::make_shared<CacheDrivenTask>(std::move(outputTask), m_settings);
+std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(std::shared_ptr<output::CacheDrivenTask> outputTask,
+                                                               const OutputFileNameGenerator& outFileNameGen,
+                                                               std::shared_ptr<output::Settings> outputSettings) {
+  return std::make_shared<CacheDrivenTask>(std::move(outputTask), m_settings, outFileNameGen, std::move(outputSettings));
 }
 
 OptionsWidget* Filter::optionsWidget() {

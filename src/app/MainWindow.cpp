@@ -1452,16 +1452,17 @@ void MainWindow::startBatchProcessing() {
         break;
       }
     } while ((task = m_batchQueue->takeForProcessing()));
+
+    page = m_batchQueue->selectedPage();
+    if (!page.isNull()) {
+      m_thumbSequence->setSelection(page.id());
+    }
+    // Display the batch processing screen.
+    updateMainArea();
   } else {
+    // No tasks to process - stop immediately (this resets m_batchQueue)
     stopBatchProcessing();
   }
-
-  page = m_batchQueue->selectedPage();
-  if (!page.isNull()) {
-    m_thumbSequence->setSelection(page.id());
-  }
-  // Display the batch processing screen.
-  updateMainArea();
 }  // MainWindow::startBatchProcessing
 
 void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
@@ -1501,16 +1502,17 @@ void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
         break;
       }
     } while ((task = m_batchQueue->takeForProcessing()));
+
+    page = m_batchQueue->selectedPage();
+    if (!page.isNull()) {
+      m_thumbSequence->setSelection(page.id());
+    }
+    // Display the batch processing screen.
+    updateMainArea();
   } else {
+    // No tasks to process - stop immediately (this resets m_batchQueue)
     stopBatchProcessing();
   }
-
-  page = m_batchQueue->selectedPage();
-  if (!page.isNull()) {
-    m_thumbSequence->setSelection(page.id());
-  }
-  // Display the batch processing screen.
-  updateMainArea();
 }  // MainWindow::startBatchProcessingFrom
 
 void MainWindow::stopBatchProcessing(MainAreaAction mainArea) {
@@ -3200,12 +3202,14 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   if (lastFilterIdx >= m_stages->exportFilterIdx()) {
     // Chain: Output -> OCR -> Export for thumbnails
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
-    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask);
+    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask, m_outFileNameGen,
+                                                           m_stages->outputFilter()->settings());
     exportTask = m_stages->exportFilter()->createCacheDrivenTask(ocrTask);
   } else if (lastFilterIdx >= m_stages->ocrFilterIdx()) {
     // Chain: Output -> OCR for thumbnails
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
-    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask);
+    ocrTask = m_stages->ocrFilter()->createCacheDrivenTask(outputTask, m_outFileNameGen,
+                                                           m_stages->outputFilter()->settings());
   } else if (lastFilterIdx >= m_stages->outputFilterIdx()) {
     outputTask = m_stages->outputFilter()->createCacheDrivenTask(m_outFileNameGen);
   }
