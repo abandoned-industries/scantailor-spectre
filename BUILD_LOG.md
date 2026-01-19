@@ -730,3 +730,8 @@ current format extension only. If format changed after processing, files weren't
 - OptionsWidget.ui: Updated tooltip to clarify that adjustments still apply with pass-through
 - Task.cpp: Added brightness/contrast and auto levels application in pass-through mode
 - Task.cpp: Added <algorithm> and <cmath> includes for std::clamp and std::pow
+
+---
+2026-01-18 23:25 - Fix crash on quit (make -j8)
+- MainWindow.cpp: Release m_tabbedDebugImages unique_ptr instead of deleting
+- Bug: Widget was double-freed (unique_ptr + Qt parent-child cleanup)

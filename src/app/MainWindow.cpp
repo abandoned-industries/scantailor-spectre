@@ -501,7 +501,10 @@ MainWindow::~MainWindow() {
 
   removeWidgetsFromLayout(m_imageFrameLayout);
   removeWidgetsFromLayout(m_optionsFrameLayout);
-  m_tabbedDebugImages->clear();
+
+  // Release ownership - Qt will delete it as a child widget
+  // (it was parented when added to m_imageFrameLayout)
+  m_tabbedDebugImages.release();
 }
 
 PageSequence MainWindow::allPages() const {
