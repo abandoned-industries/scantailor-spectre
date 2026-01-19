@@ -287,8 +287,6 @@ Performs optical character recognition to make your PDF searchable. When enabled
 
 OCR runs automatically when you batch process through the Export stage. Results are cached per-page, so re-running won't re-process pages that already have OCR data unless you clear them.
 
-**Note:** OCR uses Apple's Vision framework and requires macOS 13.0 or later.
-
 ### Stage 9: Export
 
 Creates the final PDF.
