@@ -8,33 +8,7 @@ ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Imp
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
 
-## What's New in Spectre
-
-### Version 2.0a18
-- **Pass-through Adjustments** - Brightness, contrast, and auto levels now apply even with pass-through enabled
-- **UI Reorganization** - Adjustments panel separated from processing options for clarity
-
-### Version 2.0a17
-- **Dewarping Stability** - Fixed crash when AUTO dewarping produced edge-case geometry; pages now process reliably
-- **Dewarping Cancellation** - AUTO dewarping can now be cancelled and mode can be changed without restarting
-
-### Version 2.0a16
-- **PDF File Association** - Open PDFs directly from Finder via "Open With" or drag-and-drop
-- **Improved OCR Text Alignment** - Text highlights now accurately match visible characters in exported PDFs
-
-### Version 2.0a15
-- **Auto Levels** - One-click tonal correction for cleaner pages
-- **PDF DPI Detection** - Import honors embedded DPI for more accurate sizing
-- **Image Quality Improvements** - Better results across output processing
-- **Apply To Fixes** - Despeckle and Depth Perception batch dialogs behave correctly
-- **Output Performance** - Faster illumination normalization, transforms, and TIFF writing
-
-### Version 2.0a14
-- **Portable Projects** - Projects now use relative paths; move projects between machines without relinking
-- **Large Project Export** - Fixed PDF export for books with 100+ pages
-- **Performance Boost** - Parallel Sauvola binarization, vImage SIMD acceleration, Metal GPU optimizations
-
-### Features
+## Features
 - **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
 - **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
