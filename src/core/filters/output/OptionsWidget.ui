@@ -1082,6 +1082,9 @@
       </property>
       <item>
        <widget class="QLabel" name="brightnessLabel">
+        <property name="styleSheet">
+         <string>margin-top: 8px;</string>
+        </property>
         <property name="text">
          <string>Brightness</string>
         </property>

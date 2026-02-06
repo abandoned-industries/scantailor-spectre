@@ -735,3 +735,16 @@ current format extension only. If format changed after processing, files weren't
 2026-01-18 23:25 - Fix crash on quit (make -j8)
 - MainWindow.cpp: Release m_tabbedDebugImages unique_ptr instead of deleting
 - Bug: Widget was double-freed (unique_ptr + Qt parent-child cleanup)
+
+---
+2026-01-18 - Fix missing center detent and tick marks on brightness/contrast sliders (make -j8)
+- src/core/filters/output/OptionsWidget.ui: Restored margin-top: 8px stylesheet on brightnessLabel to provide vertical space for CenteredTickSlider tick marks
+
+---
+2026-01-18 - Remove debug logging from showPageSizeWarning() (make -j8)
+- src/app/MainWindow.cpp: Removed file-based debug logging to /tmp/st_pagesizewarning.log
+
+---
+2026-02-01 11:40 - Version 2.0a18 release build (make -j8)
+- version.h.in: Bumped VERSION from 2.0a17 to 2.0a18
+- Includes: crash-on-quit fix, debug logging removal, slider tick marks fix

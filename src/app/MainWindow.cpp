@@ -3858,47 +3858,26 @@ void MainWindow::preserveLayoutForPages(const std::vector<PageId>& pageIds) {
 }
 
 void MainWindow::showPageSizeWarning() {
-  // File-based debug logging that doesn't depend on terminal capture
-  static int callCount = 0;
-  ++callCount;
-  QFile debugFile("/tmp/st_pagesizewarning.log");
-  debugFile.open(QIODevice::Append | QIODevice::Text);
-  QTextStream debugOut(&debugFile);
-  debugOut << "\n=== showPageSizeWarning call #" << callCount << " at " << QDateTime::currentDateTime().toString() << " ===\n";
-
-  qDebug() << "showPageSizeWarning: CALLED";
-
   if (!m_stages || !m_pages) {
-    qDebug() << "showPageSizeWarning: m_stages or m_pages null, returning";
-    debugOut << "EARLY RETURN: m_stages or m_pages null\n";
     return;
   }
 
   // Get the page_layout settings
   auto pageLayoutSettings = m_stages->pageLayoutFilter()->settings();
   if (!pageLayoutSettings) {
-    debugOut << "EARLY RETURN: pageLayoutSettings null\n";
     return;
   }
 
   // Get the aggregate size first (needed for spread detection)
   QSizeF aggSize = pageLayoutSettings->getAggregateHardSizeMM();
-  debugOut << "aggSize: " << aggSize.width() << " x " << aggSize.height() << "\n";
 
   // Check if we have valid aggregate size - if not, data hasn't been populated yet
   if (!aggSize.isValid() || aggSize.isEmpty()) {
-    qDebug() << "showPageSizeWarning: aggregate size invalid/empty, skipping dialog"
-             << "aggSize:" << aggSize.width() << "x" << aggSize.height();
-    debugOut << "EARLY RETURN: aggSize invalid/empty\n";
     return;
   }
 
   // Get outlier pages (default threshold 1.3 = 30% deviation)
   auto outlierPages = pageLayoutSettings->getOutlierPages(1.3);
-  debugOut << "getOutlierPages returned: " << outlierPages.size() << " outliers\n";
-
-  qDebug() << "showPageSizeWarning: getOutlierPages returned" << outlierPages.size() << "outliers"
-           << "aggregate:" << aggSize.width() << "x" << aggSize.height();
 
   // Get median size - if no outliers, we still need to check for spreads
   double medianWidthMM = 0;
@@ -3912,14 +3891,11 @@ void MainWindow::showPageSizeWarning() {
     // For now, estimate based on typical page ratio vs aggregate
     // If aggregate width is ~2x a typical portrait page, it's likely spreads
     double aspectRatio = aggSize.height() > 0 ? aggSize.width() / aggSize.height() : 1.0;
-    debugOut << "No outliers. aspectRatio: " << aspectRatio << "\n";
     if (aspectRatio > 1.3) {  // Landscape/spread-like aspect ratio
       medianWidthMM = aggSize.width() / 2.0;  // Estimate half width as typical
       medianHeightMM = aggSize.height();
     } else {
       // Can't determine - don't show dialog
-      qDebug() << "showPageSizeWarning: no outliers and no spread detected, not showing dialog";
-      debugOut << "EARLY RETURN: no outliers and aspectRatio <= 1.3\n";
       return;
     }
   }
@@ -3927,32 +3903,18 @@ void MainWindow::showPageSizeWarning() {
   // Check if this looks like a spread situation (aggregate ~2x median width)
   double widthRatio = (medianWidthMM > 0) ? (aggSize.width() / medianWidthMM) : 1.0;
   bool likelySpreads = (widthRatio > 1.8 && widthRatio < 2.2);
-  debugOut << "widthRatio: " << widthRatio << " likelySpreads: " << likelySpreads << "\n";
 
   // Only show dialog if there are outlier pages OR it looks like spreads
   if (outlierPages.empty() && !likelySpreads) {
-    qDebug() << "showPageSizeWarning: no outliers and no spread detected, not showing dialog";
-    debugOut << "EARLY RETURN: no outliers and not likelySpreads\n";
     return;
   }
-  debugOut << "Proceeding to show dialog...\n";
-  debugOut << "medianWidthMM: " << medianWidthMM << " medianHeightMM: " << medianHeightMM << "\n";
-  debugOut.flush();
-
-  qDebug() << "showPageSizeWarning: showing dialog, likelySpreads:" << likelySpreads
-           << "widthRatio:" << widthRatio
-           << "median:" << medianWidthMM << "x" << medianHeightMM;
 
   // Get all pages to count them and assign page numbers
   const PageSequence pages = m_pages->toPageSequence(getCurrentView());
 
-  debugOut << "PageSequence has " << pages.numPages() << " pages\n";
-  qDebug() << "showPageSizeWarning: PageSequence has" << pages.numPages() << "pages";
-
   // Convert to dialog's OutlierInfo format
   // Match by ImageId rather than full PageId to handle sub-page differences
   std::vector<PageSizeWarningDialog::OutlierInfo> dialogOutliers;
-  int matchCount = 0;
   for (const auto& outlier : outlierPages) {
     // Find this outlier's page number in the sequence
     int pageNumber = 0;
@@ -3967,7 +3929,6 @@ void MainWindow::showPageSizeWarning() {
     }
 
     if (found) {
-      matchCount++;
       PageSizeWarningDialog::OutlierInfo info;
       info.pageId = outlier.pageId;
       info.fileName = QFileInfo(outlier.pageId.imageId().filePath()).fileName();
@@ -3984,26 +3945,16 @@ void MainWindow::showPageSizeWarning() {
     }
   }
 
-  debugOut << "Matched " << matchCount << " outliers -> dialogOutliers.size()=" << dialogOutliers.size() << "\n";
-  qDebug() << "showPageSizeWarning: matched" << matchCount << "outliers to page sequence"
-           << "dialogOutliers size:" << dialogOutliers.size();
-
   // Create and show the dialog
   auto* dialog = new PageSizeWarningDialog(this);
 
-  debugOut << "likelySpreads=" << likelySpreads << " dialogOutliers.empty()=" << dialogOutliers.empty() << "\n";
   // When likelySpreads is true, ALWAYS use spread mode - it's more accurate than area-based outlier detection
   if (likelySpreads) {
-    debugOut << "SPREAD MODE: getting unsplit spread pages...\n";
     // Spread mode - get only unsplit spread pages (not all pages)
     auto unsplitSpreads = pageLayoutSettings->getUnsplitSpreadPages();
 
-    debugOut << "getUnsplitSpreadPages returned " << unsplitSpreads.size() << " pages\n";
     if (unsplitSpreads.empty()) {
       // No unsplit spreads found, don't show dialog
-      debugOut << "EARLY RETURN: unsplitSpreads is empty\n";
-      debugOut.flush();
-      qDebug() << "showPageSizeWarning: likelySpreads but no unsplit pages found";
       delete dialog;
       return;
     }
@@ -4055,15 +4006,8 @@ void MainWindow::showPageSizeWarning() {
       }
     }
 
-    debugOut << "Matched " << spreadPages.size() << " spread pages from unsplitSpreads(" << unsplitSpreads.size() << ")\n";
-    qDebug() << "showPageSizeWarning: found" << spreadPages.size() << "unsplit spread pages"
-             << "(from" << unsplitSpreads.size() << "returned by Settings)";
-
     if (spreadPages.empty()) {
       // No unsplit spreads matched to page sequence - don't show dialog
-      debugOut << "EARLY RETURN: spreadPages is empty after matching\n";
-      debugOut.flush();
-      qDebug() << "showPageSizeWarning: no unsplit spreads matched to page sequence, not showing dialog";
       delete dialog;
       return;
     }
@@ -4087,10 +4031,6 @@ void MainWindow::showPageSizeWarning() {
           this, &MainWindow::jumpToPageFromPageSizeWarning);
   connect(dialog, &PageSizeWarningDialog::detachPagesFromSizing,
           this, &MainWindow::disableAlignmentForPages);
-
-  debugOut << "SHOWING DIALOG via dialog->show()\n";
-  debugOut.flush();
-  debugFile.close();
 
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->show();
