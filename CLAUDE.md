@@ -236,6 +236,23 @@ rm -rf dmg-staging
 
 - **ALWAYS timestamp DMG builds**: `ScanTailor-Spectre-X.Y.Z-YYYYMMDD-HHMM.dmg`
 
+## Push New Release
+
+When user says "push new release", do ALL of these steps:
+
+1. **Bump version** in `version.h.in` (e.g., 2.0a17 → 2.0a18)
+2. **Update README.md** version if needed
+3. **Log to BUILD_LOG.md** before building
+4. **Rebuild**: `cd build && cmake --build . -j$(sysctl -n hw.ncpu)`
+5. **Generate README PDF** (see PDF Generation section below)
+6. **Sign the app** with Developer ID (identity: "Developer ID Application: Kazys Varnelis (PHCL25Z99X)")
+7. **Notarize**: `ditto -c -k --keepParent "$APP" app.zip && xcrun notarytool submit app.zip --keychain-profile "notary" --wait`
+8. **Staple**: `xcrun stapler staple "$APP"`
+9. **Create DMG** with app + README PDF, timestamped filename
+10. **Commit** version bump and any pending changes
+11. **Tag** with version (e.g., `git tag v2.0a18`)
+12. **Push**: `git push origin main --tags`
+
 ## PDF Generation from README
 
 To create the README PDF for distribution:
