@@ -73,6 +73,9 @@
      <addaction name="actionCentimetres"/>
      <addaction name="actionInches"/>
     </widget>
+    <addaction name="actionAutoMode"/>
+    <addaction name="actionAutoModeOcr"/>
+    <addaction name="separator"/>
     <addaction name="actionFixDpi"/>
     <addaction name="actionRelinking"/>
     <addaction name="actionRemovePages"/>
@@ -1741,6 +1744,34 @@ QToolButton:checked {
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+A</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAutoMode">
+   <property name="text">
+    <string>Auto Process All</string>
+   </property>
+   <property name="toolTip">
+    <string>Process all pages through Output with smart defaults</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Meta+Shift+A</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAutoModeOcr">
+   <property name="text">
+    <string>Auto Process All + OCR</string>
+   </property>
+   <property name="toolTip">
+    <string>Process all pages through Output and OCR with smart defaults</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Meta+Shift+O</string>
    </property>
    <property name="autoRepeat">
     <bool>false</bool>

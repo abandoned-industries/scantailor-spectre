@@ -61,6 +61,8 @@ class Filter : public AbstractFilter {
 
   OptionsWidget* optionsWidget();
 
+  std::shared_ptr<Settings> settings() const { return m_settings; }
+
   std::vector<PageOrderOption> pageOrderOptions() const override;
 
   int selectedPageOrder() const override;

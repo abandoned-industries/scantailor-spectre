@@ -2,13 +2,14 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a18** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a19** | macOS (Apple Silicon) | Requires macOS 12 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
 
 ## Features
+- **Auto Mode** - One-button processing through all stages with smart defaults: majority-vote page splitting, zero deskew, content outlier detection, and size outlier handling
 - **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
 - **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
@@ -52,9 +53,11 @@ Each filter stage refines your pages. Work top to bottom:
 
 To run a stage, click on the little triangular play button next to the stage you are at. Stage 9 is special. You don't need to run it, you simply click on Export to PDF. 
 
-### 3. Batch Process
+### 3. Auto Mode or Batch Process
 
-You may want to try doing everything automatically if your scan is clean. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 6, Finalize, and run it and each of the next stages.
+**Auto Mode** (`Cmd+Shift+A`) processes all pages through stages 2-7 with smart defaults. It automatically detects majority page layout, sets deskew to zero, preserves layout for low-coverage pages, and detaches size outliers from aggregate sizing. For OCR as well, use `Cmd+Shift+O`. You can stop auto mode at any point with the stop button.
+
+For manual control, batch process individual stages using the play button. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 6, Finalize, and run it and each of the next stages.
 
 After batch processing certain stages, a summary dialog appears to help catch common problems:
 
@@ -302,6 +305,8 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 
 | Key | Action |
 |-----|--------|
+| `Cmd+Shift+A` | Auto Process All (stages 2-7) |
+| `Cmd+Shift+O` | Auto Process All + OCR (stages 2-8) |
 | `Page Up/Down` | Previous/next page |
 | `Home` / `End` | First/last page |
 | `Cmd+S` | Save project |

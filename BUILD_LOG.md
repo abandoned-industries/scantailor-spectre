@@ -748,3 +748,31 @@ current format extension only. If format changed after processing, files weren't
 2026-02-01 11:40 - Version 2.0a18 release build (make -j8)
 - version.h.in: Bumped VERSION from 2.0a17 to 2.0a18
 - Includes: crash-on-quit fix, debug logging removal, slider tick marks fix
+
+---
+2026-02-07 - Implement Auto Mode (smart multi-stage processing) (make -j8)
+- src/core/filters/deskew/Filter.h: Added public settings() accessor
+- src/app/MainWindow.h: Added AutoModeStage enum, m_autoModeStage member, startAutoMode slot, auto mode helper methods
+- src/app/MainWindow.ui: Added actionAutoMode action and menu entry in Tools menu
+- src/app/MainWindow.cpp: Added includes, action connect, enable/disable, filterResult intercept, startAutoMode, autoModeAdvance, autoAcceptPageSplit, autoSetDeskewZero, autoAcceptContentOutliers, autoAcceptPageSizeOutliers
+
+---
+2026-02-07 - Add OCR variant to Auto Mode (make -j8)
+- MainWindow.h: Added AUTO_OCR enum value, m_autoModeIncludeOcr member
+- MainWindow.cpp: Lambda connects for Alt detection, QShortcut for Ctrl+Shift+O, AUTO_OCR stage in autoModeAdvance, save/restore m_autoModeIncludeOcr in filterResult intercept
+- MainWindow.ui: Updated tooltip with OCR shortcut info
+
+---
+2026-02-07 - Fix Auto Mode shortcuts and add second menu item (make -j8)
+- Changed shortcuts from Ctrl+Shift to Cmd+Shift (Meta+ in Qt = Cmd on macOS)
+- Added actionAutoModeOcr as separate visible menu item with Cmd+Shift+O
+- Removed QShortcut hack, both actions now proper QActions in .ui
+
+---
+2026-02-07 - Release build with Auto Mode feature (cmake Release + make -j8)
+- Full release build
+
+---
+2026-02-07 - Version bump to 2.0a19, README update for Auto Mode (cmake Release + make -j8)
+- version.h.in: 2.0a18 → 2.0a19
+- README.md: Added Auto Mode to features, Quick Start, and keyboard shortcuts

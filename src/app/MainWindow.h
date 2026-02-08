@@ -177,6 +177,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void startBatchProcessing();
 
+  void startAutoMode();
+
   void startBatchProcessingFrom(const PageInfo& startPage);
 
   void stopBatchProcessing(MainAreaAction mainArea = UPDATE_MAIN_AREA);
@@ -352,6 +354,12 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void showBatchProcessingSummary();
 
+  void autoModeAdvance();
+  void autoAcceptPageSplit();
+  void autoSetDeskewZero();
+  void autoAcceptContentOutliers();
+  void autoAcceptPageSizeOutliers();
+
   void jumpToPageFromSummary(const ImageId& imageId);
 
   void forceTwoPageForImages(const std::vector<ImageId>& imageIds);
@@ -409,6 +417,18 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   bool m_quitting;  // True when user explicitly wants to quit (Cmd+Q or Quit menu)
   bool m_twoPassBatchInProgress;  // True when running first pass (Page Layout) before Output
   int m_twoPassTargetFilter;      // The filter to run after first pass completes
+
+  enum AutoModeStage {
+    AUTO_NONE = -1,
+    AUTO_PAGE_SPLIT = 0,
+    AUTO_DESKEW = 1,
+    AUTO_SELECT_CONTENT = 2,
+    AUTO_PAGE_LAYOUT = 3,
+    AUTO_OUTPUT = 4,
+    AUTO_OCR = 5
+  };
+  AutoModeStage m_autoModeStage = AUTO_NONE;
+  bool m_autoModeIncludeOcr = false;
   QTimer m_autoSaveTimer;
   StatusBarPanel* m_statusBarPanel;
   QActionGroup* m_unitsMenuActionGroup;

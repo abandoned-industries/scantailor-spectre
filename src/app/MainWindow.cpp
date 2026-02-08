@@ -85,6 +85,10 @@
 #include "WorkerThreadPool.h"
 #include "config.h"
 #include "filters/deskew/CacheDrivenTask.h"
+#include "filters/deskew/Dependencies.h"
+#include "filters/deskew/Filter.h"
+#include "filters/deskew/Params.h"
+#include "filters/deskew/Settings.h"
 #include "filters/deskew/Task.h"
 #include "filters/fix_orientation/CacheDrivenTask.h"
 #include "filters/fix_orientation/Task.h"
@@ -349,6 +353,14 @@ MainWindow::MainWindow(bool restoreGeometry)
           SLOT(pastLastPageContextMenuRequested(const QPoint&)));
   connect(selectionModeBtn, SIGNAL(clicked(bool)), m_thumbSequence.get(), SLOT(setSelectionModeEnabled(bool)));
   connect(actionSelectAll, &QAction::triggered, m_thumbSequence.get(), &ThumbnailSequence::selectAll);
+  connect(actionAutoMode, &QAction::triggered, this, [this]() {
+    m_autoModeIncludeOcr = false;
+    startAutoMode();
+  });
+  connect(actionAutoModeOcr, &QAction::triggered, this, [this]() {
+    m_autoModeIncludeOcr = true;
+    startAutoMode();
+  });
 
   connect(thumbView->verticalScrollBar(), SIGNAL(sliderMoved(int)), this, SLOT(thumbViewScrolled()));
   connect(thumbView->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(thumbViewScrolled()));
@@ -1553,6 +1565,164 @@ void MainWindow::startBatchProcessing() {
   }
 }  // MainWindow::startBatchProcessing
 
+void MainWindow::startAutoMode() {
+  if (isBatchProcessingInProgress() || !isProjectLoaded()) return;
+  if (m_thumbSequence->firstPage().isNull()) return;
+
+  m_autoModeStage = AUTO_PAGE_SPLIT;
+  filterList->selectRow(m_stages->pageSplitFilterIdx());
+  goFirstPage();
+  startBatchProcessing();
+}
+
+void MainWindow::autoModeAdvance() {
+  if (m_autoModeStage == AUTO_NONE) return;
+
+  switch (m_autoModeStage) {
+    case AUTO_PAGE_SPLIT:
+      autoAcceptPageSplit();
+      m_autoModeStage = AUTO_DESKEW;
+      filterList->selectRow(m_stages->deskewFilterIdx());
+      goFirstPage();
+      startBatchProcessing();
+      break;
+
+    case AUTO_DESKEW:
+      autoSetDeskewZero();
+      m_autoModeStage = AUTO_SELECT_CONTENT;
+      filterList->selectRow(m_stages->selectContentFilterIdx());
+      goFirstPage();
+      startBatchProcessing();
+      break;
+
+    case AUTO_SELECT_CONTENT:
+      autoAcceptContentOutliers();
+      m_autoModeStage = AUTO_PAGE_LAYOUT;
+      filterList->selectRow(m_stages->pageLayoutFilterIdx());
+      goFirstPage();
+      startBatchProcessing();
+      break;
+
+    case AUTO_PAGE_LAYOUT:
+      autoAcceptPageSizeOutliers();
+      m_autoModeStage = AUTO_OUTPUT;
+      filterList->selectRow(m_stages->outputFilterIdx());
+      goFirstPage();
+      startBatchProcessing();
+      break;
+
+    case AUTO_OUTPUT:
+      if (m_autoModeIncludeOcr) {
+        m_autoModeStage = AUTO_OCR;
+        filterList->selectRow(m_stages->ocrFilterIdx());
+        goFirstPage();
+        startBatchProcessing();
+      } else {
+        m_autoModeStage = AUTO_NONE;
+        QApplication::alert(this);
+        if (m_checkBeepWhenFinished()) {
+          QApplication::beep();
+        }
+        goFirstPage();
+      }
+      break;
+
+    case AUTO_OCR:
+      m_autoModeStage = AUTO_NONE;
+      m_autoModeIncludeOcr = false;
+      QApplication::alert(this);
+      if (m_checkBeepWhenFinished()) {
+        QApplication::beep();
+      }
+      goFirstPage();
+      break;
+
+    default:
+      m_autoModeStage = AUTO_NONE;
+      break;
+  }
+}
+
+void MainWindow::autoAcceptPageSplit() {
+  auto settings = m_stages->pageSplitFilter()->settings();
+  if (!settings) return;
+
+  const PageSequence pages = m_pages->toPageSequence(IMAGE_VIEW);
+  std::set<ImageId> seen;
+  int splitCount = 0, singleCount = 0;
+  std::vector<ImageId> splitIds, singleIds;
+
+  for (const PageInfo& pi : pages) {
+    const ImageId& id = pi.id().imageId();
+    if (seen.count(id)) continue;
+    seen.insert(id);
+
+    page_split::Settings::Record record = settings->getPageRecord(id);
+    const page_split::Params* params = record.params();
+    bool isSplit = params && params->pageLayout().type() == page_split::PageLayout::TWO_PAGES;
+
+    if (isSplit) { splitCount++; splitIds.push_back(id); }
+    else         { singleCount++; singleIds.push_back(id); }
+  }
+
+  // Force minority to match majority
+  if (splitCount > singleCount)
+    forceTwoPageForImages(singleIds);
+  else if (singleCount > splitCount)
+    forceSinglePageForImages(splitIds);
+}
+
+void MainWindow::autoSetDeskewZero() {
+  auto settings = m_stages->deskewFilter()->settings();
+  if (!settings) return;
+
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  std::set<PageId> pageIds;
+  for (const PageInfo& pi : pages)
+    pageIds.insert(pi.id());
+
+  deskew::Params zeroParams(0.0, deskew::Dependencies(), MODE_MANUAL);
+  settings->setDegrees(pageIds, zeroParams);
+}
+
+void MainWindow::autoAcceptContentOutliers() {
+  auto settings = m_stages->selectContentFilter()->settings();
+  if (!settings) return;
+
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  std::vector<PageId> outliers;
+
+  for (const PageInfo& pi : pages) {
+    std::unique_ptr<select_content::Params> params(settings->getPageParams(pi.id()));
+    if (!params) continue;
+    if (!params->contentRect().isValid() || !params->pageRect().isValid()) continue;
+    if (params->contentDetectionMode() == MODE_DISABLED) continue;
+
+    double pageArea = params->pageRect().width() * params->pageRect().height();
+    double contentArea = params->contentRect().width() * params->contentRect().height();
+    double ratio = (pageArea > 0) ? (contentArea / pageArea) : 1.0;
+
+    if (ratio < 0.5)
+      outliers.push_back(pi.id());
+  }
+
+  if (!outliers.empty())
+    preserveLayoutForPages(outliers);
+}
+
+void MainWindow::autoAcceptPageSizeOutliers() {
+  auto settings = m_stages->pageLayoutFilter()->settings();
+  if (!settings) return;
+
+  auto outliers = settings->getOutlierPages(1.3);
+  if (!outliers.empty()) {
+    std::vector<PageId> ids;
+    for (const auto& o : outliers)
+      ids.push_back(o.pageId);
+    disableAlignmentForPages(ids);
+  }
+}
+
 void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
   if (isBatchProcessingInProgress() || !isProjectLoaded()) {
     return;
@@ -1611,6 +1781,8 @@ void MainWindow::stopBatchProcessing(MainAreaAction mainArea) {
   // Reset two-pass batch state if user manually stops
   m_twoPassBatchInProgress = false;
   m_twoPassTargetFilter = -1;
+  m_autoModeStage = AUTO_NONE;
+  m_autoModeIncludeOcr = false;
 
   const PageInfo page(m_batchQueue->selectedPage());
   if (!page.isNull()) {
@@ -1709,6 +1881,17 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
         if (!page.isNull()) {
           m_thumbSequence->setSelection(page.id());
         }
+        return;
+      }
+
+      // Auto mode: auto-accept and advance to next stage
+      if (m_autoModeStage != AUTO_NONE) {
+        const AutoModeStage savedStage = m_autoModeStage;
+        const bool savedOcr = m_autoModeIncludeOcr;
+        stopBatchProcessing();       // resets m_autoModeStage and m_autoModeIncludeOcr
+        m_autoModeStage = savedStage;
+        m_autoModeIncludeOcr = savedOcr;
+        QTimer::singleShot(0, this, &MainWindow::autoModeAdvance);
         return;
       }
 
@@ -2565,6 +2748,8 @@ void MainWindow::updateProjectActions() {
   actionSaveProjectAs->setEnabled(loaded);
   actionFixDpi->setEnabled(loaded);
   actionRelinking->setEnabled(loaded);
+  actionAutoMode->setEnabled(loaded);
+  actionAutoModeOcr->setEnabled(loaded);
 }
 
 bool MainWindow::isBatchProcessingInProgress() const {
