@@ -181,7 +181,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void startBatchProcessingFrom(const PageInfo& startPage);
 
-  void stopBatchProcessing(MainAreaAction mainArea = UPDATE_MAIN_AREA);
+  void stopBatchProcessing(MainAreaAction mainArea = UPDATE_MAIN_AREA, bool resetAutoMode = true);
 
   void invalidateThumbnail(const PageId& pageId) override;
 

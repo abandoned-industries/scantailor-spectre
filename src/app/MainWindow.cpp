@@ -1773,16 +1773,18 @@ void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
   }
 }  // MainWindow::startBatchProcessingFrom
 
-void MainWindow::stopBatchProcessing(MainAreaAction mainArea) {
+void MainWindow::stopBatchProcessing(MainAreaAction mainArea, bool resetAutoMode) {
   if (!isBatchProcessingInProgress()) {
     return;
   }
 
-  // Reset two-pass batch state if user manually stops
+  // Reset two-pass batch state
   m_twoPassBatchInProgress = false;
   m_twoPassTargetFilter = -1;
-  m_autoModeStage = AUTO_NONE;
-  m_autoModeIncludeOcr = false;
+  if (resetAutoMode) {
+    m_autoModeStage = AUTO_NONE;
+    m_autoModeIncludeOcr = false;
+  }
 
   const PageInfo page(m_batchQueue->selectedPage());
   if (!page.isNull()) {
@@ -1886,11 +1888,7 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
 
       // Auto mode: auto-accept and advance to next stage
       if (m_autoModeStage != AUTO_NONE) {
-        const AutoModeStage savedStage = m_autoModeStage;
-        const bool savedOcr = m_autoModeIncludeOcr;
-        stopBatchProcessing();       // resets m_autoModeStage and m_autoModeIncludeOcr
-        m_autoModeStage = savedStage;
-        m_autoModeIncludeOcr = savedOcr;
+        stopBatchProcessing(UPDATE_MAIN_AREA, /*resetAutoMode=*/false);
         QTimer::singleShot(0, this, &MainWindow::autoModeAdvance);
         return;
       }

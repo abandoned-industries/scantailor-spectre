@@ -776,3 +776,9 @@ current format extension only. If format changed after processing, files weren't
 2026-02-07 - Version bump to 2.0a19, README update for Auto Mode (cmake Release + make -j8)
 - version.h.in: 2.0a18 → 2.0a19
 - README.md: Added Auto Mode to features, Quick Start, and keyboard shortcuts
+
+---
+2026-02-12 - Version bump 2.0a20, fix auto mode save/restore fragility (make -j8)
+- version.h.in: 2.0a19 → 2.0a20
+- MainWindow.h: Add resetAutoMode param to stopBatchProcessing()
+- MainWindow.cpp: Move auto mode reset behind resetAutoMode flag, pass false from filterResult auto mode path
