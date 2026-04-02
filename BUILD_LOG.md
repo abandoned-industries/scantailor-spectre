@@ -782,3 +782,48 @@ current format extension only. If format changed after processing, files weren't
 - version.h.in: 2.0a19 → 2.0a20
 - MainWindow.h: Add resetAutoMode param to stopBatchProcessing()
 - MainWindow.cpp: Move auto mode reset behind resetAutoMode flag, pass false from filterResult auto mode path
+
+---
+2026-03-29 - Add "Apply To..." button for Pass Through option in Output stage
+- src/core/filters/output/OptionsWidget.ui: Added applyPassThroughButton next to passThroughCheckBox
+- src/core/filters/output/OptionsWidget.h: Added applyPassThroughButtonClicked and applyPassThroughConfirmed slots
+- src/core/filters/output/OptionsWidget.cpp: Implemented apply-to-multiple-pages for Pass Through using ApplyColorsDialog pattern
+
+---
+2026-03-30 - Fix PDF export failing on large documents (384+ pages) due to libharu memory exhaustion
+- src/core/PdfExporter.cpp: Chunked export - splits large documents into 100-page chunks, exports each separately, then merges using CoreGraphics CGPDFContext
+- Error was: LibHaru error 0x1050 (HPDF_FAILD_TO_ALLOC_MEM) around page 211, followed by 0x1025 (HPDF_INVALID_DOCUMENT) for all remaining pages
+
+---
+2026-03-30 - Reduce PDF chunk size from 100 to 50 pages
+- Memory from freed chunks isn't fully reclaimed by OS, causing chunk 3 to fail
+- 50 pages keeps each chunk well within memory limits
+
+---
+2026-03-30 - Replace libharu PDF exporter with CGPDFContext (macOS native)
+- Root cause: libharu accumulates ALL image data in memory before writing. Chunking doesn't help because malloc doesn't return memory to the OS.
+- Fix: CGPDFContext writes incrementally per-page via CGContextEndPage(). O(1) memory.
+- src/core/PdfExporter.cpp -> PdfExporter.mm (Objective-C++ for CoreText/Foundation)
+- src/core/CMakeLists.txt: Updated filename, added CoreText framework, ObjC++ flags
+- New exportWithCoreGraphics() function:
+  - B&W: 1-bit CGImage from raw mono data
+  - Grayscale: 8-bit CGImage (Flate compressed by CG)
+  - Color/JPEG gray: CGImageCreateWithJPEGDataProvider for JPEG passthrough
+  - OCR: kCGTextInvisible + CoreText CTLineDraw (invisible but searchable)
+- Removed all libharu chunking code (exportPdfChunk, mergePdfChunks, exportWithLibHaru)
+
+---
+2026-03-31 - Fix pass-through to auto-apply to all selected pages
+- src/core/filters/output/OptionsWidget.cpp: passThroughToggled() now applies to all selected pages automatically (like colorModeChanged does)
+- Removed the "Apply To..." button and dialog approach - checkbox itself handles multi-page
+- src/core/filters/output/OptionsWidget.h: Removed applyPassThroughButtonClicked/applyPassThroughConfirmed slots
+- src/core/filters/output/OptionsWidget.ui: Removed applyPassThroughButton, reverted to simple checkbox
+
+---
+2026-04-02 14:00 - Version 2.0a21 release build (cmake --build -j)
+- version.h.in: 2.0a20 → 2.0a21 (already done)
+- README.md: Updated version to 2.0a21
+- src/core/PdfExporter.cpp → PdfExporter.mm: Replaced libharu with native CoreGraphics CGPDFContext (fixes OOM on large PDFs)
+- src/core/CMakeLists.txt: Updated for .mm file, added CoreText framework
+- src/core/filters/output/OptionsWidget.cpp: Pass-through auto-applies to all selected pages
+- src/core/filters/output/OptionsWidget.ui: Updated tooltip for pass-through

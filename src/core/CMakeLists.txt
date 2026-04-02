@@ -51,7 +51,7 @@ set(common_sources
     TiffReader.cpp TiffReader.h
     TiffWriter.cpp TiffWriter.h
     PdfReader.mm PdfReader.h
-    PdfExporter.cpp PdfExporter.h
+    PdfExporter.mm PdfExporter.h
     PngMetadataLoader.cpp PngMetadataLoader.h
     TiffMetadataLoader.cpp TiffMetadataLoader.h
     JpegMetadataLoader.cpp JpegMetadataLoader.h
@@ -133,7 +133,7 @@ set(common_sources
 if(APPLE)
   list(APPEND common_sources AppleVisionDetector.mm)
   # Enable Objective-C++ for .mm files
-  set_source_files_properties(AppleVisionDetector.mm PdfReader.mm PROPERTIES
+  set_source_files_properties(AppleVisionDetector.mm PdfReader.mm PdfExporter.mm PROPERTIES
     COMPILE_FLAGS "-x objective-c++"
     SKIP_PRECOMPILE_HEADERS ON)
   # Find Apple frameworks
@@ -142,6 +142,7 @@ if(APPLE)
   find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
   find_library(ACCELERATE_FRAMEWORK Accelerate REQUIRED)
   find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+  find_library(CORETEXT_FRAMEWORK CoreText REQUIRED)
 endif()
 
 add_library(core STATIC ${common_sources} ${common_ui_files})
@@ -158,6 +159,7 @@ target_link_libraries(
     $<$<BOOL:${APPKIT_FRAMEWORK}>:${APPKIT_FRAMEWORK}>
     $<$<BOOL:${ACCELERATE_FRAMEWORK}>:${ACCELERATE_FRAMEWORK}>
     $<$<BOOL:${COREGRAPHICS_FRAMEWORK}>:${COREGRAPHICS_FRAMEWORK}>
+    $<$<BOOL:${CORETEXT_FRAMEWORK}>:${CORETEXT_FRAMEWORK}>
   PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets
   imageproc zones
   fix_orientation page_split deskew select_content page_layout finalize output ocr export_)

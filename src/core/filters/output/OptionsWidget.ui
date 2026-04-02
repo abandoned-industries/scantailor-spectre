@@ -162,7 +162,7 @@
            <item>
             <widget class="QCheckBox" name="passThroughCheckBox">
              <property name="toolTip">
-              <string>Skip heavy processing (binarization, despeckling, dewarping). Adjustments (brightness/contrast) still apply.</string>
+              <string>Skip heavy processing (binarization, despeckling, dewarping). Adjustments (brightness/contrast) still apply. Applies to all selected pages.</string>
              </property>
              <property name="text">
               <string>Pass-through (skip processing)</string>

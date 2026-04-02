@@ -463,8 +463,22 @@ void OptionsWidget::passThroughToggled(bool checked) {
   OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
   opp.setPassThrough(checked);
   m_settings->setOutputProcessingParams(m_pageId, opp);
+
+  // Auto-apply to all selected pages (like color mode does)
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) continue;  // already set above
+      OutputProcessingParams pageOpp = m_settings->getOutputProcessingParams(pageId);
+      pageOpp.setPassThrough(checked);
+      m_settings->setOutputProcessingParams(pageId, pageOpp);
+    }
+    emit invalidateAllThumbnails();
+  } else {
+    emit invalidateThumbnail(m_pageId);
+  }
+
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
 }
 
 void OptionsWidget::binarizationSettingsChanged() {
