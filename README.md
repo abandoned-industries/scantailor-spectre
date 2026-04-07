@@ -117,7 +117,7 @@ Defines the physical page boundaries within the scan. This is useful when the sc
 - **Auto** - Automatically detect the page edges (looks for the transition from scanner background to paper)
 - **Manual** - Draw the page boundary yourself by dragging corners and edges
 
-When Auto mode is selected, **Fine Tune Page Corners** adjusts corner positions by looking for black edges, useful for books where corners may be shadowed or bent.
+When Auto mode is selected, **Fine Tune Page Corners** runs a second pass after initial edge detection. It steps each corner diagonally inward, skipping over dark pixels (shadows, bent page edges) until it finds light pixels (actual paper). This is useful for thick books where page corners cast shadows or curl away from the scanner bed.
 
 In Manual mode, you can enter exact **Width** and **Height** values to set a specific page size.
 
