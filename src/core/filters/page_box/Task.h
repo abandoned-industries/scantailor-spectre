@@ -1,11 +1,10 @@
 // Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
 // Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
 
-#ifndef SCANTAILOR_SELECT_CONTENT_TASK_H_
-#define SCANTAILOR_SELECT_CONTENT_TASK_H_
+#ifndef SCANTAILOR_PAGE_BOX_TASK_H_
+#define SCANTAILOR_PAGE_BOX_TASK_H_
 
 #include <QRectF>
-#include <QSizeF>
 #include <memory>
 
 #include "FilterResult.h"
@@ -15,18 +14,12 @@
 class TaskStatus;
 class FilterData;
 class DebugImages;
-class ImageTransformation;
-class Dpi;
 
-namespace page_box {
-class Settings;
-}
-
-namespace page_layout {
+namespace select_content {
 class Task;
 }
 
-namespace select_content {
+namespace page_box {
 class Filter;
 class Settings;
 
@@ -35,9 +28,8 @@ class Task {
 
  public:
   Task(std::shared_ptr<Filter> filter,
-       std::shared_ptr<page_layout::Task> nextTask,
+       std::shared_ptr<select_content::Task> nextTask,
        std::shared_ptr<Settings> settings,
-       std::shared_ptr<page_box::Settings> pageBoxSettings,
        const PageId& pageId,
        bool batch,
        bool debug);
@@ -50,12 +42,11 @@ class Task {
   class UiUpdater;
 
   std::shared_ptr<Filter> m_filter;
-  std::shared_ptr<page_layout::Task> m_nextTask;
+  std::shared_ptr<select_content::Task> m_nextTask;
   std::shared_ptr<Settings> m_settings;
-  std::shared_ptr<page_box::Settings> m_pageBoxSettings;
   std::unique_ptr<DebugImages> m_dbg;
   PageId m_pageId;
   bool m_batchProcessing;
 };
-}  // namespace select_content
-#endif  // ifndef SCANTAILOR_SELECT_CONTENT_TASK_H_
+}  // namespace page_box
+#endif

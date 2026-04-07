@@ -4,8 +4,8 @@
 #include "Filter.h"
 
 #include <OrderByDeviationProvider.h>
-#include <filters/select_content/CacheDrivenTask.h>
-#include <filters/select_content/Task.h>
+#include <filters/page_box/CacheDrivenTask.h>
+#include <filters/page_box/Task.h>
 
 #include <utility>
 
@@ -114,7 +114,7 @@ void Filter::writeParams(QDomDocument& doc, QDomElement& filterEl, const PageId&
 }
 
 std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
-                                         std::shared_ptr<select_content::Task> nextTask,
+                                         std::shared_ptr<page_box::Task> nextTask,
                                          const bool batchProcessing,
                                          const bool debug) {
   return std::make_shared<Task>(std::static_pointer_cast<Filter>(shared_from_this()), m_settings, m_imageSettings,
@@ -122,7 +122,7 @@ std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
 }
 
 std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(
-    std::shared_ptr<select_content::CacheDrivenTask> nextTask) {
+    std::shared_ptr<page_box::CacheDrivenTask> nextTask) {
   return std::make_shared<CacheDrivenTask>(m_settings, std::move(nextTask));
 }
 

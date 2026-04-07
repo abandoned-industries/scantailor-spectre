@@ -13,11 +13,11 @@
 #include "Settings.h"
 #include "Thumbnail.h"
 #include "ThumbnailCollector.h"
-#include "filters/select_content/CacheDrivenTask.h"
+#include "filters/page_box/CacheDrivenTask.h"
 
 namespace deskew {
 CacheDrivenTask::CacheDrivenTask(std::shared_ptr<Settings> settings,
-                                 std::shared_ptr<select_content::CacheDrivenTask> nextTask)
+                                 std::shared_ptr<page_box::CacheDrivenTask> nextTask)
     : m_nextTask(std::move(nextTask)), m_settings(std::move(settings)) {}
 
 CacheDrivenTask::~CacheDrivenTask() = default;

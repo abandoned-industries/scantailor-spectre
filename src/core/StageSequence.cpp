@@ -10,6 +10,7 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
     : m_fixOrientationFilter(std::make_shared<fix_orientation::Filter>(pageSelectionAccessor)),
       m_pageSplitFilter(std::make_shared<page_split::Filter>(pages, pageSelectionAccessor)),
       m_deskewFilter(std::make_shared<deskew::Filter>(pageSelectionAccessor)),
+      m_pageBoxFilter(std::make_shared<page_box::Filter>(pageSelectionAccessor)),
       m_selectContentFilter(std::make_shared<select_content::Filter>(pageSelectionAccessor)),
       m_pageLayoutFilter(std::make_shared<page_layout::Filter>(pages, pageSelectionAccessor)),
       m_finalizeFilter(std::make_shared<finalize::Filter>(pages, pageSelectionAccessor)),
@@ -22,6 +23,8 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
   m_outputFilter->setFinalizeSettings(m_finalizeFilter->settings());
   // Connect export filter to output settings for PDF export
   m_exportFilter->setOutputSettings(m_outputFilter->settings());
+  // Connect select_content filter to page_box settings so it can read the page rect
+  m_selectContentFilter->setPageBoxSettings(m_pageBoxFilter->settings());
 
   m_fixOrientationFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_fixOrientationFilter);
@@ -31,6 +34,9 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
 
   m_deskewFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_deskewFilter);
+
+  m_pageBoxFilterIdx = static_cast<int>(m_filters.size());
+  m_filters.emplace_back(m_pageBoxFilter);
 
   m_selectContentFilterIdx = static_cast<int>(m_filters.size());
   m_filters.emplace_back(m_selectContentFilter);

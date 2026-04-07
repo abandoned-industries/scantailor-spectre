@@ -162,7 +162,7 @@ target_link_libraries(
     $<$<BOOL:${CORETEXT_FRAMEWORK}>:${CORETEXT_FRAMEWORK}>
   PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets
   imageproc zones
-  fix_orientation page_split deskew select_content page_layout finalize output ocr export_)
+  fix_orientation page_split deskew page_box select_content page_layout finalize output ocr export_)
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 set_target_properties(core PROPERTIES AUTOUIC ON)
 
@@ -174,6 +174,7 @@ add_subdirectory(tests)
 add_subdirectory(filters/fix_orientation)
 add_subdirectory(filters/page_split)
 add_subdirectory(filters/deskew)
+add_subdirectory(filters/page_box)
 add_subdirectory(filters/select_content)
 add_subdirectory(filters/page_layout)
 add_subdirectory(filters/finalize)

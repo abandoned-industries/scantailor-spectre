@@ -18,6 +18,7 @@
 #include "OptionsWidget.h"
 #include "PageFinder.h"
 #include "TaskStatus.h"
+#include "filters/page_box/Settings.h"
 #include "filters/page_layout/Task.h"
 
 using namespace imageproc;
@@ -54,12 +55,14 @@ class Task::UiUpdater : public FilterResult {
 Task::Task(std::shared_ptr<Filter> filter,
            std::shared_ptr<page_layout::Task> nextTask,
            std::shared_ptr<Settings> settings,
+           std::shared_ptr<page_box::Settings> pageBoxSettings,
            const PageId& pageId,
            const bool batch,
            const bool debug)
     : m_filter(std::move(filter)),
       m_nextTask(std::move(nextTask)),
       m_settings(std::move(settings)),
+      m_pageBoxSettings(std::move(pageBoxSettings)),
       m_pageId(pageId),
       m_batchProcessing(batch) {
   if (debug) {
@@ -85,32 +88,29 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
 
   const PhysSizeCalc physSizeCalc(data.xform());
 
-  bool needUpdateContentBox = false;
-  bool needUpdatePageBox = false;
+  // Get page rect from page_box filter's settings (page box detection is now a separate stage)
+  QRectF pageRect = data.xform().resultingRect();  // fallback
+  if (m_pageBoxSettings) {
+    auto pageBoxParams = m_pageBoxSettings->getPageParams(m_pageId);
+    if (pageBoxParams && pageBoxParams->pageRect().isValid()) {
+      pageRect = pageBoxParams->pageRect();
+    }
+  }
+  newParams.setPageRect(pageRect);
 
-  if (!params || !deps.compatibleWith(params->dependencies(), &needUpdateContentBox, &needUpdatePageBox)) {
-    QRectF pageRect(newParams.pageRect());
+  bool needUpdateContentBox = false;
+
+  // Check if page rect changed from what was stored — if so, force content re-detection
+  if (params && params->pageRect().isValid() && pageRect != params->pageRect()) {
+    needUpdateContentBox = true;
+  }
+
+  if (!params || needUpdateContentBox || !deps.compatibleWith(params->dependencies(), &needUpdateContentBox, nullptr)) {
     QRectF contentRect(newParams.contentRect());
 
-    if (needUpdatePageBox) {
-      if (newParams.pageDetectionMode() == MODE_AUTO) {
-        pageRect
-            = PageFinder::findPageBox(status, data, newParams.isFineTuningEnabled(), m_settings->pageDetectionBox(),
-                                      m_settings->pageDetectionTolerance(), m_dbg.get());
-      } else if (newParams.pageDetectionMode() == MODE_DISABLED) {
-        pageRect = data.xform().resultingRect();
-      }
-
-      if (!data.xform().resultingRect().intersected(pageRect).isValid()) {
-        pageRect = data.xform().resultingRect();
-      }
-
-      // Force update the content box if it doesn't fit into the page box updated.
-      if (contentRect.isValid() && (contentRect.intersected(pageRect) != contentRect)) {
-        needUpdateContentBox = true;
-      }
-
-      newParams.setPageRect(pageRect);
+    // Force update if content box doesn't fit the (potentially new) page rect
+    if (contentRect.isValid() && (contentRect.intersected(pageRect) != contentRect)) {
+      needUpdateContentBox = true;
     }
 
     if (needUpdateContentBox) {
@@ -183,17 +183,12 @@ void Task::UiUpdater::updateUI(FilterUiInterface* ui) {
   optWidget->postUpdateUI(m_uiData);
   ui->setOptionsWidget(optWidget, ui->KEEP_OWNERSHIP);
 
+  // Page rect shown as read-only context (editing is in the Page Box stage)
   auto* view = new ImageView(m_image, m_downscaledImage, m_contentMask, m_xform, m_uiData.contentRect(),
-                             m_uiData.pageRect(), m_uiData.pageDetectionMode() != MODE_DISABLED);
+                             m_uiData.pageRect(), false);
   ui->setImageWidget(view, ui->TRANSFER_OWNERSHIP, m_dbg.get());
 
   QObject::connect(view, SIGNAL(manualContentRectSet(const QRectF&)), optWidget,
                    SLOT(manualContentRectSet(const QRectF&)));
-  QObject::connect(view, SIGNAL(manualPageRectSet(const QRectF&)), optWidget, SLOT(manualPageRectSet(const QRectF&)));
-  QObject::connect(view, SIGNAL(pageRectSizeChanged(const QSizeF&)), optWidget,
-                   SLOT(updatePageRectSize(const QSizeF&)));
-  QObject::connect(optWidget, SIGNAL(pageRectChangedLocally(const QRectF&)), view,
-                   SLOT(pageRectSetExternally(const QRectF&)));
-  QObject::connect(optWidget, SIGNAL(pageRectStateChanged(bool)), view, SLOT(setPageRectEnabled(bool)));
 }
 }  // namespace select_content

@@ -33,11 +33,6 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
   updateSelectionIndicator();
 
   contentBoxGroup->setEnabled(false);
-  pageBoxGroup->setEnabled(false);
-
-  pageDetectOptions->setVisible(false);
-  fineTuneBtn->setVisible(false);
-  dimensionsWidget->setVisible(false);
 
   onUnitsChanged(UnitsProvider::getInstance().getUnits());
 }
@@ -48,13 +43,8 @@ void OptionsWidget::postUpdateUI(const UiData& uiData) {
   m_uiData = uiData;
 
   updateContentModeIndication(uiData.contentDetectionMode());
-  updatePageModeIndication(uiData.pageDetectionMode());
 
   contentBoxGroup->setEnabled(true);
-  pageBoxGroup->setEnabled(true);
-
-  updatePageDetectOptionsDisplay();
-  updatePageRectSize(m_uiData.pageRect().size());
 }
 
 void OptionsWidget::manualContentRectSet(const QRectF& contentRect) {
@@ -67,29 +57,6 @@ void OptionsWidget::manualContentRectSet(const QRectF& contentRect) {
   emit invalidateThumbnail(m_pageId);
 }
 
-void OptionsWidget::manualPageRectSet(const QRectF& pageRect) {
-  m_uiData.setPageRect(pageRect);
-  m_uiData.setPageDetectionMode(MODE_MANUAL);
-  updatePageModeIndication(MODE_MANUAL);
-  updatePageDetectOptionsDisplay();
-  updatePageRectSize(pageRect.size());
-
-  commitCurrentParams();
-
-  emit invalidateThumbnail(m_pageId);
-}
-
-void OptionsWidget::updatePageRectSize(const QSizeF& size) {
-  auto block = m_connectionManager.getScopedBlock();
-
-  double width = size.width();
-  double height = size.height();
-  UnitsProvider::getInstance().convertFrom(width, height, PIXELS, m_dpi);
-
-  widthSpinBox->setValue(width);
-  heightSpinBox->setValue(height);
-}
-
 void OptionsWidget::contentDetectToggled(const AutoManualMode mode) {
   m_uiData.setContentDetectionMode(mode);
   commitCurrentParams();
@@ -98,32 +65,6 @@ void OptionsWidget::contentDetectToggled(const AutoManualMode mode) {
   applyModeToSelectedPages();
 
   if (mode != MODE_MANUAL) {
-    emit reloadRequested();
-  }
-}
-
-void OptionsWidget::pageDetectToggled(const AutoManualMode mode) {
-  const bool needUpdateState = ((mode == MODE_MANUAL) && (m_uiData.pageDetectionMode() == MODE_DISABLED));
-
-  m_uiData.setPageDetectionMode(mode);
-  updatePageDetectOptionsDisplay();
-  commitCurrentParams();
-
-  // Apply mode to all selected pages
-  applyModeToSelectedPages();
-
-  if (mode != MODE_MANUAL) {
-    emit reloadRequested();
-  } else if (needUpdateState) {
-    emit pageRectStateChanged(true);
-    emit invalidateThumbnail(m_pageId);
-  }
-}
-
-void OptionsWidget::fineTuningChanged(bool checked) {
-  m_uiData.setFineTuneCornersEnabled(checked);
-  commitCurrentParams();
-  if (m_uiData.pageDetectionMode() == MODE_AUTO) {
     emit reloadRequested();
   }
 }
@@ -140,38 +81,6 @@ void OptionsWidget::updateContentModeIndication(const AutoManualMode mode) {
       contentDetectDisableBtn->setChecked(true);
       break;
   }
-}
-
-void OptionsWidget::updatePageModeIndication(const AutoManualMode mode) {
-  switch (mode) {
-    case MODE_AUTO:
-      pageDetectAutoBtn->setChecked(true);
-      break;
-    case MODE_MANUAL:
-      pageDetectManualBtn->setChecked(true);
-      break;
-    case MODE_DISABLED:
-      pageDetectDisableBtn->setChecked(true);
-      break;
-  }
-}
-
-void OptionsWidget::updatePageDetectOptionsDisplay() {
-  fineTuneBtn->setChecked(m_uiData.isFineTuningCornersEnabled());
-  pageDetectOptions->setVisible(m_uiData.pageDetectionMode() != MODE_DISABLED);
-  fineTuneBtn->setVisible(m_uiData.pageDetectionMode() == MODE_AUTO);
-  dimensionsWidget->setVisible(m_uiData.pageDetectionMode() == MODE_MANUAL);
-}
-
-void OptionsWidget::dimensionsChangedLocally(double) {
-  double widthSpinBoxValue = widthSpinBox->value();
-  double heightSpinBoxValue = heightSpinBox->value();
-  UnitsProvider::getInstance().convertTo(widthSpinBoxValue, heightSpinBoxValue, PIXELS, m_dpi);
-
-  QRectF newPageRect = m_uiData.pageRect();
-  newPageRect.setSize(QSizeF(widthSpinBoxValue, heightSpinBoxValue));
-
-  emit pageRectChangedLocally(newPageRect);
 }
 
 void OptionsWidget::commitCurrentParams() {
@@ -283,32 +192,17 @@ void OptionsWidget::onUnitsChanged(Units units) {
       break;
   }
 
-  widthSpinBox->setDecimals(decimals);
-  widthSpinBox->setSingleStep(step);
-  heightSpinBox->setDecimals(decimals);
-  heightSpinBox->setSingleStep(step);
-
-  updatePageRectSize(m_uiData.pageRect().size());
 }
 
 #define CONNECT(...) m_connectionManager.addConnection(connect(__VA_ARGS__))
 
 void OptionsWidget::setupUiConnections() {
-  CONNECT(widthSpinBox, SIGNAL(valueChanged(double)), this, SLOT(dimensionsChangedLocally(double)));
-  CONNECT(heightSpinBox, SIGNAL(valueChanged(double)), this, SLOT(dimensionsChangedLocally(double)));
   CONNECT(contentDetectAutoBtn, &QPushButton::pressed, this,
           boost::bind(&OptionsWidget::contentDetectToggled, this, MODE_AUTO));
   CONNECT(contentDetectManualBtn, &QPushButton::pressed, this,
           boost::bind(&OptionsWidget::contentDetectToggled, this, MODE_MANUAL));
   CONNECT(contentDetectDisableBtn, &QPushButton::pressed, this,
           boost::bind(&OptionsWidget::contentDetectToggled, this, MODE_DISABLED));
-  CONNECT(pageDetectAutoBtn, &QPushButton::pressed, this,
-          boost::bind(&OptionsWidget::pageDetectToggled, this, MODE_AUTO));
-  CONNECT(pageDetectManualBtn, &QPushButton::pressed, this,
-          boost::bind(&OptionsWidget::pageDetectToggled, this, MODE_MANUAL));
-  CONNECT(pageDetectDisableBtn, &QPushButton::pressed, this,
-          boost::bind(&OptionsWidget::pageDetectToggled, this, MODE_DISABLED));
-  CONNECT(fineTuneBtn, SIGNAL(toggled(bool)), this, SLOT(fineTuningChanged(bool)));
   CONNECT(applyToBtn, SIGNAL(clicked()), this, SLOT(showApplyToDialog()));
   CONNECT(fillFactorSlider, SIGNAL(valueChanged(int)), this, SLOT(fillFactorChanged(int)));
   CONNECT(borderToleranceSlider, SIGNAL(valueChanged(int)), this, SLOT(borderToleranceChanged(int)));
@@ -338,8 +232,6 @@ void OptionsWidget::applyModeToSelectedPages() {
         // Copy only the mode settings, not the boxes
         Params newParams(*oldParams);
         newParams.setContentDetectionMode(m_uiData.contentDetectionMode());
-        newParams.setPageDetectionMode(m_uiData.pageDetectionMode());
-        newParams.setFineTuneCornersEnabled(m_uiData.isFineTuningCornersEnabled());
         m_settings->setPageParams(pageId, newParams);
       } else {
         m_settings->setPageParams(pageId, params);

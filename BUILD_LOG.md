@@ -856,3 +856,70 @@ current format extension only. If format changed after processing, files weren't
   clip output to pre-crop area so other page doesn't bleed into margins
 - src/core/filters/output/OptionsWidget.cpp: Grey out inapplicable controls in pass-through mode;
   fix controls staying greyed out when pass-through is toggled off
+
+---
+2026-04-07 - Step 1: Add page_box filter skeleton (cmake --build -j)
+- Created src/core/filters/page_box/ with: Filter, Task, CacheDrivenTask, Settings, Params, Dependencies, Thumbnail, OptionsWidget, CMakeLists
+- Updated StageSequence.h/cpp to include page_box between deskew and select_content
+- Updated MainWindow.cpp createCompositeTask/createCompositeCacheDrivenTask for page_box
+- Updated deskew filter to chain to page_box instead of select_content
+- Updated src/core/CMakeLists.txt with page_box subdirectory and library
+
+---
+2026-04-07 - Step 2: Move page box detection into page_box filter (cmake --build -j)
+- Copied PageFinder.h/cpp to page_box namespace
+- Updated page_box::Task to use PageFinder for actual page box detection
+- Added page_box::Settings connection to select_content::Filter via setPageBoxSettings()
+- Updated select_content::Task to read pageRect from page_box::Settings instead of detecting it
+- Updated StageSequence to connect page_box settings to select_content
+
+---
+2026-04-07 - Step 3: Page Box UI (ImageView, OptionsWidget with .ui) (cmake --build -j)
+- Created page_box::ImageView with page rect manipulation only (corners, edges, whole-box drag)
+- Created page_box::OptionsWidget with Disable/Auto/Manual modes, Fine Tune, Width/Height spinboxes
+- Created OptionsWidget.ui form
+- Updated Task UiUpdater to use new ImageView with signal/slot connections
+- Updated CMakeLists for new files
+
+---
+2026-04-07 - Step 4: Simplify select_content (remove page box UI) (cmake --build -j)
+- Removed pageBoxGroup from OptionsWidget.ui
+- Removed page box signals/slots/methods from OptionsWidget.h/cpp
+- Removed page box signal connections from Task.cpp UiUpdater
+- Page rect now shown as read-only context in ImageView (not editable)
+
+---
+2026-04-07 - Step 6: Auto mode integration (cmake --build -j)
+- Added AUTO_PAGE_BOX to AutoModeStage enum in MainWindow.h
+- Added AUTO_PAGE_BOX case in autoModeAdvance() between DESKEW and SELECT_CONTENT
+
+---
+2026-04-07 - Step 7: Polish - invalidation, README/CLAUDE.md, lint fix (cmake --build -j)
+- Fixed pageOrderOptions override warning in page_box::Filter.h
+- Added page rect change detection in select_content::Task to force content re-detection
+- Updated README.md: 10-stage table, new Page Box section, renumbered stages 6-10
+- Updated CLAUDE.md: 10 stages, processing flow, PdfExporter.mm reference
+
+---
+2026-04-07 - Add Page Box batch summary dialog (cmake --build -j)
+- Created PageBoxSummaryDialog.h/cpp: shows page width outliers after Page Box batch processing
+- Added showPageBoxSummary() to MainWindow with jump-to-page and disable-page-box actions
+- Added wasPageBoxBatch flag in filterResult() batch completion handling
+- Added to app CMakeLists.txt
+
+---
+2026-04-07 - Version 2.0a23 release build (cmake --build -j)
+- version.h.in: 2.0a22 → 2.0a23
+- README.md: Updated version to 2.0a23, 10-stage pipeline, new Page Box section
+- CLAUDE.md: Updated to 10 stages
+- NEW: Page Box stage (stage 4) - separate page boundary detection from content detection
+  - page_box filter with PageFinder, ImageView, OptionsWidget, Settings, Params, Dependencies
+  - Disable/Auto/Manual modes, Fine Tune Corners, Width/Height spinboxes
+  - Sort by page width, height, deviation
+  - Batch summary dialog showing page size outliers
+- CHANGED: Select Content (now stage 5) - content box only, reads page rect from Page Box
+  - Removed page box UI controls
+  - Page rect shown as read-only context
+  - Content re-detection triggered when page box changes
+- Auto mode updated for 10 stages
+- Project file backward compatibility (reads page box data from old <select-content> tag)

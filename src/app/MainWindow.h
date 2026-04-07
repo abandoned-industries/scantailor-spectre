@@ -366,6 +366,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   void forceSinglePageForImages(const std::vector<ImageId>& imageIds);
 
+  void showPageBoxSummary();
+
   void showContentCoverageSummary();
 
   void jumpToPageFromContentSummary(const PageId& pageId);
@@ -422,10 +424,11 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
     AUTO_NONE = -1,
     AUTO_PAGE_SPLIT = 0,
     AUTO_DESKEW = 1,
-    AUTO_SELECT_CONTENT = 2,
-    AUTO_PAGE_LAYOUT = 3,
-    AUTO_OUTPUT = 4,
-    AUTO_OCR = 5
+    AUTO_PAGE_BOX = 2,
+    AUTO_SELECT_CONTENT = 3,
+    AUTO_PAGE_LAYOUT = 4,
+    AUTO_OUTPUT = 5,
+    AUTO_OCR = 6
   };
   AutoModeStage m_autoModeStage = AUTO_NONE;
   bool m_autoModeIncludeOcr = false;

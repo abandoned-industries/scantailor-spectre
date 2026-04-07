@@ -123,7 +123,11 @@
 #include "filters/page_split/Task.h"
 #include "BatchProcessingSummaryDialog.h"
 #include "ContentCoverageSummaryDialog.h"
+#include "PageBoxSummaryDialog.h"
 #include "PageSizeWarningDialog.h"
+#include "filters/page_box/CacheDrivenTask.h"
+#include "filters/page_box/Settings.h"
+#include "filters/page_box/Task.h"
 #include "filters/select_content/Settings.h"
 #include "filters/page_layout/Settings.h"
 #include "filters/select_content/Params.h"
@@ -1589,6 +1593,14 @@ void MainWindow::autoModeAdvance() {
 
     case AUTO_DESKEW:
       autoSetDeskewZero();
+      m_autoModeStage = AUTO_PAGE_BOX;
+      filterList->selectRow(m_stages->pageBoxFilterIdx());
+      goFirstPage();
+      startBatchProcessing();
+      break;
+
+    case AUTO_PAGE_BOX:
+      // Page box detection complete, proceed to content detection
       m_autoModeStage = AUTO_SELECT_CONTENT;
       filterList->selectRow(m_stages->selectContentFilterIdx());
       goFirstPage();
@@ -1895,10 +1907,13 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
 
       // Check if we just finished processing certain filters
       const bool wasPageSplitBatch = (m_curFilter == m_stages->pageSplitFilterIdx());
+      const bool wasPageBoxBatch = (m_curFilter == m_stages->pageBoxFilterIdx());
       const bool wasSelectContentBatch = (m_curFilter == m_stages->selectContentFilterIdx());
       const bool wasPageLayoutBatch = (m_curFilter == m_stages->pageLayoutFilterIdx());
 
       qDebug() << "filterResult: batch complete, m_curFilter:" << m_curFilter
+               << "pageBoxFilterIdx:" << m_stages->pageBoxFilterIdx()
+               << "wasPageBoxBatch:" << wasPageBoxBatch
                << "pageLayoutFilterIdx:" << m_stages->pageLayoutFilterIdx()
                << "wasPageLayoutBatch:" << wasPageLayoutBatch;
 
@@ -1926,6 +1941,11 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
       // Show batch processing summary for Page Split filter
       if (wasPageSplitBatch) {
         showBatchProcessingSummary();
+      }
+
+      // Show page box size summary for Page Box filter
+      if (wasPageBoxBatch) {
+        showPageBoxSummary();
       }
 
       // Show content coverage summary for Select Content filter
@@ -3395,6 +3415,7 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
   std::shared_ptr<fix_orientation::Task> fixOrientationTask;
   std::shared_ptr<page_split::Task> pageSplitTask;
   std::shared_ptr<deskew::Task> deskewTask;
+  std::shared_ptr<page_box::Task> pageBoxTask;
   std::shared_ptr<select_content::Task> selectContentTask;
   std::shared_ptr<page_layout::Task> pageLayoutTask;
   std::shared_ptr<finalize::Task> finalizeTask;
@@ -3442,8 +3463,12 @@ BackgroundTaskPtr MainWindow::createCompositeTask(const PageInfo& page,
     selectContentTask = m_stages->selectContentFilter()->createTask(page.id(), pageLayoutTask, batch, debug);
     debug = false;
   }
+  if (lastFilterIdx >= m_stages->pageBoxFilterIdx()) {
+    pageBoxTask = m_stages->pageBoxFilter()->createTask(page.id(), selectContentTask, batch, debug);
+    debug = false;
+  }
   if (lastFilterIdx >= m_stages->deskewFilterIdx()) {
-    deskewTask = m_stages->deskewFilter()->createTask(page.id(), selectContentTask, batch, debug);
+    deskewTask = m_stages->deskewFilter()->createTask(page.id(), pageBoxTask, batch, debug);
     debug = false;
   }
   if (lastFilterIdx >= m_stages->pageSplitFilterIdx()) {
@@ -3463,6 +3488,7 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   std::shared_ptr<fix_orientation::CacheDrivenTask> fixOrientationTask;
   std::shared_ptr<page_split::CacheDrivenTask> pageSplitTask;
   std::shared_ptr<deskew::CacheDrivenTask> deskewTask;
+  std::shared_ptr<page_box::CacheDrivenTask> pageBoxTask;
   std::shared_ptr<select_content::CacheDrivenTask> selectContentTask;
   std::shared_ptr<page_layout::CacheDrivenTask> pageLayoutTask;
   std::shared_ptr<finalize::CacheDrivenTask> finalizeTask;
@@ -3502,8 +3528,11 @@ std::shared_ptr<CompositeCacheDrivenTask> MainWindow::createCompositeCacheDriven
   if (lastFilterIdx >= m_stages->selectContentFilterIdx()) {
     selectContentTask = m_stages->selectContentFilter()->createCacheDrivenTask(pageLayoutTask);
   }
+  if (lastFilterIdx >= m_stages->pageBoxFilterIdx()) {
+    pageBoxTask = m_stages->pageBoxFilter()->createCacheDrivenTask(selectContentTask);
+  }
   if (lastFilterIdx >= m_stages->deskewFilterIdx()) {
-    deskewTask = m_stages->deskewFilter()->createCacheDrivenTask(selectContentTask);
+    deskewTask = m_stages->deskewFilter()->createCacheDrivenTask(pageBoxTask);
   }
   if (lastFilterIdx >= m_stages->pageSplitFilterIdx()) {
     pageSplitTask = m_stages->pageSplitFilter()->createCacheDrivenTask(deskewTask);
@@ -3920,6 +3949,83 @@ void MainWindow::forceSinglePageForImages(const std::vector<ImageId>& imageIds) 
   if (m_curFilter == m_stages->pageSplitFilterIdx()) {
     updateMainArea();
   }
+}
+
+void MainWindow::showPageBoxSummary() {
+  if (!m_stages || !m_pages) {
+    return;
+  }
+
+  auto pageBoxSettings = m_stages->pageBoxFilter()->settings();
+  if (!pageBoxSettings) {
+    return;
+  }
+
+  const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+  std::vector<PageBoxSummaryDialog::PageSummary> allPages;
+  int pageNumber = 0;
+
+  for (const PageInfo& pageInfo : pages) {
+    const PageId& pageId = pageInfo.id();
+    pageNumber++;
+
+    auto params = pageBoxSettings->getPageParams(pageId);
+    if (!params) {
+      continue;
+    }
+
+    const QRectF& pageRect = params->pageRect();
+    if (!pageRect.isValid()) {
+      continue;
+    }
+
+    PageBoxSummaryDialog::PageSummary summary;
+    summary.pageId = pageId;
+    summary.fileName = QFileInfo(pageId.imageId().filePath()).fileName();
+    summary.pageNumber = pageNumber;
+    summary.pageWidth = pageRect.width();
+    summary.deviationPercent = 0;  // computed by dialog from median
+    allPages.push_back(summary);
+  }
+
+  if (allPages.empty()) {
+    return;
+  }
+
+  auto* dialog = new PageBoxSummaryDialog(this);
+  dialog->setSummary(static_cast<int>(allPages.size()), allPages, 0.10);
+
+  connect(dialog, &PageBoxSummaryDialog::jumpToPage,
+          this, [this](const PageId& pageId) { goToPage(pageId); });
+  connect(dialog, &PageBoxSummaryDialog::disablePageBoxSelected,
+          this, [this](const std::vector<PageId>& pageIds) {
+            auto settings = m_stages->pageBoxFilter()->settings();
+            for (const PageId& pid : pageIds) {
+              auto params = settings->getPageParams(pid);
+              if (params) {
+                params->setPageDetectionMode(MODE_DISABLED);
+                settings->setPageParams(pid, *params);
+              }
+            }
+            invalidateAllThumbnails();
+          });
+  connect(dialog, &PageBoxSummaryDialog::disablePageBoxAll,
+          this, [this](const std::vector<PageId>& pageIds) {
+            auto settings = m_stages->pageBoxFilter()->settings();
+            for (const PageId& pid : pageIds) {
+              auto params = settings->getPageParams(pid);
+              if (params) {
+                params->setPageDetectionMode(MODE_DISABLED);
+                settings->setPageParams(pid, *params);
+              }
+            }
+            invalidateAllThumbnails();
+          });
+
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
+  dialog->raise();
+  dialog->activateWindow();
 }
 
 void MainWindow::showContentCoverageSummary() {

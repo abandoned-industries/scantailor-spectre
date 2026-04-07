@@ -87,15 +87,7 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void manualContentRectSet(const QRectF& contentRect);
 
-  void manualPageRectSet(const QRectF& pageRect);
-
-  void updatePageRectSize(const QSizeF& size);
-
  signals:
-
-  void pageRectChangedLocally(const QRectF& pageRect);
-
-  void pageRectStateChanged(bool state);
 
  private slots:
 
@@ -105,12 +97,6 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void contentDetectToggled(AutoManualMode mode);
 
-  void pageDetectToggled(AutoManualMode mode);
-
-  void fineTuningChanged(bool checked);
-
-  void dimensionsChangedLocally(double);
-
   void fillFactorChanged(int value);
 
   void borderToleranceChanged(int value);
@@ -119,10 +105,6 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
  private:
   void updateContentModeIndication(AutoManualMode mode);
-
-  void updatePageModeIndication(AutoManualMode mode);
-
-  void updatePageDetectOptionsDisplay();
 
   void commitCurrentParams();
 

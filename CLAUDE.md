@@ -54,7 +54,7 @@ EOF
 
 ## Overview
 
-ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs through a 9-stage processing pipeline. Fork of ScanTailor Advanced with PDF import/export, intelligent color detection, multi-select batch processing, and native Apple Silicon support.
+ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs through a 10-stage processing pipeline. Fork of ScanTailor Advanced with PDF import/export, intelligent color detection, multi-select batch processing, and native Apple Silicon support.
 
 ## Directory Structure
 
@@ -62,7 +62,7 @@ ScanTailor Spectre transforms raw scans into clean, publication-ready PDFs throu
 src/
 ├── app/                    # Main application (MainWindow, dialogs, startup)
 ├── core/                   # Core processing logic
-│   └── filters/            # The 8 filter stages (see below)
+│   └── filters/            # The 10 filter stages (see below)
 ├── imageproc/              # Image processing algorithms (binarize, despeckle, etc.)
 ├── dewarping/              # Book page flattening algorithms
 ├── math/                   # Splines, matrices, linear algebra
@@ -70,7 +70,7 @@ src/
 └── acceleration/           # Metal GPU shaders (macOS)
 ```
 
-## The 9 Filter Stages
+## The 10 Filter Stages
 
 Each filter lives in `src/core/filters/{stage}/` with consistent structure:
 
@@ -79,12 +79,13 @@ Each filter lives in `src/core/filters/{stage}/` with consistent structure:
 | 1 | `fix_orientation/` | Rotate pages (90° increments) |
 | 2 | `page_split/` | Separate two-page spreads |
 | 3 | `deskew/` | Straighten tilted scans |
-| 4 | `select_content/` | Define page/content boundaries |
-| 5 | `page_layout/` | Set margins and alignment |
-| 6 | `finalize/` | Choose color mode (B&W/Gray/Color) |
-| 7 | `output/` | Apply image processing (binarize, despeckle, dewarp) |
-| 8 | `ocr/` | OCR text recognition for searchable PDF |
-| 9 | `export_/` | Create final PDF |
+| 4 | `page_box/` | Define page boundaries |
+| 5 | `select_content/` | Define content boundaries |
+| 6 | `page_layout/` | Set margins and alignment |
+| 7 | `finalize/` | Choose color mode (B&W/Gray/Color) |
+| 8 | `output/` | Apply image processing (binarize, despeckle, dewarp) |
+| 9 | `ocr/` | OCR text recognition for searchable PDF |
+| 10 | `export_/` | Create final PDF |
 
 ### Filter Architecture Pattern
 
@@ -117,7 +118,7 @@ filters/{stage}/
 
 ### I/O
 - **PdfReader** (`src/core/PdfReader.mm`) - PDF import using CoreGraphics (macOS only)
-- **PdfExporter** (`src/core/PdfExporter.cpp`) - PDF export with quality presets
+- **PdfExporter** (`src/core/PdfExporter.mm`) - PDF export via CoreGraphics CGPDFContext
 - **ProjectReader/Writer** (`src/core/`) - .ScanTailor project files (XML)
 
 ### Apple-Specific
@@ -131,15 +132,17 @@ Input (PDF/Images)
     ↓
 ProjectPages (image collection)
     ↓
-Stage 1-5: Geometry corrections
+Stage 1-4: Geometry corrections (orientation, split, deskew, page box)
     ↓
-Stage 6: Color mode decision (Leptonica-based detection)
+Stage 5-6: Content selection and margins
     ↓
-Stage 7: Image processing → TIFF/PNG output
+Stage 7: Color mode decision (Leptonica-based detection)
     ↓
-Stage 8: OCR text layer (Apple Vision framework)
+Stage 8: Image processing → TIFF/PNG output
     ↓
-Stage 9: PdfExporter → Final PDF
+Stage 9: OCR text layer (Apple Vision framework)
+    ↓
+Stage 10: PdfExporter → Final PDF
 ```
 
 Each page flows through filters independently. Results are cached in project folder.

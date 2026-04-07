@@ -22,7 +22,7 @@ namespace imageproc {
 class BinaryImage;
 }
 
-namespace select_content {
+namespace page_box {
 class Task;
 }
 
@@ -37,7 +37,7 @@ class Task {
   Task(std::shared_ptr<Filter> filter,
        std::shared_ptr<Settings> settings,
        std::shared_ptr<ImageSettings> imageSettings,
-       std::shared_ptr<select_content::Task> nextTask,
+       std::shared_ptr<page_box::Task> nextTask,
        const PageId& pageId,
        bool batchProcessing,
        bool debug);
@@ -60,7 +60,7 @@ class Task {
   std::shared_ptr<Filter> m_filter;
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<ImageSettings> m_imageSettings;
-  std::shared_ptr<select_content::Task> m_nextTask;
+  std::shared_ptr<page_box::Task> m_nextTask;
   std::unique_ptr<DebugImages> m_dbg;
   PageId m_pageId;
   bool m_batchProcessing;

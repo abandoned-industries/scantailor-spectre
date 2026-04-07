@@ -2,7 +2,7 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a22** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a23** | macOS (Apple Silicon) | Requires macOS 12 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 9-stage workflow, and export a polished, searchable PDF.
 
@@ -44,18 +44,19 @@ Each filter stage refines your pages. Work top to bottom:
 | 1 | **Fix Orientation** | Rotate pages right-side up |
 | 2 | **Split Pages** | Separate two-page spreads |
 | 3 | **Deskew** | Straighten tilted scans |
-| 4 | **Select Content** | Crop to content area |
-| 5 | **Margins** | Set page margins |
-| 6 | **Finalize** | Choose B&W, Grayscale, or Color |
-| 7 | **Output** | Apply image processing |
-| 8 | **OCR** | Text recognition for searchable PDFs |
-| 9 | **Export** | Create final PDF |
+| 4 | **Page Box** | Define page boundaries |
+| 5 | **Select Content** | Crop to content area |
+| 6 | **Margins** | Set page margins |
+| 7 | **Finalize** | Choose B&W, Grayscale, or Color |
+| 8 | **Output** | Apply image processing |
+| 9 | **OCR** | Text recognition for searchable PDFs |
+| 10 | **Export** | Create final PDF |
 
-To run a stage, click on the little triangular play button next to the stage you are at. Stage 9 is special. You don't need to run it, you simply click on Export to PDF. 
+To run a stage, click on the little triangular play button next to the stage you are at. Stage 10 is special. You don't need to run it, you simply click on Export to PDF. 
 
 ### 3. Auto Mode or Batch Process
 
-**Auto Mode** (`Cmd+Shift+A`) processes all pages through stages 2-7 with smart defaults. It automatically detects majority page layout, sets deskew to zero, preserves layout for low-coverage pages, and detaches size outliers from aggregate sizing. For OCR as well, use `Cmd+Shift+O`. You can stop auto mode at any point with the stop button.
+**Auto Mode** (`Cmd+Shift+A`) processes all pages through stages 2-8 with smart defaults. It automatically detects majority page layout, sets deskew to zero, preserves layout for low-coverage pages, and detaches size outliers from aggregate sizing. For OCR as well, use `Cmd+Shift+O`. You can stop auto mode at any point with the stop button.
 
 For manual control, batch process individual stages using the play button. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 6, Finalize, and run it and each of the next stages.
 
@@ -107,18 +108,9 @@ Straightens pages that were slightly tilted during scanning. Even 1-2° of tilt 
 
 **Thumbnail Filters:** The B, G, C buttons at the bottom of the thumbnail panel filter pages by color mode (B&W, Grayscale, Color). Click to show only pages of that type—useful for reviewing all color pages at once or focusing on B&W pages that need adjustment.
 
-### Stage 4: Select Content
+### Stage 4: Page Box
 
-This stage has two separate but related functions: defining the **Page Box** (the physical page boundaries) and the **Content Box** (the area containing actual content like text and images).
-
-**When do you need this?** The Page Box helps crop out artifacts on the sides of the image like margins or the bed of the scanner. The  Content Box identifies where text or images are so margins can be standardized. For most workflows, Auto mode handles both well, but you may need Manual adjustments for pages with unusual layouts (title pages, illustrations, fold-outs) or when auto-detection picks up shadows or artifacts as content.
-
-#### Page Box
-
-The Page Box defines the boundaries of the physical page within the scan. This is useful when:
-- The scanner captured more than just the page (scanner bed edges, background)
-- You want to define a consistent page size across all scans
-- The automatic page detection didn't work correctly
+Defines the physical page boundaries within the scan. This is useful when the scanner captured more than just the page (scanner bed edges, background), or when you want to define a consistent page size across all scans.
 
 **Page Box options:**
 - **Disable** - Don't detect page boundaries; use the entire image
@@ -129,9 +121,13 @@ When Auto mode is selected, **Fine Tune Page Corners** adjusts corner positions 
 
 In Manual mode, you can enter exact **Width** and **Height** values to set a specific page size.
 
-#### Content Box
+**Sorting:** Use "Order by increasing width" or "Order by increasing height" to quickly find pages with incorrect page boundaries. This is the key advantage of having Page Box as its own stage — you can review and fix page boundaries before running content detection.
 
-The Content Box defines what part of the page contains actual content. Everything outside this box becomes white margin in the final output.
+### Stage 5: Select Content
+
+Defines the **Content Box** — the area containing actual content like text and images. Everything outside this box becomes white margin in the final output. The content box is constrained within the page box set in the previous stage.
+
+**When do you need this?** The Content Box identifies where text or images are so margins can be standardized. For most workflows, Auto mode handles this well, but you may need Manual adjustments for pages with unusual layouts (title pages, illustrations, fold-outs) or when auto-detection picks up shadows or artifacts as content.
 
 **Content Box options:**
 - **Disable** - Don't detect content; use the entire page
@@ -176,14 +172,14 @@ Use the **Coverage threshold** slider (20%-80%) to adjust what counts as "low co
 - Gray strikethrough = page was visited/jumped to
 - Dark green strikethrough = action was taken (preserve layout)
 
-### Stage 5: Margins
+### Stage 6: Margins
 
 Sets white space around content in the final output and page size.
 
 - **Top/Bottom/Left/Right** - Individual margin sizes
 - **Alignment** - Where content sits within the page
 
-### Stage 6: Finalize
+### Stage 7: Finalize
 
 This stage determines how each page will be processed:
 
@@ -203,7 +199,7 @@ The **Midtone Threshold** slider adjusts detection sensitivity, useful for small
 
 Previous versions of ScanTailor exported to images, the workflow in this one is images or PDF to PDF. Images will be discarded when you close the project unless you choose to preserve them at this point by ticking the box to "Preserve Output Images."
 
-### Stage 7: Output
+### Stage 8: Output
 
 Applies image processing to generate the output files. Options vary by color mode.
 
@@ -275,7 +271,7 @@ Once you've tuned settings for one page, use **Apply To...** to copy those setti
 
 This is essential for efficiently processing large documents.
 
-### Stage 8: OCR
+### Stage 9: OCR
 
 Performs optical character recognition to make your PDF searchable. When enabled, text is recognized and embedded as an invisible layer in the exported PDF, allowing you to search and select text.
 
@@ -290,7 +286,7 @@ Performs optical character recognition to make your PDF searchable. When enabled
 
 OCR runs automatically when you batch process through the Export stage. Results are cached per-page, so re-running won't re-process pages that already have OCR data unless you clear them.
 
-### Stage 9: Export
+### Stage 10: Export
 
 Creates the final PDF.
 
@@ -311,7 +307,7 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 | `Home` / `End` | First/last page |
 | `Cmd+S` | Save project |
 
-**Finalize (6) & Output (7) Stage Shortcuts:**
+**Finalize (7) & Output (8) Stage Shortcuts:**
 
 | Key | Action |
 |-----|--------|
@@ -322,7 +318,7 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 | `Shift+G` | Toggle Grayscale page filter |
 | `Shift+B` | Toggle B&W page filter |
 
-**Output (7) Stage Only:**
+**Output (8) Stage Only:**
 
 | Key | Action |
 |-----|--------|

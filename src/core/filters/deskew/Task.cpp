@@ -28,7 +28,7 @@
 #include "ImageView.h"
 #include "OptionsWidget.h"
 #include "TaskStatus.h"
-#include "filters/select_content/Task.h"
+#include "filters/page_box/Task.h"
 
 namespace deskew {
 using namespace imageproc;
@@ -62,7 +62,7 @@ class Task::UiUpdater : public FilterResult {
 Task::Task(std::shared_ptr<Filter> filter,
            std::shared_ptr<Settings> settings,
            std::shared_ptr<ImageSettings> imageSettings,
-           std::shared_ptr<select_content::Task> nextTask,
+           std::shared_ptr<page_box::Task> nextTask,
            const PageId& pageId,
            const bool batchProcessing,
            const bool debug)

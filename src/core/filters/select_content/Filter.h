@@ -19,6 +19,10 @@
 class PageSelectionAccessor;
 class QString;
 
+namespace page_box {
+class Settings;
+}  // namespace page_box
+
 namespace page_layout {
 class Task;
 class CacheDrivenTask;
@@ -70,11 +74,14 @@ class Filter : public AbstractFilter {
 
   std::shared_ptr<Settings> settings() const { return m_settings; }
 
+  void setPageBoxSettings(std::shared_ptr<page_box::Settings> pageBoxSettings);
+
  private:
   void writePageSettings(QDomDocument& doc, QDomElement& filterEl, const PageId& pageId, int numericId) const;
 
 
   std::shared_ptr<Settings> m_settings;
+  std::shared_ptr<page_box::Settings> m_pageBoxSettings;
   SafeDeletingQObjectPtr<OptionsWidget> m_optionsWidget;
   std::vector<PageOrderOption> m_pageOrderOptions;
   int m_selectedPageOrder;
