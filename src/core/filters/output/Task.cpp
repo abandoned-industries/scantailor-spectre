@@ -10,6 +10,7 @@
 #include <core/TiffWriter.h>
 
 #include <QDir>
+#include <QPainter>
 #include <algorithm>
 #include <boost/bind/bind.hpp>
 #include <cmath>
@@ -42,6 +43,7 @@
 #include "TaskStatus.h"
 #include "ThumbnailPixmapCache.h"
 #include "Utils.h"
+#include <Transform.h>
 
 using namespace imageproc;
 using namespace dewarping;
@@ -327,10 +329,28 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
     const bool isPassThrough = outputProcessingParams.passThrough();
 
     if (isPassThrough) {
-      // Pass-through mode: scale to output DPI, but still apply adjustments (brightness/contrast)
+      // Pass-through mode: apply geometric transforms (page split, deskew) but skip heavy processing
       const QImage& origImage = data.origImage();
-      const QSize outputSize = newXform.resultingRect().size().toSize();
-      outImg = origImage.scaled(outputSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+      const QRect outputRect = newXform.resultingRect().toRect();
+
+      // Clip the output rect to the pre-crop area (page split boundary) so pixels
+      // from the other half of a two-page spread don't bleed into the margins.
+      const QPolygonF preCropArea = newXform.resultingPreCropArea();
+      const QRect croppedRect = preCropArea.boundingRect().toRect().intersected(outputRect);
+
+      // Transform source image into the clipped rect
+      QImage croppedImg = transform(origImage, newXform.transform(), croppedRect,
+                                    OutsidePixels::assumeColor(Qt::white));
+
+      // Place onto white canvas of the full output size
+      outImg = QImage(outputRect.size(), croppedImg.format());
+      outImg.fill(Qt::white);
+      const int offsetX = croppedRect.left() - outputRect.left();
+      const int offsetY = croppedRect.top() - outputRect.top();
+      {
+        QPainter painter(&outImg);
+        painter.drawImage(offsetX, offsetY, croppedImg);
+      }
 
       // Apply brightness/contrast adjustments even in pass-through mode
       const double brightness = outputProcessingParams.brightness();

@@ -478,6 +478,10 @@ void OptionsWidget::passThroughToggled(bool checked) {
     emit invalidateThumbnail(m_pageId);
   }
 
+  // Refresh UI so controls are greyed out / re-enabled
+  updateColorsDisplay();
+  updateDewarpingDisplay();
+
   emit reloadRequested();
 }
 
@@ -1042,6 +1046,32 @@ void OptionsWidget::updateColorsDisplay() {
   }
 
   colorModeSelector->blockSignals(false);
+
+  // In pass-through mode, disable controls for processing that gets skipped.
+  // Only DPI, brightness/contrast/auto-levels, and the pass-through checkbox itself remain active.
+  // When pass-through is off, re-enable container widgets so the normal logic above takes effect.
+  const bool pt = passThroughCheckBox->isChecked();
+  fillMarginsCB->setEnabled(!pt);
+  fillOffcutCB->setEnabled(!pt);
+  equalizeIlluminationCB->setEnabled(!pt);
+  equalizeIlluminationColorCB->setEnabled(!pt && (isColorOrGrayscale || blackWhiteOptions.normalizeIllumination()));
+  paperDetectionWidget->setEnabled(!pt);
+  forceWhiteBalanceCB->setEnabled(!pt);
+  pickPaperColorBtn->setEnabled(!pt);
+  clearPaperColorBtn->setEnabled(!pt);
+  savitzkyGolaySmoothingCB->setEnabled(!pt);
+  morphologicalSmoothingCB->setEnabled(!pt);
+  thresholdOptions->setEnabled(!pt);
+  despecklePanel->setEnabled(!pt);
+  splittingOptions->setEnabled(!pt);
+  pictureShapeOptions->setEnabled(!pt);
+  colorSegmentationCB->setEnabled(!pt);
+  segmenterOptionsWidget->setEnabled(!pt && blackWhiteOptions.getColorSegmenterOptions().isEnabled());
+  posterizeCB->setEnabled(!pt);
+  posterizeOptionsWidget->setEnabled(!pt);
+  colorOperationsOptions->setEnabled(!pt);
+  fillWhiteRB->setEnabled(!pt);
+  fillBackgroundRB->setEnabled(!pt);
 }  // OptionsWidget::updateColorsDisplay
 
 void OptionsWidget::updateDewarpingDisplay() {
@@ -1076,6 +1106,11 @@ void OptionsWidget::updateDewarpingDisplay() {
   depthPerceptionSlider->blockSignals(true);
   depthPerceptionSlider->setValue(qRound(m_depthPerception.value() * 10));
   depthPerceptionSlider->blockSignals(false);
+
+  // Disable dewarping controls in pass-through mode
+  const bool pt = passThroughCheckBox->isChecked();
+  changeDewarpingButton->setEnabled(!pt);
+  depthPerceptionSlider->setEnabled(!pt);
 }
 
 void OptionsWidget::savitzkyGolaySmoothingToggled(bool checked) {

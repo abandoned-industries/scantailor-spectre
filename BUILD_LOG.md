@@ -827,3 +827,32 @@ current format extension only. If format changed after processing, files weren't
 - src/core/CMakeLists.txt: Updated for .mm file, added CoreText framework
 - src/core/filters/output/OptionsWidget.cpp: Pass-through auto-applies to all selected pages
 - src/core/filters/output/OptionsWidget.ui: Updated tooltip for pass-through
+
+---
+2026-04-03 - Fix pass-through mode ignoring page split/deskew transforms (make -j)
+- src/core/filters/output/Task.cpp: Replace origImage.scaled() with imageproc::transform() using newXform
+  - Bug: pass-through used raw origImage (full spread) and just scaled it, ignoring all geometric corrections
+  - Fix: apply accumulated transform (page split crop, rotation, deskew) via imageproc::transform()
+  - Added #include <Transform.h>
+
+---
+2026-04-06 - Fix pass-through page-split clipping (make -j)
+- src/core/filters/output/Task.cpp: Clip transform output to resultingPreCropArea
+  - Bug: resultingRect() includes margins beyond page-split boundary, so other page bleeds in
+  - Fix: intersect output rect with preCropArea bounding rect, transform into that, paste onto white canvas
+  - Added #include <QPainter>
+
+---
+2026-04-06 - Grey out inapplicable controls in pass-through mode (make -j)
+- src/core/filters/output/OptionsWidget.cpp: Disable fill margins, fill offcut, equalize illumination,
+  white balance, smoothing, thresholds, despeckle, splitting, picture shape, dewarping controls when
+  pass-through is checked. Brightness/contrast/auto-levels and DPI remain enabled.
+
+---
+2026-04-07 - Version 2.0a22 release build (cmake --build -j)
+- version.h.in: 2.0a21 → 2.0a22
+- README.md: Updated version to 2.0a22
+- src/core/filters/output/Task.cpp: Fix pass-through ignoring page split/deskew transforms;
+  clip output to pre-crop area so other page doesn't bleed into margins
+- src/core/filters/output/OptionsWidget.cpp: Grey out inapplicable controls in pass-through mode;
+  fix controls staying greyed out when pass-through is toggled off
