@@ -10,6 +10,7 @@
 
 #include "../../Utils.h"
 #include "filters/finalize/Settings.h"
+#include "weasel/TonalCurve.h"
 #include "ApplyColorsDialog.h"
 #include "ChangeDewarpingDialog.h"
 #include "ChangeDpiDialog.h"
@@ -312,149 +313,157 @@ void OptionsWidget::fillOffcutToggled(const bool checked) {
 void OptionsWidget::equalizeIlluminationToggled(const bool checked) {
   BlackWhiteOptions blackWhiteOptions(m_colorParams.blackWhiteOptions());
   blackWhiteOptions.setNormalizeIllumination(checked);
-
-  if (m_colorParams.colorMode() == MIXED) {
-    if (!checked) {
-      ColorCommonOptions colorCommonOptions(m_colorParams.colorCommonOptions());
-      colorCommonOptions.setNormalizeIllumination(false);
-      equalizeIlluminationColorCB->setChecked(false);
-      m_colorParams.setColorCommonOptions(colorCommonOptions);
-    }
-    equalizeIlluminationColorCB->setEnabled(checked);
-  }
-
   m_colorParams.setBlackWhiteOptions(blackWhiteOptions);
   m_settings->setColorParams(m_pageId, m_colorParams);
-  // Update visibility of paper detection controls
-  paperDetectionWidget->setVisible(checked || equalizeIlluminationColorCB->isChecked());
   emit reloadRequested();
 }
 
-void OptionsWidget::equalizeIlluminationColorToggled(const bool checked) {
-  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
-  opt.setNormalizeIllumination(checked);
-  m_colorParams.setColorCommonOptions(opt);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  // Update visibility of paper detection controls
-  paperDetectionWidget->setVisible(checked || equalizeIlluminationCB->isChecked());
-  emit reloadRequested();
-}
-
-void OptionsWidget::paperBrightnessChanged(int value) {
-  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
-  opt.setPaperBrightnessThreshold(value);
-  m_colorParams.setColorCommonOptions(opt);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  emit reloadRequested();
-}
-
-void OptionsWidget::paperSaturationChanged(int value) {
-  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
-  opt.setPaperSaturationThreshold(value);
-  m_colorParams.setColorCommonOptions(opt);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  emit reloadRequested();
-}
-
-void OptionsWidget::paperCoverageChanged(double value) {
-  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
-  opt.setPaperCoverageThreshold(value / 100.0);  // Convert from percentage to fraction
-  m_colorParams.setColorCommonOptions(opt);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  emit reloadRequested();
-}
-
-void OptionsWidget::adaptiveDetectionToggled(bool checked) {
-  ColorCommonOptions opt(m_colorParams.colorCommonOptions());
-  opt.setUseAdaptiveDetection(checked);
-  m_colorParams.setColorCommonOptions(opt);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  emit reloadRequested();
-}
-
-void OptionsWidget::forceWhiteBalanceToggled(const bool checked) {
-  m_settings->setForceWhiteBalance(m_pageId, checked);
-  emit reloadRequested();
-}
-
-void OptionsWidget::pickPaperColorClicked() {
-  // Use native macOS color dialog which has a good eyedropper
-  QColor currentColor = m_settings->getManualWhiteBalanceColor(m_pageId);
-  if (!currentColor.isValid()) {
-    currentColor = QColor(240, 230, 210);  // Start with a typical yellowed paper color
-  }
-
-  QColor color = QColorDialog::getColor(currentColor, this, tr("Pick Paper Color"));
-  if (color.isValid()) {
-    qDebug() << "OptionsWidget: User picked paper color:" << color;
-    m_settings->setManualWhiteBalanceColor(m_pageId, color);
-    updatePaperColorSwatch();
-    emit reloadRequested();
-  }
-}
-
-void OptionsWidget::clearPaperColorClicked() {
-  m_settings->clearManualWhiteBalanceColor(m_pageId);
-  updatePaperColorSwatch();
-  emit reloadRequested();
-}
-
-void OptionsWidget::updatePaperColorSwatch() {
-  QColor color = m_settings->getManualWhiteBalanceColor(m_pageId);
-  if (color.isValid()) {
-    QString styleSheet = QString("background-color: rgb(%1, %2, %3);")
-                             .arg(color.red())
-                             .arg(color.green())
-                             .arg(color.blue());
-    paperColorSwatch->setStyleSheet(styleSheet);
-    paperColorSwatch->setToolTip(tr("Paper color: R=%1 G=%2 B=%3")
-                                     .arg(color.red())
-                                     .arg(color.green())
-                                     .arg(color.blue()));
-    clearPaperColorBtn->setEnabled(true);
-  } else {
-    paperColorSwatch->setStyleSheet("");
-    paperColorSwatch->setToolTip(tr("No paper color set"));
-    clearPaperColorBtn->setEnabled(false);
-  }
-}
-
-void OptionsWidget::brightnessChanged(int value) {
-  // Snap to center if within ±5 of zero for easy reset
-  if (value > -5 && value < 5 && value != 0) {
-    brightnessSlider->blockSignals(true);
-    brightnessSlider->setValue(0);
-    brightnessSlider->blockSignals(false);
+// Helper: update a single photo adjustment parameter, with snap-to-zero and reload
+static void snapSliderToZero(CenteredTickSlider* slider, int& value, int deadzone = 5) {
+  if (value > -deadzone && value < deadzone && value != 0) {
+    slider->blockSignals(true);
+    slider->setValue(0);
+    slider->blockSignals(false);
     value = 0;
   }
-  qDebug() << "OptionsWidget::brightnessChanged slider=" << value << "normalized=" << (value / 100.0);
-  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
-  opp.setBrightness(value / 100.0);  // expand effective range
-  m_settings->setOutputProcessingParams(m_pageId, opp);
+}
+
+void OptionsWidget::photoAdjTempChanged(int value) {
+  snapSliderToZero(tempSlider, value);
+  tempValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setTemp(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
 }
 
-void OptionsWidget::contrastChanged(int value) {
-  // Snap to center if within ±5 of zero for easy reset
-  if (value > -5 && value < 5 && value != 0) {
-    contrastSlider->blockSignals(true);
-    contrastSlider->setValue(0);
-    contrastSlider->blockSignals(false);
-    value = 0;
-  }
-  qDebug() << "OptionsWidget::contrastChanged slider=" << value << "normalized=" << (value / 100.0);
-  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
-  opp.setContrast(value / 100.0);  // expand effective range
-  m_settings->setOutputProcessingParams(m_pageId, opp);
+void OptionsWidget::photoAdjTintChanged(int value) {
+  snapSliderToZero(tintSlider, value);
+  tintValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setTint(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
 }
 
-void OptionsWidget::autoLevelsToggled(bool checked) {
-  OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
-  opp.setAutoLevels(checked);
-  m_settings->setOutputProcessingParams(m_pageId, opp);
+void OptionsWidget::photoAdjExposureChanged(int value) {
+  snapSliderToZero(exposureSlider, value, 25);
+  exposureValue->setText(QString::number(value / 100.0, 'f', 2));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setExposure(value / 100.0);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjContrastChanged(int value) {
+  snapSliderToZero(contrastSlider, value);
+  contrastValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setContrast(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjHighlightsChanged(int value) {
+  snapSliderToZero(highlightsSlider, value);
+  highlightsValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setHighlights(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjShadowsChanged(int value) {
+  snapSliderToZero(shadowsSlider, value);
+  shadowsValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setShadows(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjWhitesChanged(int value) {
+  snapSliderToZero(whitesSlider, value);
+  whitesValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setWhites(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjBlacksChanged(int value) {
+  snapSliderToZero(blacksSlider, value);
+  blacksValue->setText(QString::number(value));
+  weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+  adj.setBlacks(value);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjAutoClicked() {
+  // Load the source image for this page to analyze
+  const QString filePath = m_pageId.imageId().filePath();
+  const QImage sourceImage(filePath);
+  if (sourceImage.isNull()) return;
+
+  const weasel::TonalCurve::AutoResult ar = weasel::TonalCurve::autoDetect(sourceImage);
+  weasel::PhotoAdjustments adj;
+  adj.setTemp(ar.temp);
+  adj.setTint(ar.tint);
+  adj.setExposure(ar.exposure);
+  adj.setContrast(ar.contrast);
+  adj.setHighlights(ar.highlights);
+  adj.setShadows(ar.shadows);
+  adj.setWhites(ar.whites);
+  adj.setBlacks(ar.blacks);
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+
+  // Update all sliders and value labels
+  tempSlider->setValue(static_cast<int>(adj.temp()));
+  tintSlider->setValue(static_cast<int>(adj.tint()));
+  exposureSlider->setValue(static_cast<int>(adj.exposure() * 100.0));
+  contrastSlider->setValue(static_cast<int>(adj.contrast()));
+  highlightsSlider->setValue(static_cast<int>(adj.highlights()));
+  shadowsSlider->setValue(static_cast<int>(adj.shadows()));
+  whitesSlider->setValue(static_cast<int>(adj.whites()));
+  blacksSlider->setValue(static_cast<int>(adj.blacks()));
+
+  emit reloadRequested();
+  emit invalidateThumbnail(m_pageId);
+}
+
+void OptionsWidget::photoAdjResetClicked() {
+  weasel::PhotoAdjustments adj;  // all defaults = 0
+  m_colorParams.setPhotoAdjustments(adj);
+  m_settings->setColorParams(m_pageId, m_colorParams);
+
+  // Update slider positions
+  tempSlider->setValue(0);
+  tintSlider->setValue(0);
+  exposureSlider->setValue(0);
+  contrastSlider->setValue(0);
+  highlightsSlider->setValue(0);
+  shadowsSlider->setValue(0);
+  whitesSlider->setValue(0);
+  blacksSlider->setValue(0);
+
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
 }
@@ -545,16 +554,9 @@ void OptionsWidget::dpiChanged(const std::set<PageId>& pages, const Dpi& dpi) {
 }
 
 void OptionsWidget::applyColorsConfirmed(const std::set<PageId>& pages) {
-  // Get current page's white balance settings to apply to other pages
-  const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
-  const QColor wbColor = m_settings->getManualWhiteBalanceColor(m_pageId);
-
   for (const PageId& pageId : pages) {
     m_settings->setColorParams(pageId, m_colorParams);
     m_settings->setPictureShapeOptions(pageId, m_pictureShapeOptions);
-    // Also apply white balance settings
-    m_settings->setForceWhiteBalance(pageId, forceWB);
-    m_settings->setManualWhiteBalanceColor(pageId, wbColor);
   }
 
   // Request batch processing of ALL pages (including current if present)
@@ -929,35 +931,39 @@ void OptionsWidget::updateColorsDisplay() {
   // Hide BW illumination option for color/grayscale modes
   const bool isColorOrGrayscale = (colorMode == COLOR_GRAYSCALE || colorMode == COLOR || colorMode == GRAYSCALE);
   equalizeIlluminationCB->setVisible(!isColorOrGrayscale);
-  equalizeIlluminationColorCB->setChecked(colorCommonOptions.normalizeIllumination());
-  equalizeIlluminationColorCB->setVisible(colorMode != BLACK_AND_WHITE);
-  // Allow illumination equalization in Color / Grayscale / Mixed as well (previously disabled in pure Color).
-  equalizeIlluminationColorCB->setEnabled(isColorOrGrayscale || blackWhiteOptions.normalizeIllumination());
-  // Force white balance - only for color modes
-  forceWhiteBalanceCB->setChecked(m_settings->getForceWhiteBalance(m_pageId));
-  forceWhiteBalanceCB->setVisible(colorMode != BLACK_AND_WHITE);
-  // Paper color picker - only for color modes
-  const bool showPaperColorPicker = (colorMode != BLACK_AND_WHITE);
-  pickPaperColorBtn->setVisible(showPaperColorPicker);
-  paperColorSwatch->setVisible(showPaperColorPicker);
-  clearPaperColorBtn->setVisible(showPaperColorPicker);
-  if (showPaperColorPicker) {
-    updatePaperColorSwatch();
-  }
 
-  const OutputProcessingParams& opp = m_settings->getOutputProcessingParams(m_pageId);
-  brightnessSlider->setValue(static_cast<int>(opp.brightness() * 100.0));
-  contrastSlider->setValue(static_cast<int>(opp.contrast() * 100.0));
-  autoLevelsCB->setChecked(opp.autoLevels());
+  // Photo adjustments sliders
+  const weasel::PhotoAdjustments& adj = m_colorParams.photoAdjustments();
+  const bool isBW = (colorMode == BLACK_AND_WHITE);
+  const bool isGray = (colorMode == GRAYSCALE);
 
-  // Paper detection thresholds - populate from settings (using colorCommonOptions from line 794)
-  paperBrightnessSB->setValue(colorCommonOptions.paperBrightnessThreshold());
-  paperSaturationSB->setValue(colorCommonOptions.paperSaturationThreshold());
-  paperCoverageSB->setValue(colorCommonOptions.paperCoverageThreshold() * 100.0);  // Display as percentage
-  adaptiveDetectionCB->setChecked(colorCommonOptions.useAdaptiveDetection());
-  // Show paper detection controls when either illumination equalization is enabled
-  const bool showPaperDetection = equalizeIlluminationCB->isChecked() || equalizeIlluminationColorCB->isChecked();
-  paperDetectionWidget->setVisible(showPaperDetection);
+  // Populate slider values and numeric labels
+  tempSlider->setValue(static_cast<int>(adj.temp()));
+  tempValue->setText(QString::number(static_cast<int>(adj.temp())));
+  tintSlider->setValue(static_cast<int>(adj.tint()));
+  tintValue->setText(QString::number(static_cast<int>(adj.tint())));
+  exposureSlider->setValue(static_cast<int>(adj.exposure() * 100.0));
+  exposureValue->setText(QString::number(adj.exposure(), 'f', 2));
+  contrastSlider->setValue(static_cast<int>(adj.contrast()));
+  contrastValue->setText(QString::number(static_cast<int>(adj.contrast())));
+  highlightsSlider->setValue(static_cast<int>(adj.highlights()));
+  highlightsValue->setText(QString::number(static_cast<int>(adj.highlights())));
+  shadowsSlider->setValue(static_cast<int>(adj.shadows()));
+  shadowsValue->setText(QString::number(static_cast<int>(adj.shadows())));
+  whitesSlider->setValue(static_cast<int>(adj.whites()));
+  whitesValue->setText(QString::number(static_cast<int>(adj.whites())));
+  blacksSlider->setValue(static_cast<int>(adj.blacks()));
+  blacksValue->setText(QString::number(static_cast<int>(adj.blacks())));
+
+  // Temp/Tint disabled for grayscale and B&W
+  tempSlider->setEnabled(!isBW && !isGray);
+  tintSlider->setEnabled(!isBW && !isGray);
+  tempLabel->setEnabled(!isBW && !isGray);
+  tintLabel->setEnabled(!isBW && !isGray);
+  wbSectionLabel->setEnabled(!isBW && !isGray);
+
+  // All photo adjustments disabled for B&W (binarization makes them meaningless)
+  adjustmentsPanel->setVisible(!isBW);
 
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
@@ -1054,11 +1060,6 @@ void OptionsWidget::updateColorsDisplay() {
   fillMarginsCB->setEnabled(!pt);
   fillOffcutCB->setEnabled(!pt);
   equalizeIlluminationCB->setEnabled(!pt);
-  equalizeIlluminationColorCB->setEnabled(!pt && (isColorOrGrayscale || blackWhiteOptions.normalizeIllumination()));
-  paperDetectionWidget->setEnabled(!pt);
-  forceWhiteBalanceCB->setEnabled(!pt);
-  pickPaperColorBtn->setEnabled(!pt);
-  clearPaperColorBtn->setEnabled(!pt);
   savitzkyGolaySmoothingCB->setEnabled(!pt);
   morphologicalSmoothingCB->setEnabled(!pt);
   thresholdOptions->setEnabled(!pt);
@@ -1072,6 +1073,7 @@ void OptionsWidget::updateColorsDisplay() {
   colorOperationsOptions->setEnabled(!pt);
   fillWhiteRB->setEnabled(!pt);
   fillBackgroundRB->setEnabled(!pt);
+  adjustmentsPanel->setEnabled(!pt);
 }  // OptionsWidget::updateColorsDisplay
 
 void OptionsWidget::updateDewarpingDisplay() {
@@ -1350,17 +1352,16 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(fillMarginsCB, SIGNAL(clicked(bool)), this, SLOT(fillMarginsToggled(bool)));
   CONNECT(fillOffcutCB, SIGNAL(clicked(bool)), this, SLOT(fillOffcutToggled(bool)));
   CONNECT(equalizeIlluminationCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationToggled(bool)));
-  CONNECT(equalizeIlluminationColorCB, SIGNAL(clicked(bool)), this, SLOT(equalizeIlluminationColorToggled(bool)));
-  CONNECT(paperBrightnessSB, SIGNAL(valueChanged(int)), this, SLOT(paperBrightnessChanged(int)));
-  CONNECT(paperSaturationSB, SIGNAL(valueChanged(int)), this, SLOT(paperSaturationChanged(int)));
-  CONNECT(paperCoverageSB, SIGNAL(valueChanged(double)), this, SLOT(paperCoverageChanged(double)));
-  CONNECT(adaptiveDetectionCB, SIGNAL(clicked(bool)), this, SLOT(adaptiveDetectionToggled(bool)));
-  CONNECT(forceWhiteBalanceCB, SIGNAL(clicked(bool)), this, SLOT(forceWhiteBalanceToggled(bool)));
-  CONNECT(pickPaperColorBtn, SIGNAL(clicked()), this, SLOT(pickPaperColorClicked()));
-  CONNECT(clearPaperColorBtn, SIGNAL(clicked()), this, SLOT(clearPaperColorClicked()));
-  CONNECT(brightnessSlider, SIGNAL(valueChanged(int)), this, SLOT(brightnessChanged(int)));
-  CONNECT(contrastSlider, SIGNAL(valueChanged(int)), this, SLOT(contrastChanged(int)));
-  CONNECT(autoLevelsCB, SIGNAL(clicked(bool)), this, SLOT(autoLevelsToggled(bool)));
+  CONNECT(tempSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjTempChanged(int)));
+  CONNECT(tintSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjTintChanged(int)));
+  CONNECT(exposureSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjExposureChanged(int)));
+  CONNECT(contrastSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjContrastChanged(int)));
+  CONNECT(highlightsSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjHighlightsChanged(int)));
+  CONNECT(shadowsSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjShadowsChanged(int)));
+  CONNECT(whitesSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjWhitesChanged(int)));
+  CONNECT(blacksSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjBlacksChanged(int)));
+  CONNECT(photoAdjAutoBtn, SIGNAL(clicked()), this, SLOT(photoAdjAutoClicked()));
+  CONNECT(photoAdjResetBtn, SIGNAL(clicked()), this, SLOT(photoAdjResetClicked()));
   CONNECT(savitzkyGolaySmoothingCB, SIGNAL(clicked(bool)), this, SLOT(savitzkyGolaySmoothingToggled(bool)));
   CONNECT(morphologicalSmoothingCB, SIGNAL(clicked(bool)), this, SLOT(morphologicalSmoothingToggled(bool)));
   CONNECT(splittingCB, SIGNAL(clicked(bool)), this, SLOT(splittingToggled(bool)));

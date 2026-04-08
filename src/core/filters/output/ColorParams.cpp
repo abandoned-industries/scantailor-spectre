@@ -10,7 +10,8 @@ ColorParams::ColorParams(const QDomElement& el)
     : m_colorMode(parseColorMode(el.attribute("colorMode"))),
       m_colorModeUserSet(el.attribute("colorModeUserSet", "0") == "1"),
       m_colorCommonOptions(el.namedItem("color-or-grayscale").toElement()),
-      m_bwOptions(el.namedItem("bw").toElement()) {}
+      m_bwOptions(el.namedItem("bw").toElement()),
+      m_photoAdjustments(el.namedItem("photo-adjustments").toElement()) {}
 
 QDomElement ColorParams::toXml(QDomDocument& doc, const QString& name) const {
   QDomElement el(doc.createElement(name));
@@ -18,6 +19,7 @@ QDomElement ColorParams::toXml(QDomDocument& doc, const QString& name) const {
   el.setAttribute("colorModeUserSet", m_colorModeUserSet ? "1" : "0");
   el.appendChild(m_colorCommonOptions.toXml(doc, "color-or-grayscale"));
   el.appendChild(m_bwOptions.toXml(doc, "bw"));
+  el.appendChild(m_photoAdjustments.toXml(doc, "photo-adjustments"));
   return el;
 }
 

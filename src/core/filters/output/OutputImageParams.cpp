@@ -160,6 +160,11 @@ bool OutputImageParams::colorParamsMatch(const ColorParams& cp1,
     return false;
   }
 
+  // Photo adjustments apply to all non-B&W modes
+  if (cp1.photoAdjustments() != cp2.photoAdjustments()) {
+    return false;
+  }
+
   switch (cp1.colorMode()) {
     case MIXED:
       if (so1 != so2) {

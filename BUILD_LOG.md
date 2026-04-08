@@ -923,3 +923,13 @@ current format extension only. If format changed after processing, files weren't
   - Content re-detection triggered when page box changes
 - Auto mode updated for 10 stages
 - Project file backward compatibility (reads page box data from old <select-content> tag)
+
+---
+2026-04-08 - Photo adjustments feature (cmake --build . -j8)
+- NEW: src/core/weasel/PhotoAdjustments.h/cpp - 8-param tonal data class
+- NEW: src/core/weasel/TonalCurve.h/cpp - LUT-based image processing + auto detect
+- MODIFIED: src/core/filters/output/ColorParams.h/cpp - added PhotoAdjustments member
+- MODIFIED: src/core/filters/output/OptionsWidget.ui - replaced illumination/WB/brightness controls with 8 photo sliders
+- MODIFIED: src/core/filters/output/OptionsWidget.h/cpp - new photo adjustment slots
+- MODIFIED: src/core/filters/output/OutputGenerator.cpp - replaced WB/brightness pipeline with TonalCurve::apply
+- MODIFIED: src/core/CMakeLists.txt - added weasel sources
