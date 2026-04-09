@@ -4,6 +4,7 @@
 #include "Curve.h"
 
 #include <QDataStream>
+#include <QIODevice>
 
 #include "VecNT.h"
 #include "XmlMarshaller.h"
@@ -48,7 +49,7 @@ bool Curve::matches(const Curve& other) const {
 
 std::vector<QPointF> Curve::deserializePolyline(const QDomElement& el) {
   QByteArray ba(QByteArray::fromBase64(el.text().trimmed().toLatin1()));
-  QDataStream strm(&ba, QIODeviceBase::ReadOnly);
+  QDataStream strm(&ba, QIODevice::ReadOnly);
   strm.setVersion(QDataStream::Qt_4_4);
   strm.setByteOrder(QDataStream::LittleEndian);
 
@@ -71,7 +72,7 @@ QDomElement Curve::serializePolyline(const std::vector<QPointF>& polyline, QDomD
 
   QByteArray ba;
   ba.reserve(static_cast<int>(8 * polyline.size()));
-  QDataStream strm(&ba, QIODeviceBase::WriteOnly);
+  QDataStream strm(&ba, QIODevice::WriteOnly);
   strm.setVersion(QDataStream::Qt_4_4);
   strm.setByteOrder(QDataStream::LittleEndian);
 

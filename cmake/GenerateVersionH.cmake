@@ -1,6 +1,8 @@
 # GenerateVersionH.cmake
 # Generates version.h with build timestamp at build time
 
+cmake_policy(SET CMP0053 NEW)
+
 # Generate timestamp in format YYYYMMDD.HHMM
 string(TIMESTAMP BUILD_TIMESTAMP "%Y%m%d.%H%M")
 

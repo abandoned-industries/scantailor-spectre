@@ -147,7 +147,7 @@ endif()
 
 add_library(core STATIC ${common_sources} ${common_ui_files})
 
-target_include_directories(core PRIVATE ${LEPTONICA_INCLUDE_DIRS})
+target_include_directories(core PRIVATE ${LEPTONICA_INCLUDE_DIRS} ${LEPTONICA_INCLUDE_DIRS}/..)
 
 target_link_libraries(
   core

@@ -1,9 +1,11 @@
 set(CMAKE_AUTOUIC ON)
 
 set(ui_files
+    ApplyDialog.ui
     OptionsWidget.ui)
 
 set(sources
+    ApplyDialog.cpp ApplyDialog.h
     Filter.cpp Filter.h
     Task.cpp Task.h
     CacheDrivenTask.cpp CacheDrivenTask.h

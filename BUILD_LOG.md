@@ -923,3 +923,18 @@ current format extension only. If format changed after processing, files weren't
   - Content re-detection triggered when page box changes
 - Auto mode updated for 10 stages
 - Project file backward compatibility (reads page box data from old <select-content> tag)
+
+---
+2026-04-08 - Version 2.0a24 release build (cmake --build -j)
+- version.h.in: 2.0a23 → 2.0a24
+- README.md: Updated version to 2.0a24, corrected 9-stage to 10-stage
+- cmake/GenerateVersionH.cmake: Fix BUILD_TIMESTAMP showing literal @BUILD_TIMESTAMP@ (CMP0053 policy)
+- NEW: src/core/filters/page_box/ApplyDialog.h/cpp/ui: Proper Apply To dialog with all/followers/every-other/selected options
+- src/core/filters/page_box/OptionsWidget.cpp: Replace stub showApplyToDialog() with proper dialog launch
+- src/core/filters/page_box/OptionsWidget.h: Add applySelection slot
+- src/core/filters/page_box/CMakeLists.txt: Add ApplyDialog files
+- Bug fix: Page Box "Apply to..." button was not clickable (stub silently returned when only 1 page selected)
+- Build fixes for updated toolchain:
+  - src/core/CMakeLists.txt: Fix leptonica include path for homebrew
+  - src/dewarping/Curve.cpp: Fix QIODeviceBase → QIODevice + add include
+  - src/dewarping/DistortionModelBuilder.cpp: Remove stale Qt5 #ifdef blocks

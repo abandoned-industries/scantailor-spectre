@@ -285,11 +285,7 @@ void DistortionModelBuilder::intersectFront(std::deque<QPointF>& polyline, const
 
   const QLineF frontSegment(polyline.front(), polyline[1]);
   QPointF intersection;
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-  auto intersect = bound.intersect(frontSegment, &intersection);
-#else
   auto intersect = bound.intersects(frontSegment, &intersection);
-#endif
   if (intersect != QLineF::NoIntersection) {
     polyline.front() = intersection;
   }
@@ -300,11 +296,7 @@ void DistortionModelBuilder::intersectBack(std::deque<QPointF>& polyline, const 
 
   const QLineF backSegment(polyline[polyline.size() - 2], polyline.back());
   QPointF intersection;
-#if QT_VERSION_MAJOR == 5 && QT_VERSION_MINOR < 14
-  auto intersect = bound.intersect(backSegment, &intersection);
-#else
   auto intersect = bound.intersects(backSegment, &intersection);
-#endif
   if (intersect != QLineF::NoIntersection) {
     polyline.back() = intersection;
   }

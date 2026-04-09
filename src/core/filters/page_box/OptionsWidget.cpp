@@ -6,6 +6,7 @@
 #include <functional>
 #include <utility>
 
+#include "ApplyDialog.h"
 #include "PageInfo.h"
 #include "Settings.h"
 
@@ -99,9 +100,15 @@ void OptionsWidget::dimensionsChangedLocally(double) {
 }
 
 void OptionsWidget::showApplyToDialog() {
-  // Simple apply: apply current page detection mode to all selected pages
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() <= 1) {
+  auto* dialog = new ApplyDialog(this, m_pageId, m_pageSelectionAccessor);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  connect(dialog, SIGNAL(applySelection(const std::set<PageId>&)), this,
+          SLOT(applySelection(const std::set<PageId>&)));
+  dialog->show();
+}
+
+void OptionsWidget::applySelection(const std::set<PageId>& pages) {
+  if (pages.empty()) {
     return;
   }
 
@@ -110,17 +117,37 @@ void OptionsWidget::showApplyToDialog() {
     return;
   }
 
-  for (const PageId& pageId : selectedPages) {
-    if (pageId == m_pageId) continue;
+  for (const PageId& pageId : pages) {
+    if (pageId == m_pageId) {
+      continue;
+    }
+
     std::unique_ptr<Params> targetParams(m_settings->getPageParams(pageId));
     if (targetParams) {
       targetParams->setPageDetectionMode(m_pageDetectionMode);
       targetParams->setFineTuneCornersEnabled(m_fineTuneCorners);
+      if (m_pageDetectionMode == MODE_MANUAL && m_pageRect.isValid()) {
+        // Adjust manual page rect for target page's image size
+        const QRectF sourceImageRect = currentParams->dependencies().rotatedPageOutline().boundingRect();
+        const QRectF targetImageRect = targetParams->dependencies().rotatedPageOutline().boundingRect();
+        QRectF adjustedRect = m_pageRect;
+        if (sourceImageRect.isValid() && targetImageRect.isValid()) {
+          adjustedRect.translate((targetImageRect.width() - sourceImageRect.width()) / 2,
+                                (targetImageRect.height() - sourceImageRect.height()) / 2);
+        }
+        targetParams->setPageRect(adjustedRect);
+      }
       m_settings->setPageParams(pageId, *targetParams);
     }
   }
 
-  emit invalidateAllThumbnails();
+  if (pages.size() > 1) {
+    emit invalidateAllThumbnails();
+  } else {
+    for (const PageId& pageId : pages) {
+      emit invalidateThumbnail(pageId);
+    }
+  }
   emit reloadRequested();
 }
 

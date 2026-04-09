@@ -46,6 +46,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void fineTuningChanged(bool checked);
   void dimensionsChangedLocally(double);
   void showApplyToDialog();
+  void applySelection(const std::set<PageId>& pages);
 
  private:
   void updatePageModeIndication(AutoManualMode mode);
