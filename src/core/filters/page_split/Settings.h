@@ -116,6 +116,18 @@ class Settings {
    */
   void clear();
 
+  /**
+   * \brief Clear cached Params for every page whose effective layout
+   *        type is AUTO_LAYOUT_TYPE, leaving the layoutType override
+   *        (and any manually-set non-auto pages) intact.
+   *
+   * Used by the OptionsWidget "Reset all auto pages" action so that
+   * stale auto-detected results (e.g. SINGLE_PAGE_UNCUT cached from
+   * an older detector run) are dropped and the next page_split task
+   * runs the current PageLayoutEstimator.
+   */
+  void clearAllAutoParams();
+
   void performRelinking(const AbstractRelinker& relinker);
 
   LayoutType defaultLayoutType() const;

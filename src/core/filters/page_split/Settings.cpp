@@ -20,6 +20,28 @@ void Settings::clear() {
   m_defaultLayoutType = AUTO_LAYOUT_TYPE;
 }
 
+void Settings::clearAllAutoParams() {
+  QMutexLocker locker(&m_mutex);
+
+  auto it = m_perPageRecords.begin();
+  while (it != m_perPageRecords.end()) {
+    BaseRecord& record = it->second;
+    // The effective layoutType for this image is the per-image override
+    // if set, otherwise the project-wide default.
+    const LayoutType effectiveLayoutType =
+        record.m_layoutTypeValid ? record.m_layoutType : m_defaultLayoutType;
+    if (effectiveLayoutType == AUTO_LAYOUT_TYPE) {
+      record.clearParams();
+      // If clearing params left the record empty, drop it entirely.
+      if (record.isNull()) {
+        it = m_perPageRecords.erase(it);
+        continue;
+      }
+    }
+    ++it;
+  }
+}
+
 void Settings::performRelinking(const AbstractRelinker& relinker) {
   QMutexLocker locker(&m_mutex);
   PerPageRecords newRecords;

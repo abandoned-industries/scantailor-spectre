@@ -239,6 +239,20 @@ void OptionsWidget::splitLineModeChanged(const bool autoMode) {
   }
 }
 
+void OptionsWidget::resetAllAutoPages() {
+  // Drop cached params for every page whose effective layout type is
+  // AUTO_LAYOUT_TYPE. Pages with a manually-set layoutType (single-uncut,
+  // page-plus-offcut, two-pages chosen by the user) are left intact.
+  m_settings->clearAllAutoParams();
+
+  // Tell MainWindow to refresh thumbnails and re-run the current page.
+  // The next time each page is processed, Task::process will see no
+  // cached Params and call PageLayoutEstimator::estimatePageLayout,
+  // which now includes the new fallbacks and the Vision refinement.
+  emit invalidateAllThumbnails();
+  emit reloadRequested();
+}
+
 void OptionsWidget::commitCurrentParams() {
   const Params params(m_uiData.pageLayout(), m_uiData.dependencies(), m_uiData.splitLineMode());
   Settings::UpdateAction update;
@@ -253,6 +267,7 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(pagePlusOffcutBtn, SIGNAL(toggled(bool)), this, SLOT(layoutTypeButtonToggled(bool)));
   CONNECT(twoPagesBtn, SIGNAL(toggled(bool)), this, SLOT(layoutTypeButtonToggled(bool)));
   CONNECT(changeBtn, SIGNAL(clicked()), this, SLOT(showChangeDialog()));
+  CONNECT(resetAllAutoBtn, SIGNAL(clicked()), this, SLOT(resetAllAutoPages()));
   CONNECT(autoBtn, SIGNAL(toggled(bool)), this, SLOT(splitLineModeChanged(bool)));
 }
 

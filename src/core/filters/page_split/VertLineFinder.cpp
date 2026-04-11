@@ -22,12 +22,10 @@
 namespace page_split {
 using namespace imageproc;
 
-std::vector<QLineF> VertLineFinder::findLines(const QImage& image,
-                                              const ImageTransformation& xform,
-                                              const int maxLines,
-                                              DebugImages* dbg,
-                                              GrayImage* grayDownscaled,
-                                              QTransform* outToDownscaled) {
+void VertLineFinder::buildGrayDownscaled(const QImage& image,
+                                         const ImageTransformation& xform,
+                                         GrayImage* grayDownscaled,
+                                         QTransform* outToDownscaled) {
   const int dpi = 100;
 
   ImageTransformation xform100dpi(xform);
@@ -39,17 +37,38 @@ std::vector<QLineF> VertLineFinder::findLines(const QImage& image,
     targetRect.setHeight(1);
   }
 
-  const GrayImage gray100(transformToGray(image, xform100dpi.transform(), targetRect,
-                                          OutsidePixels::assumeWeakColor(Qt::black), QSizeF(5.0, 5.0)));
-  if (dbg) {
-    dbg->add(gray100, "gray100");
-  }
+  GrayImage gray100(transformToGray(image, xform100dpi.transform(), targetRect,
+                                    OutsidePixels::assumeWeakColor(Qt::black), QSizeF(5.0, 5.0)));
 
   if (grayDownscaled) {
     *grayDownscaled = gray100;
   }
   if (outToDownscaled) {
     *outToDownscaled = xform.transformBack() * xform100dpi.transform();
+  }
+}
+
+std::vector<QLineF> VertLineFinder::findLines(const QImage& image,
+                                              const ImageTransformation& xform,
+                                              const int maxLines,
+                                              DebugImages* dbg,
+                                              GrayImage* grayDownscaled,
+                                              QTransform* outToDownscaled) {
+  const int dpi = 100;
+
+  ImageTransformation xform100dpi(xform);
+  xform100dpi.preScaleToDpi(Dpi(dpi, dpi));
+
+  // Build the 100-DPI gray image and the out->downscaled transform.
+  // Use the same helper that PageLayoutEstimator's refinement pass uses
+  // so the two paths stay byte-identical.
+  GrayImage gray100;
+  buildGrayDownscaled(image, xform, &gray100, outToDownscaled);
+  if (dbg) {
+    dbg->add(gray100, "gray100");
+  }
+  if (grayDownscaled) {
+    *grayDownscaled = gray100;
   }
 
 #if 0

@@ -26,6 +26,7 @@
 #include <QDebug>
 #include <QPainter>
 #include <boost/foreach.hpp>
+#include <limits>
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 
@@ -37,6 +38,7 @@
 #include "OrthogonalRotation.h"
 #include "PageLayout.h"
 #include "ProjectPages.h"
+#include "SpineDarknessFinder.h"
 #include "VertLineFinder.h"
 
 namespace page_split {
@@ -232,42 +234,117 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
   const int numPages = page_split::numPages(layoutType, preXform);
   const QRectF virtualImageRect(preXform.transform().mapRect(input.rect()));
 
+  // A split candidate (in normalized [0,1] virtual width) is only trusted
+  // if it lies within this central window. Anything outside is treated as
+  // bogus and we fall through to the next algorithm. This catches cases
+  // where Vision returns a confident-but-wrong split jammed against an edge.
+  constexpr double kCentralLo = 0.20;
+  constexpr double kCentralHi = 0.80;
+  auto splitFractionIsCentral = [](double f) { return f >= kCentralLo && f <= kCentralHi; };
+
   // Try Apple Vision-based page split detection first (macOS only)
   if (AppleVisionDetector::isAvailable() && (layoutType == AUTO_LAYOUT_TYPE || layoutType == TWO_PAGES)) {
     const auto visionResult = AppleVisionDetector::detectPageSplit(input);
-    if (visionResult.shouldSplit && visionResult.confidence >= 0.60f) {
+    if (visionResult.shouldSplit && visionResult.confidence >= 0.60f
+        && splitFractionIsCentral(visionResult.splitLineX)) {
+      // Convert Vision's normalized split position to image coordinates.
+      const double visionSplitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
+
+      // Refinement pass: Vision (and VertLineFinder) often latch onto a
+      // strong vertical edge inside an image on the spread (e.g. an
+      // illustration's edge or a column in a carved frieze) rather than
+      // the actual gutter shadow, which can be 10-15% of width away.
+      // Run SpineDarknessFinder with a wide ±15% window centered on
+      // Vision's position. Its dark-row-fraction and prominence gates
+      // discriminate gutter shadows (full-height dark column) from
+      // image edges (partial-height dark column), so a wide window is
+      // safe — if no actual gutter exists nearby, the gates reject the
+      // candidate and we keep Vision's exact result.
+      GrayImage refineGray;
+      QTransform refineXform;
+      VertLineFinder::buildGrayDownscaled(input, preXform, &refineGray, &refineXform);
+      const QLineF refinedSpine = SpineDarknessFinder::findSpine(
+          refineGray, refineXform, virtualImageRect,
+          /*centerWindowFraction=*/0.15,
+          /*maxTiltDegrees=*/2.0,
+          /*centerXOverride=*/visionSplitX, dbg);
+      if (!refinedSpine.isNull()) {
+        // Refinement leash: the refined position must stay within this
+        // fraction of page width from Vision's anchor. Originally this
+        // was tighter (5%) as a safety net for when the SpineDarknessFinder
+        // gates were buggy and let photo-edge candidates through. With the
+        // gates now properly two-sided (paper-side + peak-prominence on
+        // both neighbors), refinements that pass them are reliable real
+        // spine shadows, and we can trust the search across a wider
+        // radius. 10% covers Vision being slightly off-center on
+        // asymmetric spreads (text page + full-page photo) without
+        // accepting absurd jumps that almost certainly indicate Vision
+        // and the refinement disagree about which column is the spine.
+        const double refinedX = lineCenterX(refinedSpine);
+        constexpr double kRefineLeashFraction = 0.10;
+        const double maxLeashDelta = kRefineLeashFraction * virtualImageRect.width();
+        if (std::fabs(refinedX - visionSplitX) <= maxLeashDelta) {
+          qDebug() << "PageLayoutEstimator: [SPINE-REFINE] Vision split at" << visionSplitX
+                   << "(conf" << visionResult.confidence << ") refined to" << refinedSpine;
+          return std::make_unique<PageLayout>(virtualImageRect, refinedSpine);
+        }
+        qDebug() << "PageLayoutEstimator: [SPINE-REFINE] discarding refinement at" << refinedX
+                 << "— too far from Vision anchor" << visionSplitX
+                 << "(delta=" << std::fabs(refinedX - visionSplitX)
+                 << "> leash=" << maxLeashDelta << ")";
+        // Fall through to the Vision-only path below.
+      }
+
       qDebug() << "PageLayoutEstimator: Using Vision-detected split at" << visionResult.splitLineX
-               << "confidence:" << visionResult.confidence;
-
-      // Convert normalized split position to image coordinates
-      const double splitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
-      const QLineF splitLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
-
+               << "confidence:" << visionResult.confidence << "(no dark refinement found)";
+      const QLineF splitLine(visionSplitX, virtualImageRect.top(), visionSplitX, virtualImageRect.bottom());
       return std::make_unique<PageLayout>(virtualImageRect, splitLine);
     } else if (layoutType == TWO_PAGES) {
       // User explicitly forced TWO_PAGES layout - honor their request.
-      // If Vision found a split position (even low confidence), use it.
-      // Otherwise, split in the center.
-      double splitX;
-      if (visionResult.splitLineX > 0.0) {
-        splitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
+      // Use Vision's position only if it is centrally plausible; otherwise
+      // fall through so VertLineFinder / SpineDarknessFinder / center
+      // fallback can take a swing.
+      if (splitFractionIsCentral(visionResult.splitLineX)) {
+        const double splitX = visionResult.splitLineX * virtualImageRect.width() + virtualImageRect.left();
         qDebug() << "PageLayoutEstimator: Forced TWO_PAGES, using Vision split at" << splitX
-                 << "(low confidence:" << visionResult.confidence << ")";
-      } else {
-        splitX = virtualImageRect.center().x();
-        qDebug() << "PageLayoutEstimator: Forced TWO_PAGES, splitting at center" << splitX;
+                 << "(confidence:" << visionResult.confidence << ")";
+        const QLineF splitLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
+        return std::make_unique<PageLayout>(virtualImageRect, splitLine);
       }
-      const QLineF splitLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
-      return std::make_unique<PageLayout>(virtualImageRect, splitLine);
+      qDebug() << "PageLayoutEstimator: Forced TWO_PAGES, Vision splitX" << visionResult.splitLineX
+               << "is not central - falling through to traditional detection";
+      // fall through
     } else if (visionResult.leftTextRegions > 0 || visionResult.rightTextRegions > 0) {
-      // Vision analyzed the image and didn't find a clear two-page spread.
-      // Trust Vision's analysis and return single page (no split) rather than
-      // falling through to the less intelligent traditional algorithm.
-      // This prevents bad splits on two-column layouts, full-page photos, etc.
-      qDebug() << "PageLayoutEstimator: Vision analysis did not detect two-page spread"
-               << "(left:" << visionResult.leftTextRegions << "right:" << visionResult.rightTextRegions << ")"
-               << "- returning single page layout";
-      return std::make_unique<PageLayout>(virtualImageRect);  // Single page, no split
+      // Vision saw text but didn't find a clear two-page split.
+      // The original code treated this as conclusive and returned single
+      // page, on the theory that the image must be a single-page
+      // two-column layout. That's true sometimes — but it also misfires
+      // on every asymmetric spread (chapter title pages, title pages,
+      // image-heavy spreads with a tiny caption on one side, etc.) and
+      // costs us a lot of false negatives.
+      //
+      // Trust geometry as the tiebreaker. If the geometric advise()
+      // function already concluded numPages == 2 (image is wider than
+      // tall in physical units), the image is almost certainly a real
+      // two-page spread regardless of how the text regions are
+      // distributed, and we should fall through to traditional detection
+      // + SpineDarknessFinder + center fallback. Only short-circuit to
+      // single page when geometry ALSO says it's a single page
+      // (numPages == 1), where Vision's vote actually agrees with the
+      // shape of the image.
+      const int leftCount = visionResult.leftTextRegions;
+      const int rightCount = visionResult.rightTextRegions;
+      if (numPages == 2) {
+        qDebug() << "PageLayoutEstimator: [SPINE-FALLBACK] Vision uncertain"
+                 << "(left:" << leftCount << "right:" << rightCount << ")"
+                 << "but geometry says spread (numPages=2) - falling through to traditional detection";
+        // fall through
+      } else {
+        qDebug() << "PageLayoutEstimator: [SPINE-FALLBACK] Vision uncertain"
+                 << "(left:" << leftCount << "right:" << rightCount << ")"
+                 << "and geometry says single (numPages=" << numPages << ") - returning single page layout";
+        return std::make_unique<PageLayout>(virtualImageRect);  // Single page, no split
+      }
     } else {
       // No text regions detected (photo page, blank page, etc.)
       // Check aspect ratio: if image is clearly portrait, assume single page.
@@ -288,10 +365,12 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
   GrayImage grayDownscaled;
   QTransform outToDownscaled;
 
+  // We always capture grayDownscaled / outToDownscaled now, because the
+  // SpineDarknessFinder fallback (used in the two-page branch below) needs
+  // them in addition to autoDetectSinglePageLayout.
   const int maxLines = 8;
-  std::vector<QLineF> lines(VertLineFinder::findLines(input, preXform, maxLines, dbg,
-                                                      numPages == 1 ? &grayDownscaled : nullptr,
-                                                      numPages == 1 ? &outToDownscaled : nullptr));
+  std::vector<QLineF> lines(
+      VertLineFinder::findLines(input, preXform, maxLines, dbg, &grayDownscaled, &outToDownscaled));
 
   std::sort(lines.begin(), lines.end(), CenterComparator());
 
@@ -332,6 +411,39 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
     // In two page mode we ignore the lines that are too close
     // to the edge.
     lines.erase(std::remove_if(lines.begin(), lines.end(), BadTwoPageSplitter(virtualImageRect.width())), lines.end());
+
+    // Fallback chain when VertLineFinder produced no usable candidates:
+    //   1. SpineDarknessFinder — looks for a near-vertical strip of
+    //      consistently dark pixels (gutter shadow) within ±10% of center.
+    //      Helps when the gradient/Hough detector misses a soft shadow.
+    //   2. Geometric center split — if nothing found a candidate but the
+    //      input geometry is unmistakably a two-page spread, just split
+    //      down the middle. Far better than letting cutAtWhitespace
+    //      collapse an obvious spread to a single page.
+    if (lines.empty() && !grayDownscaled.isNull()) {
+      const QLineF spine = SpineDarknessFinder::findSpine(
+          grayDownscaled, outToDownscaled, virtualImageRect,
+          /*centerWindowFraction=*/0.10,
+          /*maxTiltDegrees=*/2.0,
+          /*centerXOverride=*/std::numeric_limits<double>::quiet_NaN(), dbg);
+      if (!spine.isNull()) {
+        qDebug() << "PageLayoutEstimator: using SpineDarknessFinder fallback at" << spine;
+        return std::make_unique<PageLayout>(virtualImageRect, spine);
+      }
+    }
+
+    if (lines.empty()) {
+      // Geometry-based last resort: numPages == 2 means the advise()
+      // function already concluded the image is wide enough to be a
+      // spread. Splitting at the geometric center is the safest default
+      // when every detector has failed.
+      const double splitX = virtualImageRect.center().x();
+      const QLineF centerLine(splitX, virtualImageRect.top(), splitX, virtualImageRect.bottom());
+      qDebug() << "PageLayoutEstimator: [SPINE-FALLBACK] no detector produced a candidate, using"
+               << "geometric center split at" << splitX << "(virtualImageRect=" << virtualImageRect << ")";
+      return std::make_unique<PageLayout>(virtualImageRect, centerLine);
+    }
+
     return autoDetectTwoPageLayout(lines, virtualImageRect);
   }
 }  // PageLayoutEstimator::tryCutAtFoldingLine

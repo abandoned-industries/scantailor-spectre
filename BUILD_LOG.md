@@ -938,3 +938,277 @@ current format extension only. If format changed after processing, files weren't
   - src/core/CMakeLists.txt: Fix leptonica include path for homebrew
   - src/dewarping/Curve.cpp: Fix QIODeviceBase → QIODevice + add include
   - src/dewarping/DistortionModelBuilder.cpp: Remove stale Qt5 #ifdef blocks
+
+---
+2026-04-10 - SpineDarknessFinder fallback for two-page split detection (make -j16)
+- New file src/core/filters/page_split/SpineDarknessFinder.h/.cpp: scans columns within ±10% of horizontal center on the existing 100dpi downscaled gray image, with a small ±2° tilt sweep, and returns the column with the highest mean darkness if it passes prominence + dark-row-fraction quality gates. Acts as fallback only.
+- src/core/filters/page_split/PageLayoutEstimator.cpp: now always captures grayDownscaled/outToDownscaled from VertLineFinder (previously only for numPages==1). In tryCutAtFoldingLine numPages==2 branch, calls SpineDarknessFinder when VertLineFinder produces no usable lines, before falling through to autoDetectTwoPageLayout. Added SpineDarknessFinder.h include.
+- src/core/filters/page_split/CMakeLists.txt: added SpineDarknessFinder.cpp/.h to sources.
+- Branch: spine-darkness-fallback (off main).
+
+---
+2026-04-10 - Page split detection: relax Vision short-circuit + central validation + center fallback (make -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp:
+  - Added kCentralLo=0.20 / kCentralHi=0.80 splitFractionIsCentral lambda. Vision-returned splits are only accepted if their normalized X is in this central window — catches the page 15 case where Vision returned a split jammed near the left edge.
+  - Forced TWO_PAGES Vision branch: previously trusted *any* positive splitLineX from Vision. Now only uses it if central; otherwise falls through to VertLineFinder + SpineDarknessFinder + center fallback.
+  - "Vision saw text but no clear spread" branch: previously always returned single page. Now distinguishes (a) symmetric two-column single page (still short-circuit) from (b) asymmetric spread where one side has ≤25% the text regions of the other AND numPages==2 (fall through). Fixes pages 2, 4 (chapter title / title spread).
+  - Two-page fallback chain: after SpineDarknessFinder also fails, return a geometric center split rather than null. Fixes page 11 (two-photo spread, no detectable spine).
+- Branch: spine-darkness-fallback.
+
+---
+2026-04-10 - SpineDarknessFinder line clipping fix (make -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: fixed correctness bug in the final line-clipping step. The pointAtY lambda captured spineVirt by reference; the first setP1() call mutated p1 before the second setP2() call read it back, producing wrong-slope geometry. Snapshot endpoints into origP1/origP2 before mutating.
+
+---
+2026-04-10 - Asymmetric threshold fix + tagged debug logging (make -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp:
+  - Removed maxCount >= 4 floor on the asymmetric Vision check. Was preventing chapter title spreads (which have only 1-2 text regions on the right) from falling through. Now (max>=1, min*4<=max, min<max) qualifies.
+  - Tagged the relevant qDebug lines with [SPINE-FALLBACK] so we can grep them and see exactly which path each page took.
+
+---
+2026-04-10 - Stop trying to be clever about asymmetry — trust geometry (make -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp: replaced the asymmetric-text heuristic in the Vision-text-uncertain branch with a simple geometry-trumps-Vision rule. When numPages==2 (geometry advise concluded "spread"), always fall through to traditional detection regardless of how Vision's text regions are distributed. Only short-circuit to single page when numPages==1 (geometry agrees). This is the fix that should finally split pages 2, 4, and similar chapter-title / asymmetric spreads.
+
+---
+2026-04-10 - Force re-detection of stale auto SINGLE_PAGE_UNCUT cache (make -j16)
+- src/core/filters/page_split/Task.cpp: added staleAutoSingleUncut bool in Task::process. When the cached Params are non-null, the per-image layoutType is AUTO_LAYOUT_TYPE, and the cached pageLayout type is SINGLE_PAGE_UNCUT, the if at line 101 now also takes the re-estimate branch. This is the actual fix for pages 2, 4, 11 in the user's project — those pages have cached Apr-8 single-uncut Params with dependencies that match exactly (size 3308x2479, rotation 0, layoutType auto-detect), so Dependencies::compatibleWith returned true and the estimator was never being called regardless of how I edited PageLayoutEstimator.cpp. Manually-pinned singles and cached two-page layouts are unaffected. Plan: ~/.claude/plans/misty-fluttering-panda.md
+
+---
+2026-04-10 - Vision split refinement via SpineDarknessFinder (make -j16)
+- src/core/filters/page_split/VertLineFinder.h/.cpp: extracted buildGrayDownscaled() public static helper. findLines() now calls it internally so the two paths produce byte-identical gray images.
+- src/core/filters/page_split/SpineDarknessFinder.h/.cpp: added centerXOverride parameter to findSpine(). When finite, the column search window centers on this virtual-X coordinate instead of virtualImageRect.center().x(). Defaults to NaN (use geometric center). All quality gates unchanged.
+- src/core/filters/page_split/PageLayoutEstimator.cpp: in the high-confidence Vision branch, after computing visionSplitX, call buildGrayDownscaled + SpineDarknessFinder::findSpine with a narrow ±6% window centered on Vision's position. If a strong dark column is found nearby, use the refined spine; otherwise use Vision's exact result. Tagged with [SPINE-REFINE] for debugging. This addresses the mode-B issue (pages 5/7/9/10/12/15) where Vision returns confident-but-skewed splits.
+
+---
+2026-04-10 - Widen Vision-refinement window + relax SpineDarknessFinder gates (make -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp: refinement window widened from ±6% to ±15% of width. The gutter can be 10-15% from where Vision/VertLineFinder lands when there's a strong vertical edge inside an illustration on the spread (e.g. a column inside a carved frieze on page 9). The dark-row-fraction and prominence gates inside SpineDarknessFinder discriminate gutters from image edges, so a wider window is safe.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: kMinDarkRowFraction 0.70 -> 0.55 (some real gutters break across captions/page numbers, and image edges still typically span <40% of height); kPerRowDarknessThreshold 30 -> 18 (soft gutter shadows on bright pages were being missed).
+
+---
+2026-04-10 - Local neighbor contrast gate in SpineDarknessFinder (make -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: added meanDarknessOfStripe() helper and a new "valley" gate after the existing prominence check. The chosen column must be at least kMinNeighborContrast (=14) darker than min(leftNeighborMean, rightNeighborMean), where the neighbor stripes are sampled 4-8 px off the candidate's center on each side. Distinguishes a real gutter (bright page content on at least one side) from a column inside a uniformly dark photo (both sides also dark). Fixes false positives on pages 23 (jewelry plates) and 32 (cathedral interior) without re-breaking page 9.
+
+---
+2026-04-10 - "Reset all auto pages" button in page_split OptionsWidget (make -j16)
+- src/core/filters/page_split/Settings.h/.cpp: added clearAllAutoParams() method. Iterates m_perPageRecords and clears Params for every record whose effective layoutType (per-image override OR project default) is AUTO_LAYOUT_TYPE. Erases now-empty records. Manually-pinned single/two-pages layouts are left intact.
+- src/core/filters/page_split/OptionsWidget.ui: new "Reset all auto pages" QPushButton (resetAllAutoBtn) with tooltip, placed below the Change... button in the Page Layout group.
+- src/core/filters/page_split/OptionsWidget.h/.cpp: new resetAllAutoPages() slot. Calls Settings::clearAllAutoParams(), then emits invalidateAllThumbnails() and reloadRequested() so MainWindow refreshes the thumb strip and reprocesses the current page. Wired to resetAllAutoBtn::clicked() in setupUiConnections().
+- This is the user-facing answer to "the reset isn't working" — clicking it forces every auto-detected page to re-run with the current PageLayoutEstimator code.
+
+---
+2026-04-10 - SpineDarknessFinder: paper-side gate + Vision-refinement leash (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Added kMaxPaperNeighborDarkness=55 constant and a new absolute paper-side
+  gate in findSpine(). The existing relative neighbor-contrast gate
+  (bestMean - min(left,right) >= 14) was being trivially satisfied by
+  candidate columns deep inside dark photographs (where both neighbor
+  stripes are dark but still slightly lighter than the candidate). The
+  new gate additionally requires the lighter of the two neighbor stripes
+  to look like actual paper (mean darkness <= 55), which is the property
+  unique to a real gutter.
+- src/core/filters/page_split/PageLayoutEstimator.cpp:
+  Added a 5%-of-page-width "leash" to the Vision-anchored refinement
+  pass. If the SpineDarknessFinder refinement returns a position more
+  than 5% of virtualImageRect.width() away from Vision's splitLineX,
+  discard it and fall through to the existing Vision-only path. The
+  refinement is meant for sub-percent precision; anything bigger means
+  the search wandered into a neighboring photograph.
+- Targets pages 9, 32, 35, 67, 69, 71 in *The Lost Gods of England*
+  sample project, which were splitting through dark photographic plates
+  in the previous build.
+
+---
+2026-04-10 - SpineDarknessFinder: peak-prominence gate (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Added kMinPeakProminence=14 constant and a new "local-maximum" gate in
+  findSpine(). Diagnosis from /tmp/st-spectre.log on the user's project:
+  the previous paper-side gate was rejecting ZERO candidates, while the
+  refinement was happily returning columns with meanDarkness=169..228
+  (real gutter shadows are 50..100; anything above ~150 is almost
+  certainly inside a photographic region). The chosen columns were all
+  sitting at the LEFT EDGE of a dark photograph, where the left neighbor
+  stripe is paper (text-page margin) and the right neighbor is inside
+  the dark image. The previous gate only required the *lighter* side to
+  be paper, so photo edges passed.
+
+  The new gate requires the candidate to be a local maximum of darkness:
+  bestMean - max(leftNeighbor, rightNeighbor) >= 14. A real spine shadow
+  is a thin dark line surrounded by paper on BOTH sides, so the candidate
+  is much darker than both neighbors. A photo edge is a transition where
+  the candidate sits mid-gradient and is *brighter* than the dark side.
+- Targets pages 32, 48 (and similar) in The Lost Gods of England, where
+  the previous build was still landing the split inside the dark photo.
+
+---
+2026-04-10 - SpineDarknessFinder: fix one-sided peak gate bug (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Diagnostic logging revealed that meanDarknessOfStripe() had a bogus
+  early-exit check `if (stripeXLo < 0 || stripeXHi >= w) return 0.0;`
+  that fired immediately for every LEFT neighbor call, because stripeXLo
+  is a *relative offset* from xCenter (negative for the left neighbor)
+  and was being compared as if it were an absolute coordinate. The
+  function silently returned 0 every time, forcing the peak-prominence
+  gate to be one-sided: max(leftNbr, rightNbr) was effectively
+  max(0, rightNbr) = rightNbr. Real photo-edge candidates with paper
+  on the left (where the bug was) were getting through because only
+  the right side of the candidate was being checked.
+  Removed the bogus early-exit; the per-row bounds check inside the
+  sampling loop already handles real out-of-image cases correctly.
+- This bug had been present in every previous build since
+  meanDarknessOfStripe was added; the peak gate was structurally
+  incapable of catching photo-edge candidates until now.
+
+---
+2026-04-10 - PageLayoutEstimator: widen refinement leash 5% → 10% (cmake --build build -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp:
+  Diagnostic logs from /tmp/st-spectre4.log on the user's project show
+  page 67 generating a refinement candidate with a near-perfect quality
+  signature: meanDarkness=174.7, leftNbr=42, rightNbr=61, peakProm=113.
+  All three signals say "real spine shadow with paper on both sides".
+  But it sat 280 px (~8.5%) left of Vision's anchor at 1654 and the
+  5% leash discarded it, falling back to Vision's wrong split.
+  The original 5% leash was a safety net for when the SpineDarknessFinder
+  gates had the leftNbr=0 bug and were one-sided. With the gates now
+  properly two-sided (paper-side absolute + peak-prominence on both
+  neighbors), refinements that pass the gates are reliable, and we can
+  trust the search across a wider radius without inviting photo-edge
+  false positives. 10% lets pages like 67 with Vision off-center
+  through, while still discarding refinements that wander >10% off.
+
+---
+2026-04-10 - SpineDarknessFinder: top-N candidate diagnostic logging (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Pages 14, 21, 55, 63, 92, 95 in The Lost Gods of England are still
+  landing the split too far right of the actual gutter on asymmetric
+  spreads (image on left page, text on right page). The accepted spine
+  log entries show meanDarkness ~120-150 with leftNbr ~70-90 (not paper,
+  not photo) and rightNbr ~20 (paper) — patterns that pass all current
+  gates but are clearly the wrong column.
+  This change does NOT modify behavior. It tracks the top 8 candidate
+  columns by meanDarkness during the search loop (instead of just the
+  global maximum), and after the chosen winner is logged, dumps all 8
+  candidates with their virtual-x position, mean, drf, leftNbr, rightNbr,
+  and peakProm. The winner (topCandidates[0]) is still selected by the
+  same criterion (max bestMean) so no current page should regress.
+  Goal: see whether the real gutter is actually one of the runners-up
+  on the broken pages. If yes → switch the selection rule to prefer
+  symmetric (high-peakProm) candidates over slightly-darker asymmetric
+  ones. If no → the underlying signal is the problem and we need a
+  different approach.
+
+---
+2026-04-10 - SpineDarknessFinder: spatial-NMS top-N diagnostic (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Replaces the per-tilt "top 8 by meanDarkness" tracking with a post-loop
+  spatial-NMS pass over the existing zeroTiltMeans vector. The previous
+  diagnostic was useless for finding alternatives — on every page, the
+  top 8 collapsed onto adjacent columns of the same local feature
+  (typically within ±10 px of each other). NMS picks the global max,
+  masks out a ±25-px region around it, finds the next-highest column
+  outside the mask, and repeats — yielding up to 8 spatially-distinct
+  candidates that represent truly different features in the search window.
+  No selection-rule change: the chosen spine is still the global max
+  from the existing tilted sweep. This is logging only — no page should
+  regress.
+- Goal: on the next test run, see whether the actual gutter on pages
+  67, 92, 95 appears as one of the spatially-separated runners-up.
+  - If yes → next round switches the selection rule to prefer it.
+  - If no → next round needs a different signal (Vision-anchor bias,
+    narrower window, or geometric-center fallback).
+- New <numeric> include for std::iota.
+
+---
+2026-04-10 - SpineDarknessFinder: anchor re-pick selection rule (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Implements the new selection rule based on the previous round's NMS
+  diagnostic findings. From /tmp/st-spectre9.log, page 67 produced
+  TWO viable gate-passing NMS candidates: the dark relief edge at
+  xVirt=1371 (mean=172, peakProm=115, distFromAnchor=283) which won
+  by raw meanDarkness, and the actual gutter at xVirt=1611 (mean=97,
+  peakProm=23, distFromAnchor=43) which was the runner-up. The new
+  rule picks the closest-to-anchor among gate-passing NMS candidates,
+  flipping page 67 from the relief to the real gutter.
+- Refactor: gate sequence factored into an `evaluateColumn` lambda so
+  it can be applied to both the global-max winner from the tilt sweep
+  AND each spatially-distinct NMS candidate. The lambda matches the
+  existing gate sequence exactly (kMinMeanDarkness, drf, prominence,
+  paper-side, neighbor-contrast, peak-prominence).
+- After gates pass on global max, build a `viable` list:
+  global max + each NMS candidate that passes the gates and doesn't
+  spatially overlap the global max. Pick the one closest to centerXDs
+  (Vision's anchor when supplied, geometric center otherwise).
+- If anchor pick != global max: re-run a tilt sub-sweep at the picked
+  column to recover its best xTop/xBottom, recompute neighbors, log
+  an `[ANCHOR-PICK]` override line, then update bestMean/bestXTop/etc
+  before line construction.
+- Cleanly-resolved pages (single viable candidate) are unchanged
+  because the viable list has size 1 and "closest to anchor" trivially
+  picks it. Pages 92/95 (no viable runner-up) are also unchanged. Only
+  pages with multiple viable candidates and a closer-to-anchor runner-up
+  flip — the explicit target is page 67's relief→gutter flip.
+- Diagnostic dump kept; runners-up that fail the gates get a
+  "[gate-fail]" annotation, viable runners-up get "[viable]", and the
+  final pick is "[CHOSEN]".
+
+---
+2026-04-10 - SpineDarknessFinder: anchor-pick override guard (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Test of the previous build's anchor-pick rule revealed two override
+  events on the user's project. One was correct (page 67's relief edge
+  → real gutter, big improvement). The other was a regression (page 65,
+  where the photo-edge gutter at xVirt=1449 with left=139 right=4 got
+  wrongly flipped to a text-edge at xVirt=1608 with left=63 right=15).
+  
+  Diagnosis: the two cases need opposite handling. Page 67's wrong
+  global-max is a "thin dark line inside a relief image" — both
+  neighbors are paper-like (left=32, right=58). Page 65's correct
+  global-max is a "photo edge with paper margin on one side, photo
+  interior on the other" — strongly asymmetric neighbors (left=139,
+  right=4). The anchor-pick override should only fire on the former.
+  
+  Adds kMaxBothPaperDarkness=65 guard: the override only fires when
+  the global max has BOTH leftNbr and rightNbr ≤ 65 (i.e. it's a
+  "suspiciously clean isolated peak"). Page 67 passes (max=58 ≤ 65,
+  override fires, gutter at xVirt=1611). Page 65 fails (max=139 > 65,
+  override suppressed, photo-edge at xVirt=1449 retained).
+  
+  Logs `[ANCHOR-PICK] override SUPPRESSED` on the suppressed cases so
+  we can see which pages were saved by the guard.
+
+---
+2026-04-10 - SpineDarknessFinder: revert override guard (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Test of the previous build's override guard (kMaxBothPaperDarkness=65)
+  showed it broke page 95. Page 95 (skeleton photo on left, text on right)
+  has its global max at xVirt=1449 with left=139 right=4 — asymmetric —
+  and the previous build with the guard skipped the override and stuck
+  at xVirt 1449 ("bad again"). Without the guard, the override fires
+  and flips to xVirt 1608 ("100%" per the user in the previous test).
+  
+  The "clean isolated peak vs photo edge" theory I used to motivate the
+  guard turned out wrong: the photo-edge case ALSO benefits from the
+  override on this book. Removing the guard restores page 95's correct
+  position. Page 67 still flips correctly (relief feature is a clean
+  isolated peak with closer-to-anchor runner-up). Page 65 might revert
+  to "not great" — accept that tradeoff for now since the user judged
+  95 the more important fix.
+
+---
+2026-04-10 - RELEASE 2.0a25: anchor re-pick selection rule shipped (cmake --build build -j16)
+- version.h.in: 2.0a24 → 2.0a25
+- README.md: version line updated
+- Ships the anchor-pick selection rule in SpineDarknessFinder. Auto-detection
+  now correctly handles asymmetric image-on-one-side / text-on-the-other
+  spreads on test project The Lost Gods of England:
+  - page 67 (sarcophagus relief): flips relief edge → real gutter
+  - pages 92, 95: now correctly placed at the gutter, were previously
+    landing in the right page text body
+  - page 65 (text-left/wagon-right): still requires manual nudge — no
+    spine signal at the actual binding fold (the wagon photo's left
+    edge is what the algorithm finds, ~50 px right of the visible
+    binding strip). Documented in this build log as a known limit.
+- The full mechanism: gates → spatially-separated NMS top-N → among
+  gate-passing viable candidates, pick the one closest to Vision's
+  anchor (or geometric center). Override fires unconditionally — the
+  earlier "clean isolated peak" guard regressed page 95 and was
+  removed.

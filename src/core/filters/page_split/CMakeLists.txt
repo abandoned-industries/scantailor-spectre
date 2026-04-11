@@ -13,6 +13,7 @@ set(sources
     PageLayout.cpp PageLayout.h
     PageLayoutEstimator.cpp PageLayoutEstimator.h
     VertLineFinder.cpp VertLineFinder.h
+    SpineDarknessFinder.cpp SpineDarknessFinder.h
     Filter.cpp Filter.h
     OptionsWidget.cpp OptionsWidget.h
     SplitModeDialog.cpp SplitModeDialog.h

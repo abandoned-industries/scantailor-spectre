@@ -98,7 +98,16 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
     AutoManualMode splitLineMode = MODE_AUTO;
     PageLayout newLayout;
 
-    if (!params || !deps.compatibleWith(*params)) {
+    // Force re-detection when the cached layout is an auto-detected
+    // SINGLE_PAGE_UNCUT result. The original auto-detection may predate
+    // detector improvements, and the user has no UI to invalidate the
+    // per-image cache. Manually-pinned singles (combinedLayoutType !=
+    // AUTO_LAYOUT_TYPE) and cached two-page layouts are unaffected.
+    const bool staleAutoSingleUncut = params
+        && record.combinedLayoutType() == AUTO_LAYOUT_TYPE
+        && params->pageLayout().type() == PageLayout::SINGLE_PAGE_UNCUT;
+
+    if (!params || !deps.compatibleWith(*params) || staleAutoSingleUncut) {
       if (!params || (record.combinedLayoutType() == AUTO_LAYOUT_TYPE)) {
         newLayout = PageLayoutEstimator::estimatePageLayout(record.combinedLayoutType(), data.grayImage(), data.xform(),
                                                             data.bwThreshold(), m_dbg.get());

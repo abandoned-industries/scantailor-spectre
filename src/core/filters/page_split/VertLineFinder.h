@@ -28,6 +28,26 @@ class VertLineFinder {
                                        imageproc::GrayImage* grayDownscaled = nullptr,
                                        QTransform* outToDownscaled = nullptr);
 
+  /**
+   * \brief Builds the same 100-DPI grayscale downscale that findLines uses
+   *        internally, without running the (expensive) Hough line detector.
+   *
+   * Used by PageLayoutEstimator when it wants to run a SpineDarknessFinder
+   * pass over the same downscaled gray image but doesn't need the full set
+   * of Hough line candidates.
+   *
+   * \param image           Original input image.
+   * \param xform           Pre-transformation applied to the image.
+   * \param grayDownscaled  Out: the 100 DPI grayscale image.
+   * \param outToDownscaled Out: a QTransform mapping virtual output
+   *                        coordinates to coordinates of the downscaled
+   *                        image.
+   */
+  static void buildGrayDownscaled(const QImage& image,
+                                  const ImageTransformation& xform,
+                                  imageproc::GrayImage* grayDownscaled,
+                                  QTransform* outToDownscaled);
+
  private:
   class QualityLine {
    public:
