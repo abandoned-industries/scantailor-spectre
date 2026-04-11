@@ -62,9 +62,10 @@ constexpr double kMinNeighborContrast = 14.0;
 // gate above is trivially satisfied inside a dark photograph (a column at
 // darkness 200 with neighbors at 180 still passes 200−180 ≥ 14), so we
 // additionally require at least one neighbor stripe to look like actual
-// paper. Comfortably above text-on-paper (~25–35) and well below
-// image-interior (~100+).
-constexpr double kMaxPaperNeighborDarkness = 55.0;
+// paper. Comfortably above text-on-paper (~25-35), while allowing tinted
+// scans and soft gutter shadows where the adjacent paper measures darker.
+// Still below image-interior darkness (~100+).
+constexpr double kMaxPaperNeighborDarkness = 70.0;
 
 // "Local maximum" / peak-prominence gate: how much the candidate column's
 // mean darkness must exceed the *darker* of its two neighbor stripes. A
@@ -242,7 +243,11 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
                                       const double centerWindowFraction,
                                       const double maxTiltDegrees,
                                       const double centerXOverride,
-                                      DebugImages* const dbg) {
+                                      DebugImages* const dbg,
+                                      bool* const broadGutterRescue) {
+  if (broadGutterRescue) {
+    *broadGutterRescue = false;
+  }
   if (grayDownscaled.isNull()) {
     return QLineF();
   }
@@ -370,7 +375,9 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
   // against the same criteria without code duplication.
   auto evaluateColumn = [&](double xT, double xB, double meanDark, int darkRows, int sampledRows,
                             double& outLeft, double& outRight, double& outPP, double& outDrf,
+                            bool& outBroadGutter,
                             const char* logTag) -> bool {
+    outBroadGutter = false;
     if (meanDark < kMinMeanDarkness) return false;
     outDrf = sampledRows > 0
         ? static_cast<double>(darkRows) / static_cast<double>(sampledRows)
@@ -382,7 +389,30 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     outRight = meanDarknessOfStripe(grayDownscaled, xT, xB,
         kNeighborInnerOffset, kNeighborInnerOffset + kNeighborStripeWidth - 1);
     const double minNbr = std::min(outLeft, outRight);
+    const double maxNbr = std::max(outLeft, outRight);
+    const double xCenter = 0.5 * (xT + xB);
+    const double distFromAnchor = std::abs(xCenter - centerXDs);
+    const bool visionAnchored = std::isfinite(centerXOverride);
+    const bool insideRefineWindow = distFromAnchor <= (centerWindowFraction + 0.025) * virtualWidthDs;
+    const bool nearAnchor = distFromAnchor <= 0.06 * virtualWidthDs;
     if (minNbr > kMaxPaperNeighborDarkness) {
+      const bool broadDarkBand = meanDark >= 170.0 && outDrf >= 0.70
+          && (meanDark - minNbr) >= 80.0 && maxNbr >= 100.0;
+      const bool broadPlateau = meanDark >= 150.0 && outDrf >= 0.55
+          && minNbr >= kMaxPaperNeighborDarkness && maxNbr >= 90.0
+          && (meanDark - minNbr) >= 6.0;
+      if (insideRefineWindow && ((visionAnchored && broadDarkBand) || broadPlateau)) {
+        outPP = meanDark - maxNbr;
+        outBroadGutter = true;
+        if (logTag) {
+          qDebug() << "SpineDarknessFinder:" << logTag
+                   << "accepting broad gutter xT=" << xT
+                   << "mean=" << meanDark << "drf=" << outDrf
+                   << "left=" << outLeft << "right=" << outRight
+                   << "distFromAnchor=" << distFromAnchor;
+        }
+        return true;
+      }
       if (logTag) {
         qDebug() << "SpineDarknessFinder:" << logTag << "reject xT=" << xT
                  << "mean=" << meanDark << "left=" << outLeft << "right=" << outRight
@@ -399,8 +429,41 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
       }
       return false;
     }
-    outPP = meanDark - std::max(outLeft, outRight);
+    outPP = meanDark - maxNbr;
+    const bool plateauEdgeNearAnchor = nearAnchor && meanDark >= 150.0 && outDrf >= 0.55
+        && minNbr <= kMaxPaperNeighborDarkness && maxNbr >= 100.0
+        && (meanDark - minNbr) >= 80.0;
+    if (plateauEdgeNearAnchor) {
+      outBroadGutter = true;
+      return true;
+    }
     if (outPP < kMinPeakProminence) {
+      // "Binding fold against text edge" pattern: a moderate-darkness
+      // candidate column with bright paper on one neighbor and text on
+      // the other. The peak-prominence gate (mean - max(left,right))
+      // computes prominence vs the text neighbor and fails by a hair,
+      // even though the candidate is dramatically darker than the
+      // paper neighbor — exactly the signature of a tight inner
+      // margin where the binding fold sits right against the text.
+      // Accept when:
+      //   - candidate is moderately dark (≥ 80, brightness ≤ ~175)
+      //   - drk-row fraction is high (≥ 0.7, consistent vertical line)
+      //   - one neighbor is paper-bright (≤ 25 darkness, ≥ 230 bright)
+      //   - mean exceeds the paper neighbor by ≥ 60 (clear contrast
+      //     vs the bright side; the text-side prominence is not
+      //     constrained because text adjacency is the whole point)
+      const bool bindingAgainstText = meanDark >= 80.0 && outDrf >= 0.7
+          && minNbr <= 25.0 && (meanDark - minNbr) >= 60.0;
+      if (bindingAgainstText) {
+        if (logTag) {
+          qDebug() << "SpineDarknessFinder:" << logTag
+                   << "accepting binding-against-text xT=" << xT
+                   << "mean=" << meanDark << "drf=" << outDrf
+                   << "left=" << outLeft << "right=" << outRight
+                   << "peakProm=" << outPP;
+        }
+        return true;
+      }
       if (logTag) {
         qDebug() << "SpineDarknessFinder:" << logTag << "reject xT=" << xT
                  << "mean=" << meanDark << "left=" << outLeft << "right=" << outRight
@@ -417,8 +480,10 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
   double rightNeighborMean = 0.0;
   double peakProminence = 0.0;
   double darkRowFraction = 0.0;
+  bool globalBroadGutter = false;
   if (!evaluateColumn(bestXTop, bestXBottom, bestMean, bestDarkRows, bestSampledRows,
                       leftNeighborMean, rightNeighborMean, peakProminence, darkRowFraction,
+                      globalBroadGutter,
                       "global-max")) {
     return QLineF();
   }
@@ -489,6 +554,7 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     double rightNbr = 0.0;
     double peakProm = 0.0;
     double drf = 0.0;
+    bool broadGutter = false;
   };
   std::vector<ViableCandidate> viable;
   viable.reserve(nms.size() + 1);
@@ -497,18 +563,20 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
       static_cast<int>(std::round(0.5 * (bestXTop + bestXBottom)));
   viable.push_back({globalMaxXCenterDs, bestXTop, bestXBottom,
                     bestMean, bestDarkRows, bestSampledRows,
-                    leftNeighborMean, rightNeighborMean, peakProminence, darkRowFraction});
+                    leftNeighborMean, rightNeighborMean, peakProminence, darkRowFraction,
+                    globalBroadGutter});
 
   for (const NmsCandidate& c : nms) {
     if (std::abs(c.xCenterDs - globalMaxXCenterDs) < kMinSeparationDs) continue;
     double l = 0.0, r = 0.0, pp = 0.0, df = 0.0;
+    bool broad = false;
     if (!evaluateColumn(double(c.xCenterDs), double(c.xCenterDs),
                         c.meanDarkness, c.darkRows, c.sampledRows,
-                        l, r, pp, df, /*logTag=*/nullptr)) {
+                        l, r, pp, df, broad, /*logTag=*/nullptr)) {
       continue;
     }
     viable.push_back({c.xCenterDs, double(c.xCenterDs), double(c.xCenterDs),
-                      c.meanDarkness, c.darkRows, c.sampledRows, l, r, pp, df});
+                      c.meanDarkness, c.darkRows, c.sampledRows, l, r, pp, df, broad});
   }
 
   // Anchor re-pick: among the viable candidates, pick the one closest to
@@ -522,6 +590,38 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
       if (d < bestDist) {
         bestDist = d;
         pickIdx = i;
+      }
+    }
+
+    // Broad-gutter rescue is intentionally permissive so we can handle
+    // shadowed book folds, but a dark photo interior can also form a broad
+    // plateau near the center. If a normal, high-prominence spine candidate
+    // is nearly as close to the anchor, prefer it over the broad plateau.
+    if (viable[pickIdx].broadGutter) {
+      constexpr double kNormalPeakOverrideMinProminence = 30.0;
+      constexpr double kNormalPeakOverrideExtraDistFraction = 0.035;
+      const double maxNormalDist = bestDist + kNormalPeakOverrideExtraDistFraction * virtualWidthDs;
+      size_t normalPickIdx = pickIdx;
+      double bestNormalDist = std::numeric_limits<double>::max();
+      for (size_t i = 0; i < viable.size(); ++i) {
+        const ViableCandidate& c = viable[i];
+        if (c.broadGutter || c.peakProm < kNormalPeakOverrideMinProminence) {
+          continue;
+        }
+        const double d = std::abs(double(c.xCenterDs) - centerXDs);
+        if ((d <= maxNormalDist) && (d < bestNormalDist)) {
+          bestNormalDist = d;
+          normalPickIdx = i;
+        }
+      }
+      if (normalPickIdx != pickIdx) {
+        qDebug() << "SpineDarknessFinder: [ANCHOR-PICK] preferring normal peak over broad plateau:"
+                 << "broad xCenter=" << viable[pickIdx].xCenterDs
+                 << "broadDist=" << bestDist
+                 << "normal xCenter=" << viable[normalPickIdx].xCenterDs
+                 << "normalDist=" << bestNormalDist
+                 << "normalPeakProm=" << viable[normalPickIdx].peakProm;
+        pickIdx = normalPickIdx;
       }
     }
   }
@@ -599,6 +699,10 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     darkRowFraction = tBestSampledRows > 0
         ? static_cast<double>(tBestDarkRows) / static_cast<double>(tBestSampledRows)
         : 0.0;
+  }
+
+  if (broadGutterRescue) {
+    *broadGutterRescue = viable[pickIdx].broadGutter;
   }
 
   // Build the line in downscaled coordinates and map back to virtual.
@@ -691,6 +795,240 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
 
   // Suppress unused-parameter warning when DebugImages is null.
   (void) clampd;
+  return spineVirt;
+}
+
+QLineF SpineDarknessFinder::findSpineByPaperGap(const GrayImage& grayDownscaled,
+                                                const QTransform& outToDownscaled,
+                                                const QRectF& virtualImageRect,
+                                                const double centerWindowFraction,
+                                                const double centerXOverride) {
+  if (grayDownscaled.isNull() || virtualImageRect.isEmpty()) {
+    return QLineF();
+  }
+
+  bool invertible = false;
+  const QTransform downscaledToOut = outToDownscaled.inverted(&invertible);
+  if (!invertible) {
+    return QLineF();
+  }
+
+  const int dsW = grayDownscaled.width();
+  const int dsH = grayDownscaled.height();
+  if (dsW < 16 || dsH < 16) {
+    return QLineF();
+  }
+
+  // Reproduce findSpine()'s window math so the search range matches.
+  const double anchorVirtX = std::isfinite(centerXOverride)
+      ? centerXOverride
+      : virtualImageRect.center().x();
+  const QPointF topCenterDs =
+      outToDownscaled.map(QPointF(anchorVirtX, virtualImageRect.top()));
+  const QPointF bottomCenterDs =
+      outToDownscaled.map(QPointF(anchorVirtX, virtualImageRect.bottom()));
+  const QPointF leftEdgeDs = outToDownscaled.map(
+      QPointF(virtualImageRect.left(), virtualImageRect.center().y()));
+  const QPointF rightEdgeDs = outToDownscaled.map(
+      QPointF(virtualImageRect.right(), virtualImageRect.center().y()));
+  const double virtualWidthDs =
+      std::hypot(rightEdgeDs.x() - leftEdgeDs.x(), rightEdgeDs.y() - leftEdgeDs.y());
+  const double halfWindowDs = std::max(4.0, centerWindowFraction * virtualWidthDs);
+  const double centerXDs = 0.5 * (topCenterDs.x() + bottomCenterDs.x());
+
+  // Full-height row band (5..95% to skip edge scanner noise). We used to
+  // use the bottom text band (60..95%) on the theory that photos at the
+  // top of the page would pollute the brightness profile — but on
+  // asymmetric text/photo spreads (e.g. text-left/photo-right) the photo's
+  // darker mean brightness is exactly the "right flank" signal the
+  // algorithm needs to bracket the gutter on the photo side. Without it
+  // the right flank stays paper-tinted and paper-gap can't find a proper
+  // right boundary. Using the full height means photos contribute darker
+  // columns on their side of the gutter, which is what we want.
+  const int rowLo = std::max(0, static_cast<int>(std::round(dsH * 0.05)));
+  const int rowHi = std::min(dsH - 1, static_cast<int>(std::round(dsH * 0.95)));
+  if (rowHi - rowLo < 8) {
+    return QLineF();
+  }
+
+  // Build a column-mean brightness profile across the FULL width (not just
+  // the search window) so the smoothing kernel doesn't truncate near edges.
+  const uint8_t* data = grayDownscaled.data();
+  const int stride = grayDownscaled.stride();
+  std::vector<double> colBrightness(dsW, 0.0);
+  const int rowCount = rowHi - rowLo + 1;
+  for (int x = 0; x < dsW; ++x) {
+    long long sum = 0;
+    for (int y = rowLo; y <= rowHi; ++y) {
+      sum += data[y * stride + x];
+    }
+    colBrightness[x] = static_cast<double>(sum) / rowCount;
+  }
+
+  // 9-tap boxcar smoothing to suppress per-glyph noise. Glyph strokes are
+  // 1-3 px wide at 100 dpi; this kernel suppresses them but preserves the
+  // wider gutter peak (typically 30-80 px wide).
+  std::vector<double> smooth(dsW, 0.0);
+  constexpr int kSmoothHalf = 4;
+  for (int x = 0; x < dsW; ++x) {
+    double s = 0.0;
+    int n = 0;
+    for (int dx = -kSmoothHalf; dx <= kSmoothHalf; ++dx) {
+      const int xi = x + dx;
+      if (xi < 0 || xi >= dsW) continue;
+      s += colBrightness[xi];
+      ++n;
+    }
+    smooth[x] = n > 0 ? s / n : colBrightness[x];
+  }
+
+  // Search bounds. The flank lookups read up to kFlankReach columns
+  // beyond the bright run, so leave a margin against the image edges.
+  constexpr int kFlankReach = 100;
+  const int safeMargin = kFlankReach + 2;
+  const int xLo = std::max(safeMargin, static_cast<int>(std::floor(centerXDs - halfWindowDs)));
+  const int xHi = std::min(dsW - 1 - safeMargin, static_cast<int>(std::ceil(centerXDs + halfWindowDs)));
+  if (xLo >= xHi) {
+    return QLineF();
+  }
+
+  // Strategy: identify the bright paper run that CONTAINS centerXDs,
+  // verify it has darker columns within reach on both sides, and return
+  // the midpoint of the two flanking text-edge transitions. The line
+  // between transition midpoints sits at the geometric center of the
+  // gutter — much closer to the actual binding fold than the center of
+  // the (≥235) bright run, which is biased on asymmetric pages where
+  // the brightness slope on one side is much sharper than the other.
+  //
+  // Anchor: the run that contains centerXDs, not the longest run
+  // anywhere in the window — this way, page-margin paper next to the
+  // window cannot mislead the search.
+  //
+  // - kMinPaperBrightness 235: separates real white paper from
+  //   text-tinted paper. The right-page text body in the bottom row
+  //   band smoothes to ~220-230, well below 235.
+  // - kMinDrop 18: each flank must contain a column at least this much
+  //   darker than the run's peak brightness. Rejects flat-margin runs.
+  // - kMinFlankBrightness 80: both flanks may not be photo-deep dark.
+  //   One photo-dark flank is acceptable for asymmetric text/photo spreads,
+  //   where the correct paper gutter is bounded by text on one side and
+  //   a photograph on the other.
+  constexpr double kMinPaperBrightness = 235.0;
+  constexpr double kMinDrop = 18.0;
+  constexpr double kMinFlankBrightness = 80.0;
+
+  // The run containing centerXDs only exists if smooth[centerXDs] is
+  // already paper-bright. If not, the binding fold is sitting inside
+  // text rather than between texts and this fallback can't help.
+  const int centerInt =
+      std::clamp(static_cast<int>(std::round(centerXDs)), xLo, xHi);
+  if (smooth[centerInt] < kMinPaperBrightness) {
+    qDebug() << "SpineDarknessFinder: [PAPER-GAP] center column not paper-bright"
+             << "centerXDs=" << centerXDs << "smooth=" << smooth[centerInt];
+    return QLineF();
+  }
+
+  // Walk left and right from centerXDs while still in the bright run.
+  // We allow the run to extend past the search window so the flank
+  // lookup below can find darker columns just outside the leash.
+  int runLo = centerInt;
+  while (runLo - 1 >= safeMargin && smooth[runLo - 1] >= kMinPaperBrightness) {
+    --runLo;
+  }
+  int runHi = centerInt;
+  while (runHi + 1 <= dsW - 1 - safeMargin && smooth[runHi + 1] >= kMinPaperBrightness) {
+    ++runHi;
+  }
+
+  // Peak brightness inside the run (for the drop test below).
+  double runPeak = 0.0;
+  for (int x = runLo; x <= runHi; ++x) {
+    if (smooth[x] > runPeak) runPeak = smooth[x];
+  }
+
+  // Look for darker columns within kFlankReach px on each side of the
+  // run (i.e., outside the run, in the dark valleys that bracket it).
+  double leftFlankMin = std::numeric_limits<double>::max();
+  for (int dx = 1; dx <= kFlankReach; ++dx) {
+    const int xi = runLo - dx;
+    if (xi < 0) break;
+    if (smooth[xi] < leftFlankMin) leftFlankMin = smooth[xi];
+  }
+  double rightFlankMin = std::numeric_limits<double>::max();
+  for (int dx = 1; dx <= kFlankReach; ++dx) {
+    const int xi = runHi + dx;
+    if (xi >= dsW) break;
+    if (smooth[xi] < rightFlankMin) rightFlankMin = smooth[xi];
+  }
+
+  if (runPeak - leftFlankMin < kMinDrop || runPeak - rightFlankMin < kMinDrop) {
+    qDebug() << "SpineDarknessFinder: [PAPER-GAP] run flank drops too small"
+             << "runLo=" << runLo << "runHi=" << runHi
+             << "peak=" << runPeak
+             << "leftMin=" << leftFlankMin << "rightMin=" << rightFlankMin;
+    return QLineF();
+  }
+  if (leftFlankMin < kMinFlankBrightness && rightFlankMin < kMinFlankBrightness) {
+    qDebug() << "SpineDarknessFinder: [PAPER-GAP] both flanks look like photos"
+             << "leftMin=" << leftFlankMin << "rightMin=" << rightFlankMin;
+    return QLineF();
+  }
+
+  // Find each text edge as the column where the brightness profile
+  // crosses the midway level between the run peak and the respective
+  // flank min. This is the geometric center of the brightness ramp,
+  // which corresponds to the text margin: less biased than picking
+  // either the (≥235) cutoff (biased toward the run) or the deepest
+  // dark column (biased toward dense text).
+  const double leftCrossThresh = 0.5 * (runPeak + leftFlankMin);
+  const double rightCrossThresh = 0.5 * (runPeak + rightFlankMin);
+  int leftEdge = runLo;
+  for (int dx = 0; dx <= kFlankReach; ++dx) {
+    const int xi = runLo - dx;
+    if (xi < 0) break;
+    if (smooth[xi] <= leftCrossThresh) {
+      leftEdge = xi;
+      break;
+    }
+  }
+  int rightEdge = runHi;
+  for (int dx = 0; dx <= kFlankReach; ++dx) {
+    const int xi = runHi + dx;
+    if (xi >= dsW) break;
+    if (smooth[xi] <= rightCrossThresh) {
+      rightEdge = xi;
+      break;
+    }
+  }
+  const int pickX = (leftEdge + rightEdge) / 2;
+
+  const QPointF topVirt = downscaledToOut.map(QPointF(pickX, 0.0));
+  const QPointF bottomVirt = downscaledToOut.map(QPointF(pickX, dsH - 1));
+  QLineF spineVirt(topVirt, bottomVirt);
+
+  // Clip to virtual rect's vertical extent (mirror findSpine()'s endpoint
+  // clipping so the returned line spans the full page).
+  const double y0 = spineVirt.p1().y();
+  const double y1 = spineVirt.p2().y();
+  if (std::fabs(y1 - y0) > 1e-9) {
+    auto pointAtY = [&](double y) {
+      const double t = (y - y0) / (y1 - y0);
+      return QPointF(spineVirt.p1().x() + t * (spineVirt.p2().x() - spineVirt.p1().x()), y);
+    };
+    const QPointF newTop = pointAtY(virtualImageRect.top());
+    const QPointF newBottom = pointAtY(virtualImageRect.bottom());
+    spineVirt.setP1(newTop);
+    spineVirt.setP2(newBottom);
+  }
+
+  qDebug() << "SpineDarknessFinder: [PAPER-GAP] picked xCenterDs=" << pickX
+           << "leftEdge=" << leftEdge << "rightEdge=" << rightEdge
+           << "runLo=" << runLo << "runHi=" << runHi
+           << "peak=" << runPeak
+           << "leftFlankMin=" << leftFlankMin
+           << "rightFlankMin=" << rightFlankMin
+           << "spineVirt=" << spineVirt;
+
   return spineVirt;
 }
 

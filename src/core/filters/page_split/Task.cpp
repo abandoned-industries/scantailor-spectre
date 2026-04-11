@@ -5,6 +5,8 @@
 
 #include <UnitsProvider.h>
 
+#include <QDebug>
+
 #include <utility>
 
 #include "DebugImagesImpl.h"
@@ -90,6 +92,10 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
 
   Settings::Record record(m_settings->getPageRecord(m_pageInfo.imageId()));
   Dependencies deps(data.origImage().size(), data.xform().preRotation(), record.combinedLayoutType());
+  qDebug() << "PageSplit Task: begin"
+           << "pdfPage=" << m_pageInfo.imageId().page()
+           << "subPage=" << m_pageInfo.id().subPageAsString()
+           << "hasParams=" << (record.params() != nullptr);
 
   while (true) {
     const Params* const params = record.params();
@@ -108,6 +114,13 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
         && params->pageLayout().type() == PageLayout::SINGLE_PAGE_UNCUT;
 
     if (!params || !deps.compatibleWith(*params) || staleAutoSingleUncut) {
+      qDebug() << "PageSplit Task: recomputing"
+               << "pdfPage=" << m_pageInfo.imageId().page()
+               << "subPage=" << m_pageInfo.id().subPageAsString()
+               << "reason="
+               << (!params ? "missing-params"
+                   : staleAutoSingleUncut ? "stale-auto-single"
+                   : "incompatible-deps");
       if (!params || (record.combinedLayoutType() == AUTO_LAYOUT_TYPE)) {
         newLayout = PageLayoutEstimator::estimatePageLayout(record.combinedLayoutType(), data.grayImage(), data.xform(),
                                                             data.bwThreshold(), m_dbg.get());
@@ -122,6 +135,9 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
       PageLayout correctedPageLayout = params->pageLayout();
       PageLayoutAdapter::correctPageLayoutType(&correctedPageLayout);
       if (correctedPageLayout.type() == params->pageLayout().type()) {
+        qDebug() << "PageSplit Task: using cached params"
+                 << "pdfPage=" << m_pageInfo.imageId().page()
+                 << "subPage=" << m_pageInfo.id().subPageAsString();
         break;
       } else {
         newLayout = correctedPageLayout;
@@ -149,6 +165,13 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
 
     bool conflict = false;
     record = m_settings->conditionalUpdate(m_pageInfo.imageId(), update, &conflict);
+    if (record.params() && (record.params()->pageLayout().numCutters() > 0)) {
+      const QLineF cutter = record.params()->pageLayout().cutterLine(0);
+      qDebug() << "PageSplit Task: stored params"
+               << "pdfPage=" << m_pageInfo.imageId().page()
+               << "subPage=" << m_pageInfo.id().subPageAsString()
+               << "cutterX=" << 0.5 * (cutter.x1() + cutter.x2());
+    }
     if (conflict && !record.params()) {
       // If there was a conflict, it means
       // the record was updated by another

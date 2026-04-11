@@ -263,11 +263,26 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
       GrayImage refineGray;
       QTransform refineXform;
       VertLineFinder::buildGrayDownscaled(input, preXform, &refineGray, &refineXform);
+      bool broadGutterRescue = false;
       const QLineF refinedSpine = SpineDarknessFinder::findSpine(
           refineGray, refineXform, virtualImageRect,
           /*centerWindowFraction=*/0.15,
           /*maxTiltDegrees=*/2.0,
-          /*centerXOverride=*/visionSplitX, dbg);
+          /*centerXOverride=*/visionSplitX, dbg, &broadGutterRescue);
+
+      // Brightness-based fallback: when the dark detector returns null
+      // (no column in the search window has a real gutter shadow), try
+      // to find the spine as a bright column of paper between the bottom
+      // text blocks. This handles flatbed scans where the actual binding
+      // fold has no shadow at all but lies in white paper between text
+      // columns. The same 10% leash applies — see kPaperGapLeashFraction
+      // below — and the function returns a null QLineF on full-bleed
+      // photo spreads or any page where it can't find a clean paper gap.
+      const QLineF paperGapSpine = SpineDarknessFinder::findSpineByPaperGap(
+          refineGray, refineXform, virtualImageRect,
+          /*centerWindowFraction=*/0.10,
+          /*centerXOverride=*/visionSplitX);
+
       if (!refinedSpine.isNull()) {
         // Refinement leash: the refined position must stay within this
         // fraction of page width from Vision's anchor. Originally this
@@ -282,10 +297,30 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
         // and the refinement disagree about which column is the spine.
         const double refinedX = lineCenterX(refinedSpine);
         constexpr double kRefineLeashFraction = 0.10;
+        constexpr double kBroadGutterLeashFraction = 0.09;
         const double maxLeashDelta = kRefineLeashFraction * virtualImageRect.width();
-        if (std::fabs(refinedX - visionSplitX) <= maxLeashDelta) {
+        const double maxBroadGutterDelta = kBroadGutterLeashFraction * virtualImageRect.width();
+        if (!paperGapSpine.isNull()) {
+          const double paperGapX = lineCenterX(paperGapSpine);
+          const double refinedDelta = std::fabs(refinedX - visionSplitX);
+          const double paperGapDelta = std::fabs(paperGapX - visionSplitX);
+          constexpr double kPaperGapPreferenceMargin = 0.025;
+          const double preferenceMargin = kPaperGapPreferenceMargin * virtualImageRect.width();
+          if (paperGapDelta <= maxLeashDelta
+              && (broadGutterRescue || paperGapDelta + preferenceMargin < refinedDelta)) {
+            qDebug() << "PageLayoutEstimator: [SPINE-REFINE] Vision split at" << visionSplitX
+                     << "(conf" << visionResult.confidence << ") paper-gap preferred over"
+                     << refinedSpine << "->" << paperGapSpine
+                     << (broadGutterRescue ? "[broad gutter]" : "");
+            return std::make_unique<PageLayout>(virtualImageRect, paperGapSpine);
+          }
+        }
+
+        if (std::fabs(refinedX - visionSplitX) <= maxLeashDelta
+            || (broadGutterRescue && std::fabs(refinedX - visionSplitX) <= maxBroadGutterDelta)) {
           qDebug() << "PageLayoutEstimator: [SPINE-REFINE] Vision split at" << visionSplitX
-                   << "(conf" << visionResult.confidence << ") refined to" << refinedSpine;
+                   << "(conf" << visionResult.confidence << ") refined to" << refinedSpine
+                   << (broadGutterRescue ? "[broad gutter]" : "");
           return std::make_unique<PageLayout>(virtualImageRect, refinedSpine);
         }
         qDebug() << "PageLayoutEstimator: [SPINE-REFINE] discarding refinement at" << refinedX
@@ -293,6 +328,25 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
                  << "(delta=" << std::fabs(refinedX - visionSplitX)
                  << "> leash=" << maxLeashDelta << ")";
         // Fall through to the Vision-only path below.
+      }
+
+      // Brightness fallback acceptance: a non-null paperGapSpine means the
+      // dark detector returned null AND we found a clean paper gutter
+      // between text columns inside the search window. Same 10% leash
+      // applies — anything farther almost certainly is the wrong column.
+      if (!paperGapSpine.isNull()) {
+        const double paperGapX = lineCenterX(paperGapSpine);
+        constexpr double kPaperGapLeashFraction = 0.10;
+        const double maxPaperGapDelta = kPaperGapLeashFraction * virtualImageRect.width();
+        if (std::fabs(paperGapX - visionSplitX) <= maxPaperGapDelta) {
+          qDebug() << "PageLayoutEstimator: [SPINE-REFINE] Vision split at" << visionSplitX
+                   << "(conf" << visionResult.confidence << ") paper-gap refined to" << paperGapSpine;
+          return std::make_unique<PageLayout>(virtualImageRect, paperGapSpine);
+        }
+        qDebug() << "PageLayoutEstimator: [SPINE-REFINE] discarding paper-gap refinement at" << paperGapX
+                 << "— too far from Vision anchor" << visionSplitX
+                 << "(delta=" << std::fabs(paperGapX - visionSplitX)
+                 << "> leash=" << maxPaperGapDelta << ")";
       }
 
       qDebug() << "PageLayoutEstimator: Using Vision-detected split at" << visionResult.splitLineX

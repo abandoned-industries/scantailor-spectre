@@ -54,6 +54,9 @@ class SpineDarknessFinder {
    *                          Vision refinement pass to anchor the search
    *                          on Vision's claimed split position.
    * \param dbg               Optional debug image sink.
+   * \param broadGutterRescue If non-null, set to true when the returned
+   *                          line was accepted by the broad-gutter rescue
+   *                          path rather than the normal thin-spine gates.
    *
    * \return The detected spine in virtual output coordinates, or a default-
    *         constructed (null) QLineF if no acceptable candidate was found.
@@ -64,7 +67,36 @@ class SpineDarknessFinder {
                           double centerWindowFraction = 0.10,
                           double maxTiltDegrees = 2.0,
                           double centerXOverride = std::numeric_limits<double>::quiet_NaN(),
-                          DebugImages* dbg = nullptr);
+                          DebugImages* dbg = nullptr,
+                          bool* broadGutterRescue = nullptr);
+
+  /**
+   * \brief Brightness-based fallback that locates the spine as a bright
+   *        column of paper between the two text blocks.
+   *
+   * Used when findSpine() returns null because no column in the search
+   * window has the darkness signature of a real binding shadow. This
+   * happens on flatbed scans where the actual binding fold lies in
+   * white paper between the bottom text columns and has no shadow at
+   * all, while the only nearby dark features are photo edges that the
+   * gates correctly reject.
+   *
+   * Builds a column-brightness profile over the bottom text band, then
+   * picks the column inside the search window that is (a) paper-bright,
+   * (b) flanked by text-darkened stripes on both sides, and (c) the
+   * closest gate-survivor to centerXOverride (or geometric center).
+   * Returns a vertical line in virtual coordinates, or a null QLineF
+   * if no acceptable candidate exists.
+   *
+   * Designed to be conservative: on full-bleed photo spreads or pages
+   * without a paper gutter, all gates fail and the function returns
+   * null so the caller can fall back to Vision's exact split.
+   */
+  static QLineF findSpineByPaperGap(const imageproc::GrayImage& grayDownscaled,
+                                    const QTransform& outToDownscaled,
+                                    const QRectF& virtualImageRect,
+                                    double centerWindowFraction = 0.10,
+                                    double centerXOverride = std::numeric_limits<double>::quiet_NaN());
 };
 
 }  // namespace page_split

@@ -8,19 +8,30 @@
 #include "XmlUnmarshaller.h"
 
 namespace page_split {
+namespace {
+constexpr int kPageSplitDetectorVersion = 8;
+}
+
 Dependencies::Dependencies() : m_layoutType(AUTO_LAYOUT_TYPE) {}
 
 Dependencies::Dependencies(const QDomElement& el)
     : m_imageSize(XmlUnmarshaller::size(el.namedItem("size").toElement())),
       m_rotation(el.namedItem("rotation").toElement()),
-      m_layoutType(layoutTypeFromString(XmlUnmarshaller::string(el.namedItem("layoutType").toElement()))) {}
+      m_layoutType(layoutTypeFromString(XmlUnmarshaller::string(el.namedItem("layoutType").toElement()))),
+      m_detectorVersion(el.attribute("detectorVersion").toInt()) {}
 
 Dependencies::Dependencies(const QSize& imageSize, const OrthogonalRotation rotation, const LayoutType layoutType)
-    : m_imageSize(imageSize), m_rotation(rotation), m_layoutType(layoutType) {}
+    : m_imageSize(imageSize),
+      m_rotation(rotation),
+      m_layoutType(layoutType),
+      m_detectorVersion(kPageSplitDetectorVersion) {}
 
 bool Dependencies::compatibleWith(const Params& params) const {
   const Dependencies& deps = params.dependencies();
 
+  if ((params.splitLineMode() == MODE_AUTO) && (m_detectorVersion != deps.m_detectorVersion)) {
+    return false;
+  }
   if (m_imageSize != deps.m_imageSize) {
     return false;
   }
@@ -52,6 +63,7 @@ QDomElement Dependencies::toXml(QDomDocument& doc, const QString& tagName) const
   XmlMarshaller marshaller(doc);
 
   QDomElement el(doc.createElement(tagName));
+  el.setAttribute("detectorVersion", m_detectorVersion);
   el.appendChild(m_rotation.toXml(doc, "rotation"));
   el.appendChild(marshaller.size(m_imageSize, "size"));
   el.appendChild(marshaller.string(layoutTypeToString(m_layoutType), "layoutType"));

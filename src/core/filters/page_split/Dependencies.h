@@ -44,6 +44,7 @@ class Dependencies {
   QSize m_imageSize;
   OrthogonalRotation m_rotation;
   LayoutType m_layoutType;
+  int m_detectorVersion = 0;
 };
 
 

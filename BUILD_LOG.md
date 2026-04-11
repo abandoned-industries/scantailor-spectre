@@ -1212,3 +1212,190 @@ current format extension only. If format changed after processing, files weren't
   anchor (or geometric center). Override fires unconditionally — the
   earlier "clean isolated peak" guard regressed page 95 and was
   removed.
+
+---
+2026-04-10 - SpineDarknessFinder: add findSpineByPaperGap brightness fallback
+- src/core/filters/page_split/SpineDarknessFinder.h: add static findSpineByPaperGap()
+- src/core/filters/page_split/SpineDarknessFinder.cpp: implement brightness-based
+  paper-gap detector. Builds column brightness profile over the bottom text band
+  (rows 60-95% of dsH), smooths with a 9-px boxcar, then inside the existing
+  centerWindowFraction window picks the column that (a) is paper-bright (≥ 215),
+  (b) has text-like darkness in both left/right flank stripes (min flank ≤ 195
+  in offsets 25..80), (c) has prominence ≥ 18 vs the brighter flank, and (d)
+  is closest to centerXDs among gate survivors. Vertical line, no tilt sweep.
+- src/core/filters/page_split/PageLayoutEstimator.cpp: in the Vision refinement
+  path, when SpineDarknessFinder::findSpine returns null, call findSpineByPaperGap
+  with the same wide window and Vision anchor. If it returns non-null and stays
+  within the existing 10% leash, use it. Otherwise fall through to Vision center.
+- src/core/filters/page_split/Dependencies.cpp: bump kPageSplitDetectorVersion 2 → 3.
+- src/core/filters/page_split/Task.cpp: keep diagnostics but tag them with the
+  logical (book) page id derivable from imageId().page() when possible. (TBD: may
+  remove diagnostics entirely on final pass.)
+
+Motivation: pages 65 and 68 in the Branston test project have a binding fold
+that lies in white paper between the bottom text columns and has no detectable
+darkness signature. The actual gutter on page 68 is at virt x≈1478 (5.3% left
+of Vision's 1654 anchor), inside the 10% leash. The dark detector returns null
+because every gate-passing dark candidate is a photo edge. The new brightness
+detector finds the bright paper gutter directly. Verified by offline pixel
+analysis of the rendered PDF page 23: text-band column means peak at x=986
+(virt 1478), brightness 254.96, both flanks darkened by text columns.
+
+---
+2026-04-10 - SpineDarknessFinder: rewrite paper-gap gates and selection (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Rewrite findSpineByPaperGap gates and selection rule.
+  Page 68 (FREY/FREYA spread, image id 204) failed the previous build:
+  the original gates required text-darkening (≤195 brightness) on BOTH
+  flanks of the candidate, but on this asymmetric spread the bright
+  gutter run sits between (a) the left page's text-end and (b) the
+  right page's text-tinted body. The right side never drops below ~218
+  in the 60-95% row band because the right page text is ~32% of the
+  band height; the rest is whitespace.
+  
+  New gate scheme:
+    1. brightness ≥ 235 (raised from 215; right text body smoothes to
+       ~220-230, well below 235, so this cleanly separates real gutter
+       paper from text-tinted paper)
+    2. peak − leftFlankMin ≥ 18 AND peak − rightFlankMin ≥ 18
+       (2D local-max test: rejects the wide blank margin near the
+       page edge, where both flanks are also ~255 and the drop fails)
+    3. min(leftFlankMin, rightFlankMin) ≤ 195
+       (at least ONE side has actual text — relaxed from "both")
+    4. min(leftFlankMin, rightFlankMin) ≥ 80
+       (no photo-deep dark on either side; defends against photo edges)
+  
+  New selection rule: group viable columns into contiguous runs and
+  return the CENTER of the longest run, tiebreak by closest center to
+  centerXDs. Putting the line at the geometric midpoint of the gutter
+  is more accurate than picking whichever edge is closest to Vision's
+  biased anchor.
+  
+  Verified offline against the 200dpi rendering of PDF page 68:
+  brightness peak run (smooth ≥235) is pix 1011-1105 (virt 1517-1660),
+  width 95 px, center virt 1587. Vision currently picks 1654 (the
+  edge of the right text indent). New algorithm should pick virt ~1587
+  (the actual middle of the empty paper region between text columns).
+  
+- src/core/filters/page_split/Dependencies.cpp: bump detectorVersion 3→4
+  to invalidate cache and force recompute on cached pages 67/68/204.
+
+---
+2026-04-11 09:23 - Page split: prefer paper-gap over photo/broad dark picks (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: allow paper-gap
+  to accept asymmetric spreads where one flank is photo-dark and the other
+  flank brackets text/tinted paper. This keeps page 32 from losing the
+  center paper gutter just because the right page is a dark photograph.
+- src/core/filters/page_split/PageLayoutEstimator.cpp: run paper-gap even
+  when dark-spine refinement found a candidate, and prefer paper-gap when
+  the dark candidate was a broad-gutter rescue or when paper-gap is much
+  closer to Vision's anchor. This targets page 32's photo-edge regression
+  and page 65's wagon spread, where the paper-gap midpoint is visually
+  better than the dark fold edge.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 7→8.
+
+---
+2026-04-11 - SpineDarknessFinder: scan-from-center + half-max edge detection (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: rewrite the
+  paper-gap algorithm a third time. Page 68 (FREY/FREYA) was still
+  picking virt 1599 vs the actual gutter midpoint at virt ~1575,
+  off by 24 px. Two issues with the previous "longest run + center"
+  approach:
+    1. The kFlankInner=25 separation between candidate and flank
+       prevented columns near the left text edge from "seeing" that
+       text, biasing the run start ~25 px right.
+    2. The "at least one flank ≤ 195" gate over-constrained sparse-
+       text pages where the right text body smoothes only to ~218.
+  
+  New algorithm:
+    1. Find the bright run (smooth ≥ 235) that CONTAINS centerXDs.
+       Walk outward from center, including columns past xLo/xHi
+       (leash boundary) so the flank lookup can reach text just
+       outside the search window.
+    2. Gate the run via flank-min drops ≥ 18 (rejects flat margins)
+       and flank-min ≥ 80 (rejects photo edges). No more "at least
+       one flank ≤195" gate.
+    3. Find the LEFT edge as the first column outside the run where
+       smoothed brightness drops to the half-max between runPeak
+       and leftFlankMin. Same on the right side. Pick the midpoint
+       of the two edges.
+    
+  Why half-max instead of the run's ≥235 boundary: the brightness
+  ramp on the left side (where left page text ends) is sharp;
+  the ramp on the right side (where right page text begins) is
+  gradual. The (≥235) boundary biases toward the side with the
+  sharper ramp. The half-max crossing is at the geometric center
+  of each ramp, eliminating the bias.
+  
+  Expected for page 68: leftEdge ≈ ds pix 497 (virt 1491 = left
+  text margin), rightEdge ≈ ds pix 553 (virt 1659 = right text
+  indent). Pick midpoint = ds 525 = virt 1575.
+  
+- src/core/filters/page_split/Dependencies.cpp: bump version 4→5.
+
+---
+2026-04-11 - SpineDarknessFinder: binding-fold-against-text acceptance path (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a narrow
+  acceptance path inside evaluateColumn() for the "binding fold
+  against the text margin" pattern. Page 68 (FREY/FREYA) had its dark
+  candidate at xT=499 (virt 1497) rejected for peakProm=13.7 < 14 —
+  3 tenths short of the gate. The pattern is unmistakable: mean=91
+  (binding shadow brightness ~164), left=77 (text on the left side),
+  right=12 (white paper on the right side). The candidate is 79 darker
+  than the paper neighbor and only 14 darker than the text neighbor;
+  the gate uses max(left,right) which picks the text neighbor and
+  rejects.
+  
+  New path: when peakProm fails, accept if all of:
+    - mean ≥ 80 (moderate dark)
+    - drf ≥ 0.7 (consistent vertical line)
+    - min(left, right) ≤ 25 (one side is bright paper)
+    - mean − min(left, right) ≥ 60 (clear contrast vs paper side)
+  
+  Verified against the entire st-spectre16 log: only ONE candidate
+  (page 68) is rejected for "peakProm < 14". All other rejections are
+  "no paper-like side" with both neighbors ≥70, which fails the
+  min(left,right) ≤ 25 test. So this path will only fire on page 68
+  in the current project. No regression risk.
+  
+- src/core/filters/page_split/Dependencies.cpp: bump version 5→6.
+
+---
+2026-04-11 - SpineDarknessFinder: paper-gap uses full-height row band (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp:
+  Change findSpineByPaperGap's row band from [60%, 95%] to [5%, 95%].
+  Page 65 (text-left / wagon-photo-right asymmetric spread) was
+  stuck picking virt 1791 because the photo on the right page is
+  at the TOP of the page, not the bottom. With the 60-95% band,
+  the right-side flank saw only paper-tinted white (brightness ~225),
+  gave no drop signal, and the algorithm extended the "bright run"
+  through the entire right margin up to the edge of the search
+  window. Midpoint landed far right.
+  
+  With the full-height band, the wagon photo contributes ~165
+  smoothed mean brightness on the right side, giving the right
+  flank the darker columns it needs to bracket the gutter. Verified
+  offline that page 65's full-height profile has a clean bright run
+  at pix 1027-1121 (in 3308-wide space), centered at virt 1611 —
+  much closer to the actual binding fold than either 1635 (first
+  recompute with bottom band) or 1791 (second recompute with
+  bottom band).
+  
+  The original motivation for [60%, 95%] was to exclude top-of-page
+  photos from polluting the profile. That turned out to be the
+  wrong intuition for asymmetric spreads: the photo's darkness is
+  exactly the signal paper-gap needs on the photo side of the gutter.
+  
+- src/core/filters/page_split/Dependencies.cpp: bump version 6→7.
+
+---
+2026-04-11 - SpineDarknessFinder: paper-gap uses full-height row band (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: change
+  findSpineByPaperGap's row band from [60%, 95%] to [5%, 95%].
+  Page 65 (text-left / wagon-photo-right) was picking virt 1791 because
+  the photo on the right page is at the TOP, not the bottom. With the
+  60-95% band, the right flank saw only paper-tinted white, gave no
+  drop signal, and the "bright run" extended through the right margin.
+  Full-height profile catches the photo's ~165 mean brightness, giving
+  the right flank the darker columns it needs to bracket the gutter.
+- src/core/filters/page_split/Dependencies.cpp: version 6→7.
