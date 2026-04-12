@@ -9,7 +9,7 @@
 
 namespace page_split {
 namespace {
-constexpr int kPageSplitDetectorVersion = 8;
+constexpr int kPageSplitDetectorVersion = 23;
 }
 
 Dependencies::Dependencies() : m_layoutType(AUTO_LAYOUT_TYPE) {}

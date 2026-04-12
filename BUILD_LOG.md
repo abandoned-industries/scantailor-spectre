@@ -1214,6 +1214,49 @@ current format extension only. If format changed after processing, files weren't
   removed.
 
 ---
+2026-04-11 10:07 - Page split: keep visible boundary picks vertical (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: skip tilt
+  recovery for visible gutter-boundary candidates. The boundary scorer
+  is selecting a page-surface edge; allowing the later dark-line tilt
+  search to re-fit that candidate can turn it into a slanted line and
+  shift endpoints across page content.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version
+  9->10 so cached boundary-scorer results for pages 6/21/32 are
+  recomputed.
+
+---
+2026-04-11 10:00 - Page split: visible gutter boundary scorer (cmake --build build -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a
+  paper-to-dark visible gutter boundary acceptance path. This handles
+  pages where the correct split is the left edge of a dark gutter/photo
+  boundary rather than the center of a dark band.
+- Boundary candidates require a paper-like left side, a darker right
+  side, vertical persistence, and central-anchor plausibility. When
+  several such boundaries exist, prefer the leftmost central boundary so
+  the right-page photograph's own left edge cannot beat the actual gutter.
+- This targets pages 20/21 cutting into photographs and page 65 selecting
+  a non-boundary line between the gutter and right paragraph/photo.
+
+---
+2026-04-11 09:45 - Page split: remove failed paper-gap midpoint detector (cmake --build build -j16)
+- src/core/filters/page_split/PageLayoutEstimator.cpp: remove the
+  findSpineByPaperGap() call path. The midpoint-of-bright-paper-gap
+  calculation chose synthetic lines inside right-page photos / inner
+  margins on pages 32, 65, and 69 instead of the visible gutter line.
+- src/core/filters/page_split/SpineDarknessFinder.h/.cpp: remove
+  findSpineByPaperGap() from the active detector surface. Future work
+  should start from visible gutter-line detection, not paper-gap
+  midpointing.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: remove broad
+  plateau/photo-band acceptance. Candidates now must satisfy the thin
+  visible gutter-line gates: one paper-like side plus local peak
+  prominence against both neighbors. This rejects photo interiors while
+  keeping the visible gutter shadows on pages 32/65/69 eligible.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version
+  8->9 to force recompute and avoid reusing bad cached page-split
+  params from the failed paper-gap build.
+
+---
 2026-04-10 - SpineDarknessFinder: add findSpineByPaperGap brightness fallback
 - src/core/filters/page_split/SpineDarknessFinder.h: add static findSpineByPaperGap()
 - src/core/filters/page_split/SpineDarknessFinder.cpp: implement brightness-based
@@ -1399,3 +1442,147 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
   Full-height profile catches the photo's ~165 mean brightness, giving
   the right flank the darker columns it needs to bracket the gutter.
 - src/core/filters/page_split/Dependencies.cpp: version 6→7.
+
+---
+2026-04-11 HH:MM - SpineDarknessFinder: replace "leftmost boundary wins" with "strong normal wins" (cmake --build build -j16)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: remove the
+  unconditional leftmost-visible-gutter-boundary override that was
+  regressing pages 6 and 21. Previous behavior: if ANY boundary candidate
+  (paper-on-left / very-dark-on-right signature) existed in the viable
+  set, the leftmost one replaced the anchor pick — even when the anchor
+  pick was a strong normal spine (e.g. page 6: normal mean=169.817 at
+  xCenter=519 -> weaker boundary mean=135.7 at xCenter=516, 3 px left).
+  New behavior: when a non-boundary viable candidate has peakProm >=
+  kStrongNormalPeakProm (20.0), prefer the closest-to-anchor strong
+  normal. Only when no strong normal exists does the anchor-pick
+  default (closest-to-anchor among all viable, boundary or not) stand.
+  This preserves page 65 behavior (where the normal path typically
+  fails gates entirely and only boundary candidates are viable) while
+  stopping the over-aggressive boundary pick that regressed pages 6
+  and 21. Page 32 is a separate problem (real gutter sits in a bright
+  paper gap with no dark line) and will be addressed next.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 10 -> 11.
+
+---
+2026-04-11 - SpineDarknessFinder: per-row paper-adjacent rescue for gutters next to partial photo bleeds (cmake --build build -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a new
+  acceptance path `perRowPaperAdjacent` alongside the existing full-
+  stripe gates. Problem: full-stripe neighbor means blend photo + paper
+  when a right-page photo bleeds into the gutter at the top and paper
+  margin sits below it (page 21, 72). A single number can't describe
+  "photo in the upper half, paper in the lower half" — averaging both
+  gives a mid-gray that fails kMaxPaperNeighborDarkness and peakProm,
+  so the gutter column never enters `viable`, and the detector falls
+  onto the right-page content edge instead. Fix: sample the candidate
+  column and its two neighbors per-row. For each row, count it as
+  "paper-adjacent dark" if at least one neighbor is paper-bright
+  (pixel >= 230, i.e., darkness <= 25) AND the column is at least 50
+  darkness units darker than that paper side. A column is accepted
+  by the rescue when paperAdjRows / sampledRows >= 0.30 — invariant
+  to where the paper sits vertically, so text-text spreads, photo/text
+  spreads, text/photo spreads, and photo-bleed-top / margin-bottom
+  spreads all classify correctly.
+- Also: remove the `!boundary ||` filter in the per-x anchor-window
+  scan so NORMAL viable candidates found by per-column evaluation
+  (including the new rescue) get added to `viable`, not just boundary
+  candidates. Without this the per-row rescue would fire in
+  evaluateColumn but the candidate would still be discarded.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 11 -> 12.
+
+---
+2026-04-11 - SpineDarknessFinder: picker quality penalty prefers paper-side candidates (cmake --build build -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: the candidate
+  picker previously ranked `viable` by distance-from-anchor alone.
+  That lets a photo-interior column (minNbr full-stripe ~67, one
+  side is lightish photo fading, other side is photo dark) win over
+  a real gutter column (minNbr ~20, actual paper) when the photo
+  column is even 1 px closer to the anchor. Observed on pages 32
+  and 72: the winning column had meanDark=217, leftNbr=179 (photo),
+  rightNbr=67 (lightish), peakProm=38. That's photo-interior, not
+  a gutter. The gutter column further left (if present in viable)
+  lost because the photo column was closer to the anchor.
+  Fix: rank by `distFromAnchor + qualityPenalty` where
+  `qualityPenalty = max(0, minNbr - 40)`. minNbr <= 40 = real
+  paper-bright stripe, no penalty. Above 40, each unit costs one
+  "px-equivalent" against proximity. A candidate with minNbr=67 is
+  at a 27-px disadvantage vs a candidate with minNbr<=40. Only
+  wins if it's 27+ px closer to anchor. Does not reject any
+  candidate outright — if the gutter isn't in `viable`, the old
+  closest-wins behavior still resolves among whatever remains.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 12 -> 13.
+
+---
+2026-04-11 - SpineDarknessFinder: revert picker quality penalty, add per-page log tagging (cmake --build build -j2)
+- Revert: src/core/filters/page_split/SpineDarknessFinder.cpp picker
+  change from version 13. Back to closest-to-anchor default with
+  strong-normal override (the version 12 baseline). The quality
+  penalty introduced a regression on page 19 and didn't fix 32 or
+  72, and we don't have enough visibility to iterate blindly.
+- Add: thread_local page tag in SpineDarknessFinder so every qDebug
+  line can be prefixed with the current PDF page + subpage. Task.cpp
+  sets it before calling PageLayoutEstimator::estimatePageLayout and
+  clears it after. This lets us grep detector logs by page number
+  reliably instead of guessing from xCenter/mean values.
+- src/core/filters/page_split/Task.cpp: set/clear
+  SpineDarknessFinder::s_pageTag around estimatePageLayout.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 13 -> 14.
+
+---
+2026-04-11 23:41 - Page split: remove strong-normal override, add faint binding fold rescue (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: removed the strong-normal override that moved page 72 from the correct anchor-picked gutter candidate into the right-page plaque grid.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: added a narrow low-dark-row-fraction binding-fold acceptance path for page 32's faint visible gutter (clear paper side, strong contrast to paper, near-threshold peak prominence) without lowering the global drf gate.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 14 -> 15.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-11 23:53 - Page split: reject photo-edge boundaries, restore paper-side gutter override (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: cap paper-to-dark boundary candidates so a white-paper-to-deep-photo edge is not accepted as the gutter when the actual gutter strip sits just to the paper side.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a narrow paper-side override that only replaces the anchor pick when the anchor pick has no paper-like side and another viable candidate has a true paper-bright side plus strong peak prominence. Targets page 71 without reintroducing page 72's plaque-grid regression.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 15 -> 16.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 00:25 - Page split: remove paper-side override, center edge-band gutter picks (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: remove the paper-side override from detector version 16; it could pull page 43 back onto the left image edge instead of the visible gutter.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a small post-pick centering shift for candidates sitting on one edge of a dark gutter band, targeting page 35's right-edge pick without jumping to a different candidate.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 16 -> 17.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 00:36 - Page split: pull strong left-of-anchor edge picks into gutter band (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: broaden the edge-band correction so boundary-like image/text edges can be shifted too; version 17 skipped exactly the boundary class seen on page 35.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: constrain the correction to strong asymmetric picks that sit well left of the anchor and have a paper-like side, so centered/good picks such as page 43 and page 72 are not moved.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 17 -> 18.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 00:49 - Page split: widen spine search for asymmetric captures (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/PageLayoutEstimator.cpp: widen SpineDarknessFinder refinement/fallback windows from 10-15% to 30% of page width and loosen the refinement leash to 25%, so the detector can actually see the visible gutter on very asymmetric spreads such as pages 35, 41, 65, and 71.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: remove the fixed post-pick left shift from detector version 18; once the true gutter is inside the search window, shifting the selected line can move it onto blank paper.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 18 -> 19.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 08:33 - Page split: prefer nearby fold over right-page content edge (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/PageLayoutEstimator.cpp: revert detector version 19's wider search/leash back to the prior 15% refinement, 10% fallback, and 10% leash values; the failed pages are not search-window misses.
+- src/core/filters/page_split/SpineDarknessFinder.cpp: add a local left-side fold repick for strong asymmetric content/photo-edge selections. This targets cases where the visible gutter is a weaker dark fold immediately left of the selected right-page image/text edge.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 19 -> 20.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 08:45 - Page split: detect pale central gutter corridors (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: replace the ineffective local fold repick with a central paper-corridor override. When the anchor/midpoint column is pale and darker content flanks it on both sides, return the anchor as the split instead of selecting a darker page-content/photo edge.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 20 -> 21.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 08:59 - Page split: score near-center vertical fold marks (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: replace the failed pale-corridor midpoint override with a central fold-mark scorer. It scores sharp dark lines, soft gradients, and dark-line prominence, then chooses the closest sufficiently strong near-center mark instead of the strongest arbitrary image/text edge.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 21 -> 22.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 09:11 - Page split: revert central fold-mark override regression (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_split/SpineDarknessFinder.cpp: remove the v22 early central fold-mark override. It improved pages 83/87 but regressed page 95 and left the main failure set unchanged, so it is not a safe active detector path.
+- src/core/filters/page_split/Dependencies.cpp: bump detector version 22 -> 23 to invalidate cached v22 splits.
+- Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.

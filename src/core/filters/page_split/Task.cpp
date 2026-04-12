@@ -20,6 +20,7 @@
 #include "PageLayoutEstimator.h"
 #include "ProjectPages.h"
 #include "Settings.h"
+#include "SpineDarknessFinder.h"
 #include "TaskStatus.h"
 #include "filters/deskew/Task.h"
 
@@ -122,8 +123,13 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data) 
                    : staleAutoSingleUncut ? "stale-auto-single"
                    : "incompatible-deps");
       if (!params || (record.combinedLayoutType() == AUTO_LAYOUT_TYPE)) {
+        SpineDarknessFinder::setLogPageTag(
+            QString("[pdf=%1 sub=%2]")
+                .arg(m_pageInfo.imageId().page())
+                .arg(m_pageInfo.id().subPageAsString()));
         newLayout = PageLayoutEstimator::estimatePageLayout(record.combinedLayoutType(), data.grayImage(), data.xform(),
                                                             data.bwThreshold(), m_dbg.get());
+        SpineDarknessFinder::setLogPageTag(QString());
 
         status.throwIfCancelled();
       } else {
