@@ -242,6 +242,12 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
   constexpr double kCentralHi = 0.80;
   auto splitFractionIsCentral = [](double f) { return f >= kCentralLo && f <= kCentralHi; };
 
+  // Text-boundary anchor: when Vision detects text only on one side of
+  // the spread (e.g. left=28, right=0 on a text+photo spread), the
+  // rightmost text region boundary approximates where the gutter is.
+  // Captured here so it survives beyond the Vision block's scope.
+  double textBoundaryAnchorX = std::numeric_limits<double>::quiet_NaN();
+
   // Try Apple Vision-based page split detection first (macOS only)
   if (AppleVisionDetector::isAvailable() && (layoutType == AUTO_LAYOUT_TYPE || layoutType == TWO_PAGES)) {
     const auto visionResult = AppleVisionDetector::detectPageSplit(input);
@@ -344,6 +350,15 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
         qDebug() << SpineDarknessFinder::logPageTag() << "PageLayoutEstimator: [SPINE-FALLBACK] Vision uncertain"
                  << "(left:" << leftCount << "right:" << rightCount << ")"
                  << "but geometry says spread (numPages=2) - falling through to traditional detection";
+        // When text is heavily one-sided, use the text boundary as the
+        // search anchor for SpineDarknessFinder. This helps find faint
+        // gutter shadows on spreads where one page is a full-bleed photo
+        // and the other is text (e.g. left=28, right=0).
+        if (leftCount >= 3 && rightCount == 0 && visionResult.rightmostLeftTextX > 0) {
+          textBoundaryAnchorX = visionResult.rightmostLeftTextX * virtualImageRect.width() + virtualImageRect.left();
+          qDebug() << SpineDarknessFinder::logPageTag() << "PageLayoutEstimator: text-boundary anchor at"
+                   << textBoundaryAnchorX << "(rightmostLeftTextX=" << visionResult.rightmostLeftTextX << ")";
+        }
         // fall through
       } else {
         qDebug() << SpineDarknessFinder::logPageTag() << "PageLayoutEstimator: [SPINE-FALLBACK] Vision uncertain"
@@ -431,7 +446,7 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
           grayDownscaled, outToDownscaled, virtualImageRect,
           /*centerWindowFraction=*/0.10,
           /*maxTiltDegrees=*/2.0,
-          /*centerXOverride=*/std::numeric_limits<double>::quiet_NaN(), dbg);
+          /*centerXOverride=*/textBoundaryAnchorX, dbg);
       if (!spine.isNull()) {
         qDebug() << SpineDarknessFinder::logPageTag() << "PageLayoutEstimator: using SpineDarknessFinder fallback at" << spine;
         return std::make_unique<PageLayout>(virtualImageRect, spine);

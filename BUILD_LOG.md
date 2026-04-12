@@ -1617,3 +1617,15 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
   rescue can save it. Per-row rescue has strict independent conditions
   (pixel >= 230 on neighbor, >= 50 drop) that don't need prominence.
 - Dependencies.cpp: bump detector version 24->25
+
+---
+2026-04-12 14:30 - Page split: Vision text-boundary anchor for photo-dominated spreads (cmake --build build -- -j4)
+- AppleVisionDetector.h: add rightmostLeftTextX to PageSplitResult
+- AppleVisionDetector.mm: track rightmost left-zone text region boundary
+  in the zone-counting loop, store normalized X in result
+- PageLayoutEstimator.cpp: when Vision detects text only on the left
+  (leftCount >= 3, rightCount == 0), use the rightmost text boundary
+  as centerXOverride for SpineDarknessFinder instead of geometric center.
+  This shifts the search window to the actual gutter area on spreads
+  with a text page facing a full-bleed photograph.
+- Dependencies.cpp: bump detector version 25->26

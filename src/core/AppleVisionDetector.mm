@@ -152,6 +152,7 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
   result.confidence = 0.0f;
   result.leftTextRegions = 0;
   result.rightTextRegions = 0;
+  result.rightmostLeftTextX = 0.0;
 
   if (!isAvailable() || image.isNull()) {
     return result;
@@ -260,16 +261,18 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
   const qreal gutterStart = imageWidth * 0.48;
   const qreal gutterEnd = imageWidth * 0.52;
 
-  // Count regions in each zone
+  // Count regions in each zone and track rightmost left-zone text boundary
   int leftCount = 0;
   int rightCount = 0;
   int gutterCount = 0;
+  qreal rightmostLeftX = 0.0;
 
   for (const TextRegion& region : regions) {
     const qreal regionCenterX = region.bounds.center().x();
 
     if (regionCenterX < leftZoneEnd) {
       leftCount++;
+      rightmostLeftX = qMax(rightmostLeftX, region.bounds.right());
     } else if (regionCenterX >= rightZoneStart) {
       rightCount++;
     } else if (regionCenterX >= gutterStart && regionCenterX <= gutterEnd) {
@@ -279,6 +282,8 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
 
   result.leftTextRegions = leftCount;
   result.rightTextRegions = rightCount;
+  result.rightmostLeftTextX = (leftCount > 0 && imageWidth > 0)
+      ? rightmostLeftX / imageWidth : 0.0;
 
   qDebug() << "PageSplit: left zone regions:" << leftCount
            << "gutter regions:" << gutterCount
