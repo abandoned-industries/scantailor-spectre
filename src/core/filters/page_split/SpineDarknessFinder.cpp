@@ -11,6 +11,7 @@
 #include <QPointF>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <vector>
 
@@ -494,7 +495,13 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     outDrf = sampledRows > 0
         ? static_cast<double>(darkRows) / static_cast<double>(sampledRows)
         : 0.0;
-    if (meanDark - medianMean < kMinDarknessProminence) return false;
+    // Compute neighbor stripe means and run per-row rescue BEFORE the
+    // prominence gate. On asymmetric photo/text spreads the dark photo
+    // side inflates the median column darkness, causing the prominence
+    // gate (mean - median < 18) to reject the correct gutter before
+    // per-row rescue or faint-binding can save it. Per-row rescue and
+    // faint binding have strict independent conditions that make them
+    // safe to evaluate early.
     outLeft = meanDarknessOfStripe(grayDownscaled, xT, xB,
         -kNeighborInnerOffset - kNeighborStripeWidth + 1, -kNeighborInnerOffset);
     outRight = meanDarknessOfStripe(grayDownscaled, xT, xB,
@@ -502,18 +509,14 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
 
     // PER-ROW PAPER-ADJACENT RESCUE.
     //
-    // Early first-class acceptance path — runs BEFORE the full-stripe
-    // neighbor gates that follow, because those gates miss gutters next
-    // to partial photo bleeds. On pages like the Lost-Gods-of-England
-    // 21 and 72, the right-page photograph bleeds into the gutter in
-    // the top half while the bottom half has a traditional paper
-    // margin. A single full-stripe mean of that right neighbor blends
-    // photo + paper into a mid-dark number that fails
-    // kMaxPaperNeighborDarkness (≤ 70) and peakProm (mean - max(L,R))
-    // turns negative because the photo side is darker than the crease.
-    // The candidate gets rejected even though the left neighbor is
-    // clean paper in every row and the right neighbor is clean paper
-    // in every row where the photo doesn't reach.
+    // First-class acceptance path that runs before the prominence and
+    // full-stripe neighbor gates, because those gates miss gutters next
+    // to partial photo bleeds and on photo-dominated asymmetric spreads.
+    // On pages where the search window contains a large dark photo, the
+    // median column darkness is inflated, and the prominence gate
+    // (mean - median >= 18) kills the gutter candidate before any
+    // rescue path can fire. Moving this check before prominence lets
+    // the per-row evidence bypass the inflated median entirely.
     //
     // This rescue samples the column and its two neighbor stripes
     // per-row, counts rows where AT LEAST ONE neighbor is paper-bright
@@ -563,6 +566,20 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
                    << "peakProm=" << outPP;
         }
         return true;
+      }
+      return false;
+    }
+    // Prominence gate: candidate must be notably darker than the median
+    // column in the search window. Placed after per-row rescue and faint
+    // binding so that those paths can bypass an inflated median on
+    // photo-dominated asymmetric spreads.
+    if (meanDark - medianMean < kMinDarknessProminence) {
+      if (logTag) {
+        qDebug() << s_pageTag << "SpineDarknessFinder:" << logTag
+                 << "prominence-reject xT=" << xT
+                 << "mean=" << meanDark << "median=" << medianMean
+                 << "delta=" << (meanDark - medianMean)
+                 << "threshold=" << kMinDarknessProminence;
       }
       return false;
     }
@@ -790,17 +807,34 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
   // Anchor re-pick: among the viable candidates, pick the one closest to
   // centerXDs (the search-window anchor — Vision's centerXOverride if
   // supplied, geometric center of virtualImageRect otherwise).
+  //
+  // Two-tier ranking: a gutter/spine shadow persists through most of the
+  // page height (high drf), while a content edge (left side of a photo or
+  // illustration) is only dark where that content exists (lower drf).
+  // When high-drf candidates exist, prefer them even if a lower-drf
+  // candidate is closer to the anchor.
+  constexpr double kHighDrfThreshold = 0.65;
+  bool hasHighDrf = false;
+  for (const auto& c : viable) {
+    if (c.drf >= kHighDrfThreshold) {
+      hasHighDrf = true;
+      break;
+    }
+  }
+
   size_t pickIdx = 0;
   {
-    double bestDist = std::abs(double(viable[0].xCenterDs) - centerXDs);
-    for (size_t i = 1; i < viable.size(); ++i) {
+    double bestDist = std::numeric_limits<double>::max();
+    for (size_t i = 0; i < viable.size(); ++i) {
+      if (hasHighDrf && viable[i].drf < kHighDrfThreshold) {
+        continue;
+      }
       const double d = std::abs(double(viable[i].xCenterDs) - centerXDs);
       if (d < bestDist) {
         bestDist = d;
         pickIdx = i;
       }
     }
-
   }
 
   // Do not add the old broad "strong normal" override here. Stronger

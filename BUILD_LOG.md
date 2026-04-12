@@ -1586,3 +1586,34 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 - src/core/filters/page_split/SpineDarknessFinder.cpp: remove the v22 early central fold-mark override. It improved pages 83/87 but regressed page 95 and left the main failure set unchanged, so it is not a safe active detector path.
 - src/core/filters/page_split/Dependencies.cpp: bump detector version 22 -> 23 to invalidate cached v22 splits.
 - Build succeeded with existing warnings; app bundle refreshed and ad-hoc signed.
+
+---
+2026-04-12 13:00 - Page split: add prominence-reject diagnostic logging (cmake --build build -- -j4)
+- SpineDarknessFinder.cpp: add qDebug log when prominence gate rejects a
+  candidate, showing mean, median, delta, and threshold. This confirms
+  whether the prominence gate is blocking page 32's correct gutter
+  candidate (mean=94) before it reaches the faint binding rescue path.
+
+---
+2026-04-12 13:30 - Page split: drf-tiered anchor ranking (cmake --build build -- -j4)
+- SpineDarknessFinder.cpp: replace pure closest-to-anchor ranking with
+  two-tier system. Candidates with drf >= 0.65 (high vertical persistence,
+  likely real gutter) are preferred over lower-drf candidates (likely
+  content edges). When high-drf candidates exist among viable, skip
+  low-drf candidates during anchor re-pick. Fixes pages 35, 41, 65, 71
+  where the correct gutter (drf 0.70-1.0) was passed over for a closer
+  content edge (drf 0.34-0.59).
+- Dependencies.cpp: bump detector version 23->24
+- SpineDarknessFinder.cpp: add prominence-reject diagnostic logging
+- SpineDarknessFinder.cpp: add #include <limits>
+
+---
+2026-04-12 14:00 - Page split: reorder gates, per-row rescue before prominence (cmake --build build -- -j4)
+- SpineDarknessFinder.cpp: move neighbor computation, per-row rescue,
+  and faint binding BEFORE the prominence gate in evaluateColumn().
+  On photo-dominated asymmetric spreads (e.g., page 20), the dark photo
+  inflates the median column darkness, causing the prominence gate
+  (mean - median < 18) to kill the gutter candidate before per-row
+  rescue can save it. Per-row rescue has strict independent conditions
+  (pixel >= 230 on neighbor, >= 50 drop) that don't need prominence.
+- Dependencies.cpp: bump detector version 24->25
