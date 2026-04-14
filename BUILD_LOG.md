@@ -1,4 +1,35 @@
 ---
+2026-04-14 07:41 - Rebuild current v2.0a27 release tree for signing/notarization (cmake --build build --target scantailor -- -j4)
+- Rebuild the current local tree after additional Output/WebEngine fixes so the signed app and DMG match the files now in the worktree.
+- README.md / version.h.in / ScanTailor Spectre Readme.pdf remain on v2.0a27 for the release metadata and bundled readme.
+- packaging/macos/fix-bundle-libs.sh and output/WebOptionsPanelBase files are included in this release rebuild.
+
+---
+2026-04-14 01:16 - Release prep for v2.0a27 (cmake --build build --target scantailor -- -j4)
+- version.h.in: bump version from 2.0a26 to 2.0a27 for the WebEngine output-panel packaging fix release.
+- README.md: update version line and add a feature note that the packaged Output web panel now ships with the required Qt WebEngine helper dependencies.
+- WebOptionsPanelBase.cpp/h: auto-size the web options panel to the loaded HTML document height so the lower photo adjustment controls are not clipped.
+- output/OptionsWidget.cpp/h: keep DPI native, synchronize the web panel with the hidden Qt controls, and push updated state back after Auto/Reset/pass-through actions.
+- packaging/macos/fix-bundle-libs.sh: repair QtWebEngineProcess helper framework and dylib lookup inside the packaged app bundle.
+
+---
+2026-04-14 01:12 - Auto-size WebEngine options panel to HTML content (cmake --build build --target scantailor -- -j4)
+- WebOptionsPanelBase.cpp/h: after the web panel finishes loading, query the document scroll height with JavaScript and lock the QWebEngineView/panel height to the content height. Internal WebEngine scrollbars stay disabled, but the lower photo adjustment sliders no longer get clipped by the old fixed 380px minimum height.
+
+---
+2026-04-14 01:07 - Restore Output DPI panel alongside WebEngine controls (cmake --build build --target scantailor -- -j4)
+- output/OptionsWidget.cpp: stop hiding dpiPanel when installing the unified WebEngine panel. The HTML panel replaces Options, Reduce Noise, and Photo Adjustments, but it does not contain output DPI controls; hiding dpiPanel left part of the Output options pane missing.
+
+---
+2026-04-14 00:58 - Fix WebEngine helper dylib lookup (cmake --build build --target scantailor -- -j4)
+- packaging/macos/fix-bundle-libs.sh: extend QtWebEngineProcess repair to inspect helper-side Qt framework binaries and symlink their @executable_path-relative dylib dependencies into the helper Contents/Frameworks directory. The app run showed QtWebEngineProcess crashing on missing libglib-2.0.0.dylib after framework install names were fixed.
+
+---
+2026-04-14 00:52 - Fix WebEngine output panel merge and bundle helper paths (cmake --build build --target scantailor -- -j4)
+- packaging/macos/fix-bundle-libs.sh: add QtWebEngineProcess helper repair after macdeployqt; create helper framework symlinks back to the main bundle and rewrite Homebrew Qt framework install names to @executable_path-relative paths.
+- output/OptionsWidget.cpp/h: keep the unified WebEngine panel, but synchronize generic web checkbox/radio/button actions with the hidden Qt controls and push updated state back after Auto/Reset/pass-through changes.
+
+---
 2026-04-13 17:04 - Page split: allow strong leftward broad-band snap for one-page-number spreads (cmake --build build --target scantailor -- -j4)
 - SpineDarknessFinder.cpp: keep the conservative exact-anchor behavior for
   one-page-number broad-gutter cases when the broad band is close to Vision,

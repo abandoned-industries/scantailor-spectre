@@ -6,6 +6,7 @@
 #include <QColor>
 #include <QFile>
 #include <QUrl>
+#include <QVariant>
 #include <QVBoxLayout>
 #include <QWebChannel>
 #include <QWebEnginePage>
@@ -54,12 +55,38 @@ WebOptionsPanelBase::WebOptionsPanelBase(const QString& htmlPath, QWidget* paren
     const QString html = QString::fromUtf8(file.readAll());
     m_view->setHtml(html, QUrl("qrc:/weasel/webui/"));
   }
+
+  connect(m_view->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+    if (!ok) {
+      return;
+    }
+    m_view->page()->runJavaScript(
+        QStringLiteral("Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));"),
+        [this](const QVariant& height) {
+          updateHeightFromContent(height);
+        });
+  });
 }
 
 WebOptionsPanelBase::~WebOptionsPanelBase() = default;
 
 void WebOptionsPanelBase::registerBridge(QObject* bridge) {
   m_channel->registerObject(QStringLiteral("bridge"), bridge);
+}
+
+void WebOptionsPanelBase::updateHeightFromContent(const QVariant& height) {
+  bool ok = false;
+  const int contentHeight = height.toInt(&ok);
+  if (!ok || contentHeight <= 0) {
+    return;
+  }
+
+  const int panelHeight = contentHeight + 4;
+  m_view->setMinimumHeight(panelHeight);
+  m_view->setMaximumHeight(panelHeight);
+  setMinimumHeight(panelHeight);
+  setMaximumHeight(panelHeight);
+  updateGeometry();
 }
 
 }  // namespace weasel

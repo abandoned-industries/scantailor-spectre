@@ -5,7 +5,9 @@
 
 #include <QColorDialog>
 #include <QDebug>
+#include <QSignalBlocker>
 #include <QToolTip>
+#include <QVariantMap>
 #include <utility>
 
 #include "../../Utils.h"
@@ -38,7 +40,6 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   // unified web panel. Hide the Qt widgets (they stay wired so existing code
   // doesn't crash, but the user sees the HTML version).
   {
-    dpiPanel->setVisible(false);
     commonOptions->setVisible(false);
     colorOperationsOptions->setVisible(false);
     adjustmentsPanel->setVisible(false);
@@ -92,18 +93,43 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
     // Checkboxes
     connect(m_webBridge, &weasel::GenericPanelBridge::checkChanged,
             this, [this](const QString& id, bool checked) {
-              if (id == "passThrough") passThroughToggled(checked);
-              else if (id == "fillOffcut") fillOffcutToggled(checked);
-              else if (id == "fillMargins") fillMarginsToggled(checked);
-              else if (id == "posterize") posterizeToggled(checked);
-              else if (id == "posterizeNorm") posterizeNormalizationToggled(checked);
-              else if (id == "forceBw") posterizeForceBwToggled(checked);
+              if (id == "passThrough") {
+                QSignalBlocker blocker(passThroughCheckBox);
+                passThroughCheckBox->setChecked(checked);
+                passThroughToggled(checked);
+              } else if (id == "fillOffcut") {
+                QSignalBlocker blocker(fillOffcutCB);
+                fillOffcutCB->setChecked(checked);
+                fillOffcutToggled(checked);
+              } else if (id == "fillMargins") {
+                QSignalBlocker blocker(fillMarginsCB);
+                fillMarginsCB->setChecked(checked);
+                fillMarginsToggled(checked);
+              } else if (id == "posterize") {
+                QSignalBlocker blocker(posterizeCB);
+                posterizeCB->setChecked(checked);
+                posterizeToggled(checked);
+              } else if (id == "posterizeNorm") {
+                QSignalBlocker blocker(posterizeNormalizationCB);
+                posterizeNormalizationCB->setChecked(checked);
+                posterizeNormalizationToggled(checked);
+              } else if (id == "forceBw") {
+                QSignalBlocker blocker(posterizeForceBwCB);
+                posterizeForceBwCB->setChecked(checked);
+                posterizeForceBwToggled(checked);
+              }
             });
 
     // Radio buttons
     connect(m_webBridge, &weasel::GenericPanelBridge::radioChanged,
             this, [this](const QString& name, const QString& selectedId) {
-              if (name == "fillingColor") fillingColorChanged();
+              if (name == "fillingColor") {
+                QSignalBlocker whiteBlocker(fillWhiteRB);
+                QSignalBlocker backgroundBlocker(fillBackgroundRB);
+                fillWhiteRB->setChecked(selectedId == QLatin1String("fillWhite"));
+                fillBackgroundRB->setChecked(selectedId == QLatin1String("fillBackground"));
+                fillingColorChanged();
+              }
             });
 
     // Buttons
@@ -265,38 +291,40 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   updateColorsDisplay();
   updateDewarpingDisplay();
 
-  // Push all Options/ReduceNoise/PhotoAdj state into the web panel
-  if (m_webBridge) {
-    const OutputProcessingParams& opp2 = m_settings->getOutputProcessingParams(pageId);
-    const ColorCommonOptions cco = m_colorParams.colorCommonOptions();
-    const BlackWhiteOptions bwo = m_colorParams.blackWhiteOptions();
-    const weasel::PhotoAdjustments& adj = m_colorParams.photoAdjustments();
+  updateWebPanelState();
+}
 
-    QVariantMap state;
-    // Options
-    state["passThrough"] = opp2.passThrough();
-    state["fillOffcut"] = cco.fillOffcut();
-    state["fillMargins"] = cco.fillMargins();
-    state["fillingColor"] = (cco.getFillingColor() == FILL_BACKGROUND) ? "fillBackground" : "fillWhite";
-    // Reduce Noise
-    state["wienerCoef"] = cco.wienerCoef();
-    state["wienerWindow"] = cco.wienerWindowSize();
-    state["posterize"] = cco.getPosterizationOptions().isEnabled();
-    state["posterizeLevel"] = cco.getPosterizationOptions().getLevel();
-    state["posterizeNorm"] = cco.getPosterizationOptions().isNormalizationEnabled();
-    state["forceBw"] = cco.getPosterizationOptions().isForceBlackAndWhite();
-    // Photo Adjustments
-    state["temp"] = adj.temp();
-    state["tint"] = adj.tint();
-    state["exposure"] = adj.exposure();
-    state["contrast"] = adj.contrast();
-    state["highlights"] = adj.highlights();
-    state["shadows"] = adj.shadows();
-    state["whites"] = adj.whites();
-    state["blacks"] = adj.blacks();
-
-    m_webBridge->setState(state);
+void OptionsWidget::updateWebPanelState() {
+  if (!m_webBridge) {
+    return;
   }
+
+  const OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
+  const ColorCommonOptions cco = m_colorParams.colorCommonOptions();
+  const weasel::PhotoAdjustments& adj = m_colorParams.photoAdjustments();
+
+  QVariantMap state;
+  state[QStringLiteral("passThrough")] = opp.passThrough();
+  state[QStringLiteral("fillOffcut")] = cco.fillOffcut();
+  state[QStringLiteral("fillMargins")] = cco.fillMargins();
+  state[QStringLiteral("fillingColor")]
+      = (cco.getFillingColor() == FILL_BACKGROUND) ? QStringLiteral("fillBackground") : QStringLiteral("fillWhite");
+  state[QStringLiteral("wienerCoef")] = cco.wienerCoef();
+  state[QStringLiteral("wienerWindow")] = cco.wienerWindowSize();
+  state[QStringLiteral("posterize")] = cco.getPosterizationOptions().isEnabled();
+  state[QStringLiteral("posterizeLevel")] = cco.getPosterizationOptions().getLevel();
+  state[QStringLiteral("posterizeNorm")] = cco.getPosterizationOptions().isNormalizationEnabled();
+  state[QStringLiteral("forceBw")] = cco.getPosterizationOptions().isForceBlackAndWhite();
+  state[QStringLiteral("temp")] = adj.temp();
+  state[QStringLiteral("tint")] = adj.tint();
+  state[QStringLiteral("exposure")] = adj.exposure();
+  state[QStringLiteral("contrast")] = adj.contrast();
+  state[QStringLiteral("highlights")] = adj.highlights();
+  state[QStringLiteral("shadows")] = adj.shadows();
+  state[QStringLiteral("whites")] = adj.whites();
+  state[QStringLiteral("blacks")] = adj.blacks();
+
+  m_webBridge->setState(state);
 }
 
 void OptionsWidget::postUpdateUI() {
@@ -561,6 +589,8 @@ void OptionsWidget::photoAdjAutoClicked() {
   whitesSlider->setValue(static_cast<int>(adj.whites()));
   blacksSlider->setValue(static_cast<int>(adj.blacks()));
 
+  updateWebPanelState();
+
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
 }
@@ -579,6 +609,8 @@ void OptionsWidget::photoAdjResetClicked() {
   shadowsSlider->setValue(0);
   whitesSlider->setValue(0);
   blacksSlider->setValue(0);
+
+  updateWebPanelState();
 
   emit reloadRequested();
   emit invalidateThumbnail(m_pageId);
@@ -606,6 +638,7 @@ void OptionsWidget::passThroughToggled(bool checked) {
   // Refresh UI so controls are greyed out / re-enabled
   updateColorsDisplay();
   updateDewarpingDisplay();
+  updateWebPanelState();
 
   emit reloadRequested();
 }

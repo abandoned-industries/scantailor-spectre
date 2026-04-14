@@ -9,6 +9,7 @@
 
 class QWebEngineView;
 class QWebChannel;
+class QVariant;
 
 namespace weasel {
 
@@ -45,6 +46,8 @@ class WebOptionsPanelBase : public QWidget {
   QWebChannel* channel() const { return m_channel; }
 
  private:
+  void updateHeightFromContent(const QVariant& height);
+
   QWebEngineView* m_view;
   QWebChannel* m_channel;
 };
