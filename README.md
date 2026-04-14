@@ -88,6 +88,37 @@ Corrects pages that are upside-down or rotated. Auto-detection handles most case
 
 Separates book spreads (two pages per scan) into individual pages. The split line is auto-detected but can be adjusted manually.
 
+The current detector is substantially different from Version 2.0a24. In
+2.0a24, page splitting mostly relied on the older geometry/Vision decision
+path and then trusted the center-ish split it found. That worked for clean
+text spreads, but it was weak on art books and photo-heavy scans where the
+visible gutter is a broad shadow rather than a thin white gap.
+
+In the current 2.0a25 line, Split Pages combines Apple Vision text-region
+evidence with a dedicated spine-darkness search. Vision provides a coarse
+anchor and page-number evidence; `SpineDarknessFinder` then tests candidate
+gutter columns using vertical persistence, local darkness, neighbor contrast,
+and several narrow rescue paths for real binding shadows next to photos or
+text. The goal is not to make every spread automatic, but to reduce the
+number of obvious manual fixes in books with photographs, illustrations, and
+asymmetric page layouts.
+
+Recent detector work added:
+- page-number-aware refinement, so two detected page numbers count as strong
+  evidence for a two-page spread
+- conservative handling when only one page number is found
+- broad dark-gutter handling, including protection against snapping to the
+  wrong edge of a gutter band
+- a photo-left/text-right rescue for spreads where the true gutter is dark
+  and both neighboring bands are also dark, so the old "one neighbor must be
+  blank paper" rule would reject it
+- no-gutter regression guards, so light text-only spreads are not forced into
+  the photo/book-gutter rescue paths
+
+The detector can still be wrong. For difficult art books, inspect Stage 2
+before continuing, especially spreads with full-page photographs, chapter
+openers, or images that run into the gutter.
+
 After batch processing, a summary dialog appears with two toggle buttons:
 - **Not Split (X)** - Pages kept as single pages (may need to be split)
 - **Split (Y)** - Pages that were split (may have been split incorrectly)

@@ -152,6 +152,8 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
   result.confidence = 0.0f;
   result.leftTextRegions = 0;
   result.rightTextRegions = 0;
+  result.hasAnyPageNumber = false;
+  result.hasPageNumbers = false;
   result.rightmostLeftTextX = 0.0;
 
   if (!isAvailable() || image.isNull()) {
@@ -244,6 +246,8 @@ AppleVisionDetector::PageSplitResult AppleVisionDetector::detectPageSplit(const 
 
   // If we found page numbers on both sides, that's a very strong signal
   const bool hasPageNumbers = hasLeftPageNumber && hasRightPageNumber;
+  result.hasAnyPageNumber = hasLeftPageNumber || hasRightPageNumber;
+  result.hasPageNumbers = hasPageNumbers;
   if (hasPageNumbers) {
     qDebug() << "PageSplit: STRONG SIGNAL - page numbers detected on both sides:"
              << leftPageNum << "/" << rightPageNum;

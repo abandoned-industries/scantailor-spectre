@@ -356,7 +356,9 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
                                       const double maxTiltDegrees,
                                       const double centerXOverride,
                                       DebugImages* const dbg,
-                                      bool* const broadGutterRescue) {
+                                      bool* const broadGutterRescue,
+                                      const bool preferAnchorIfBroadGutter,
+                                      const bool keepExactAnchorIfBroadGutter) {
   if (broadGutterRescue) {
     *broadGutterRescue = false;
   }
@@ -417,6 +419,145 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
   }
 
   const int rowBackground = estimateRowBackground(grayDownscaled, xLo, xHi);
+
+  if (preferAnchorIfBroadGutter) {
+    // Image-left / text-right spreads can have the true gutter as a very
+    // dark full-height column left of Vision's geometric center. The normal
+    // paper-neighbor gate rejects it because one neighbor is photo and the
+    // other is text or gutter shadow. Check for that shape before the
+    // near-anchor broad-band shortcut has a chance to pick a weaker stripe.
+    const int photoTextLo = std::max(xLo, static_cast<int>(std::floor(centerXDs - 0.08 * virtualWidthDs)));
+    const int photoTextHi = std::min(xHi, static_cast<int>(std::floor(centerXDs - 0.025 * virtualWidthDs)));
+    bool foundPhotoTextGutter = false;
+    int photoTextX = -1;
+    ColumnStats photoTextStats;
+    double photoTextDrf = 0.0;
+    double photoTextLeft = 0.0;
+    double photoTextRight = 0.0;
+
+    for (int x = photoTextLo; x <= photoTextHi; ++x) {
+      const ColumnStats stats = sampleColumn(grayDownscaled, x, x, rowBackground);
+      const double drf = stats.sampledRows > 0
+          ? static_cast<double>(stats.darkRows) / static_cast<double>(stats.sampledRows)
+          : 0.0;
+      const double left = meanDarknessOfStripe(grayDownscaled, x, x,
+          -kNeighborInnerOffset - kNeighborStripeWidth + 1, -kNeighborInnerOffset);
+      const double right = meanDarknessOfStripe(grayDownscaled, x, x,
+          kNeighborInnerOffset, kNeighborInnerOffset + kNeighborStripeWidth - 1);
+      const double minNbr = std::min(left, right);
+      const double maxNbr = std::max(left, right);
+      const bool photoTextGutter = stats.meanDarkness >= 140.0
+          && drf >= 0.80
+          && minNbr >= 100.0
+          && maxNbr <= 170.0;
+      if (!photoTextGutter) {
+        continue;
+      }
+      if (!foundPhotoTextGutter || stats.meanDarkness > photoTextStats.meanDarkness) {
+        foundPhotoTextGutter = true;
+        photoTextX = x;
+        photoTextStats = stats;
+        photoTextDrf = drf;
+        photoTextLeft = left;
+        photoTextRight = right;
+      }
+    }
+
+    if (foundPhotoTextGutter) {
+      const QLineF spineVirt(downscaledToOut.map(QPointF(photoTextX, 0.0)),
+                             downscaledToOut.map(QPointF(photoTextX, dsH - 1)));
+      qDebug() << s_pageTag << "SpineDarknessFinder: [PHOTO-TEXT-GUTTER] accepting dark gutter left of Vision anchor"
+               << spineVirt
+               << "xCenter=" << photoTextX
+               << "distFromAnchor=" << (centerXDs - double(photoTextX))
+               << "anchor=" << centerXDs
+               << "meanDarkness=" << photoTextStats.meanDarkness
+               << "darkRowFrac=" << photoTextDrf
+               << "leftNbr=" << photoTextLeft
+               << "rightNbr=" << photoTextRight;
+      return spineVirt;
+    }
+
+    // When Vision has strong independent evidence (page numbers on both
+    // sides), and a column very near the anchor lies inside a full-height,
+    // modestly-dark gutter band, keep that physical gutter instead of
+    // sliding to the band's sharper right edge. This is intentionally
+    // narrower than the old paper-gap / pale-corridor midpoint attempts:
+    // it only fires on a dark, vertically persistent band near Vision's
+    // own split anchor.
+    const int broadLo = std::max(xLo, static_cast<int>(std::floor(centerXDs - 0.035 * virtualWidthDs)));
+    const int broadHi = std::min(xHi, static_cast<int>(std::ceil(centerXDs + 0.035 * virtualWidthDs)));
+    bool foundBroadGutter = false;
+    int broadX = static_cast<int>(std::round(centerXDs));
+    ColumnStats broadStats;
+    double broadDrf = 0.0;
+    double broadLeft = 0.0;
+    double broadRight = 0.0;
+    double broadBestDist = std::numeric_limits<double>::max();
+
+    for (int x = broadLo; x <= broadHi; ++x) {
+      const ColumnStats stats = sampleColumn(grayDownscaled, x, x, rowBackground);
+      const double drf = stats.sampledRows > 0
+          ? static_cast<double>(stats.darkRows) / static_cast<double>(stats.sampledRows)
+          : 0.0;
+      const double left = meanDarknessOfStripe(grayDownscaled, x, x,
+          -kNeighborInnerOffset - kNeighborStripeWidth + 1, -kNeighborInnerOffset);
+      const double right = meanDarknessOfStripe(grayDownscaled, x, x,
+          kNeighborInnerOffset, kNeighborInnerOffset + kNeighborStripeWidth - 1);
+      const double minNbr = std::min(left, right);
+      const double maxNbr = std::max(left, right);
+
+      const bool broadGutterBand = stats.meanDarkness >= 55.0
+          && stats.meanDarkness <= 110.0
+          && drf >= 0.80
+          && minNbr > kMaxPaperNeighborDarkness
+          && std::abs(left - right) <= 20.0
+          && std::abs(stats.meanDarkness - maxNbr) <= 20.0;
+      if (!broadGutterBand) {
+        continue;
+      }
+
+      const double dist = std::abs(double(x) - centerXDs);
+      if (!foundBroadGutter || dist < broadBestDist) {
+        foundBroadGutter = true;
+        broadX = x;
+        broadStats = stats;
+        broadDrf = drf;
+        broadLeft = left;
+        broadRight = right;
+        broadBestDist = dist;
+      }
+    }
+
+    if (foundBroadGutter) {
+      // The dark band's right edge often belongs to the facing page, so a
+      // large rightward snap can cut into text. Leftward snaps are the useful
+      // case for the Medina broad-gutter failures; keep rightward moves tiny.
+      constexpr double kMaxRightBroadGutterSnapDs = 6.0;
+      constexpr double kMinOnePageNumberLeftSnapDs = 28.0;
+      const bool rightEdgeSnap = double(broadX) > centerXDs + kMaxRightBroadGutterSnapDs;
+      const bool strongLeftwardBroadSnap =
+          double(broadX) < centerXDs - kMinOnePageNumberLeftSnapDs;
+      const bool keepAnchor = rightEdgeSnap
+          || (keepExactAnchorIfBroadGutter && !strongLeftwardBroadSnap);
+      const double returnX = keepAnchor ? centerXDs : double(broadX);
+      const QLineF spineVirt(downscaledToOut.map(QPointF(returnX, 0.0)),
+                             downscaledToOut.map(QPointF(returnX, dsH - 1)));
+      qDebug() << s_pageTag << "SpineDarknessFinder: [ANCHOR-BROAD-GUTTER] keeping broad gutter near Vision anchor"
+               << spineVirt
+               << "xCenter=" << broadX
+               << "distFromAnchor=" << broadBestDist
+               << "anchor=" << centerXDs
+               << "returnExactAnchor=" << keepExactAnchorIfBroadGutter
+               << "rightEdgeSnap=" << rightEdgeSnap
+               << "strongLeftwardBroadSnap=" << strongLeftwardBroadSnap
+               << "meanDarkness=" << broadStats.meanDarkness
+               << "darkRowFrac=" << broadDrf
+               << "leftNbr=" << broadLeft
+               << "rightNbr=" << broadRight;
+      return spineVirt;
+    }
+  }
 
   // Sweep tilt angles. For each tilt, the line passes through (x, h/2)
   // with slope tan(theta), so its top x is x - (h/2)*tan(theta) and its
@@ -526,7 +667,11 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     // and are correctly rejected here.
     constexpr double kPerRowPaperAdjacentAcceptFrac = 0.30;
     const double perRowPaperAdj = perRowPaperAdjacentFraction(grayDownscaled, xT, xB);
-    if (perRowPaperAdj >= kPerRowPaperAdjacentAcceptFrac) {
+    constexpr double kPerRowPaperAdjacentMinMean = 80.0;
+    constexpr double kPerRowPaperAdjacentMinDrf = 0.55;
+    if (perRowPaperAdj >= kPerRowPaperAdjacentAcceptFrac
+        && meanDark >= kPerRowPaperAdjacentMinMean
+        && outDrf >= kPerRowPaperAdjacentMinDrf) {
       outPP = meanDark - std::max(outLeft, outRight);
       if (logTag) {
         qDebug() << s_pageTag << "SpineDarknessFinder:" << logTag
@@ -541,6 +686,19 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
     const double minNbr = std::min(outLeft, outRight);
     const double maxNbr = std::max(outLeft, outRight);
     outPP = meanDark - maxNbr;
+    const bool isolatedDarkStroke = maxNbr <= 10.0 && meanDark >= 45.0;
+    const double candidateCenterX = 0.5 * (xT + xB);
+    if (isolatedDarkStroke
+        && std::abs(candidateCenterX - centerXDs) > 0.01 * virtualWidthDs) {
+      if (logTag) {
+        qDebug() << s_pageTag << "SpineDarknessFinder:" << logTag
+                 << "reject isolated off-anchor dark stroke xT=" << xT
+                 << "mean=" << meanDark << "drf=" << outDrf
+                 << "left=" << outLeft << "right=" << outRight
+                 << "distFromAnchor=" << std::abs(candidateCenterX - centerXDs);
+      }
+      return false;
+    }
     if (outDrf < kMinDarkRowFraction) {
       // Faint binding fold against a text/photo edge. Page 32 in the
       // Branston test project has the visible gutter at only ~51% dark

@@ -55,6 +55,8 @@ class AppleVisionDetector {
     float confidence;        // Detection confidence (0.0 - 1.0)
     int leftTextRegions;     // Number of text regions on left side
     int rightTextRegions;    // Number of text regions on right side
+    bool hasAnyPageNumber;   // True when a page number was detected on either side
+    bool hasPageNumbers;     // True when page numbers were detected on both sides
     double rightmostLeftTextX;  // Normalized X of rightmost text region in left zone (0.0-1.0), 0 if none
   };
 

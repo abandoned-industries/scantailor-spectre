@@ -58,6 +58,12 @@ class SpineDarknessFinder {
    * \param broadGutterRescue If non-null, set to true when the returned
    *                          line was accepted by the broad-gutter rescue
    *                          path rather than the normal thin-spine gates.
+   * \param preferAnchorIfBroadGutter
+   *                          If true, keep the search anchor when it already
+   *                          sits inside a persistent dark gutter band.
+   * \param keepExactAnchorIfBroadGutter
+   *                          If true, use a nearby broad gutter band only as
+   *                          evidence for returning the exact anchor.
    *
    * \return The detected spine in virtual output coordinates, or a default-
    *         constructed (null) QLineF if no acceptable candidate was found.
@@ -69,7 +75,9 @@ class SpineDarknessFinder {
                           double maxTiltDegrees = 2.0,
                           double centerXOverride = std::numeric_limits<double>::quiet_NaN(),
                           DebugImages* dbg = nullptr,
-                          bool* broadGutterRescue = nullptr);
+                          bool* broadGutterRescue = nullptr,
+                          bool preferAnchorIfBroadGutter = false,
+                          bool keepExactAnchorIfBroadGutter = false);
 
   // Diagnostic: set a short tag (e.g. "[pdf=32 sub=left]") that every
   // qDebug line emitted from findSpine will be prefixed with. Intended

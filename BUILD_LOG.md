@@ -1,3 +1,92 @@
+---
+2026-04-13 17:04 - Page split: allow strong leftward broad-band snap for one-page-number spreads (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: keep the conservative exact-anchor behavior for
+  one-page-number broad-gutter cases when the broad band is close to Vision,
+  but allow a stronger leftward snap when the candidate band is farther left.
+  Medina PDF page 43 found a convincing broad band about 30 downscaled px
+  left of Vision and keeping the exact Vision anchor put the split too far
+  into the right page; Medina PDF page 48's similar one-page-number case is
+  closer at about 24 px and remains exact-anchor.
+- Dependencies.cpp: bump `kPageSplitDetectorVersion` from 29 to 30.
+
+---
+2026-04-13 16:53 - Page split: reject isolated off-anchor dark strokes in spine finder (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: reject candidates whose neighbor stripes are
+  nearly pure paper on both sides unless the candidate is essentially at
+  the Vision/geometric anchor. The Anselm Jappe file exposed this as a
+  second no-gutter failure mode after the weak text-edge fix: isolated
+  dark strokes with left/right neighbor darkness near zero still looked
+  vertically persistent and nudged the split into the right page.
+- Dependencies.cpp: bump `kPageSplitDetectorVersion` from 28 to 29.
+
+---
+2026-04-13 16:46 - Page split: bump detector version for per-row rescue tightening (cmake --build build --target scantailor -- -j4)
+- Dependencies.cpp: bump `kPageSplitDetectorVersion` from 27 to 28 so
+  projects recompute page-split params after the no-gutter text-edge fix.
+
+---
+2026-04-13 16:41 - Page split: tighten per-row paper-adjacent rescue for no-gutter text spreads (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: require the early per-row paper-adjacent rescue
+  to have binding-strength darkness and continuity before it can bypass the
+  normal gates. The Anselm Jappe no-gutter/light-gutter test file showed
+  weak text-block edges around mean 45-65 / dark-row fraction 0.32-0.42
+  being accepted and moving the split well into the right page. Medina and
+  Branston real gutter rescues are darker and/or handled by dedicated broad
+  and photo/text paths.
+
+---
+2026-04-13 16:14 - Page split: tighten photo/text rescue neighbor gate (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: require both neighbor bands around the photo/text
+  rescue candidate to be dark enough, so the rescue stays focused on the
+  75-style photo/text spreads and avoids ordinary broad-shadow cases.
+
+---
+2026-04-13 16:04 - Page split: photo-left text-right gutter rescue (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: before the near-anchor broad-gutter shortcut,
+  accept very dark full-height gutter columns left of Vision's center when
+  Vision has page-number evidence. This targets Medina printed pages
+  106/107, 108/109, and 110/111, where the old paper-neighbor gate rejected
+  the true gutter because the left neighbor is photograph and the right
+  neighbor is text/shadow.
+
+---
+2026-04-13 15:34 - Page split: avoid right-edge broad-gutter snaps (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: when broad-gutter anchor mode finds a candidate
+  far to the right of Vision's anchor, return the Vision anchor instead of
+  snapping to that right edge. This targets Medina printed pages 82/83.
+- PageLayoutEstimator.cpp: allow the guarded broad-gutter path on two-page-
+  number spreads down to 0.80 confidence so lower-confidence Medina spreads
+  such as printed 106/107 and 110/111 can use the same protection.
+
+---
+2026-04-13 15:16 - Page split: conservative one-page-number anchor (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp/h: add keepExactAnchorIfBroadGutter so a nearby
+  broad gutter band can validate the Vision split without snapping to the
+  darkest stripe.
+- PageLayoutEstimator.cpp: use exact-anchor behavior only when Vision found
+  one page number with acceptable confidence; keep the existing snap-to-band
+  behavior for stronger two-page-number cases.
+
+---
+2026-04-13 15:04 - Page split: allow broad-gutter guard with one page number (cmake --build build --target scantailor -- -j4)
+- AppleVisionDetector.h/mm: add hasAnyPageNumber to PageSplitResult so refinement can distinguish one-page-number spreads from no-page-number spreads.
+- PageLayoutEstimator.cpp: run broad-gutter anchor preference for either high-confidence both-page-number spreads or decent-confidence one-page-number spreads, targeting Medina PDF page 48.
+
+---
+2026-04-13 12:39 - Page split: scan near Vision anchor for broad gutter band (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: when high-confidence page-number Vision evidence is present, allow the broad-gutter anchor path to choose a nearby broad dark band around the anchor, not only the exact anchor column. This targets Medina PDF page 46 where the broad gutter band is visible but the thin-spine gate slides to its right edge.
+
+---
+2026-04-13 11:52 - Page split: tighten broad-gutter anchor guard (cmake --build build --target scantailor -- -j4)
+- SpineDarknessFinder.cpp: require both neighbor stripes around the Vision anchor to be non-paper-like before keeping the broad gutter anchor, limiting the v27 path to true dark gutter bands.
+
+---
+2026-04-13 11:52 - Page split: keep strong Vision anchor inside broad dark gutter band (cmake --build build --target scantailor -- -j4)
+- AppleVisionDetector.h/mm: add hasPageNumbers to PageSplitResult so page-split refinement can distinguish strong page-number evidence.
+- SpineDarknessFinder.h/cpp: add preferAnchorIfBroadGutter mode that keeps Vision's split when the anchor itself is a persistent modest-dark gutter band.
+- PageLayoutEstimator.cpp: enable broad-gutter anchor preference only for high-confidence Vision splits with page numbers on both sides.
+- Dependencies.cpp: bump page-split detector version 26 -> 27.
+
  PDF Orientation Fix Attempts - All Failures
 
   The Problem
@@ -1629,3 +1718,11 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
   This shifts the search window to the actual gutter area on spreads
   with a text page facing a full-bleed photograph.
 - Dependencies.cpp: bump detector version 25->26
+
+---
+2026-04-13 16:30 - Release build 2.0a25: sign, notarize, DMG (cmake --build build -- -j4)
+- Rebuild for release with fresh timestamp
+
+---
+2026-04-13 17:00 - Release build 2.0a25: re-sign after user changes (cmake --build build -- -j4)
+- Rebuild after user made additional changes post-notarization

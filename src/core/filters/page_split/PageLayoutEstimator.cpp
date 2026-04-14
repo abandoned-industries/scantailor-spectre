@@ -270,11 +270,17 @@ std::unique_ptr<PageLayout> PageLayoutEstimator::tryCutAtFoldingLine(const Layou
       QTransform refineXform;
       VertLineFinder::buildGrayDownscaled(input, preXform, &refineGray, &refineXform);
       bool broadGutterRescue = false;
+      const bool strongTwoPageNumberAnchor = visionResult.hasPageNumbers && visionResult.confidence >= 0.80f;
+      const bool singlePageNumberAnchor =
+          !visionResult.hasPageNumbers && visionResult.hasAnyPageNumber && visionResult.confidence >= 0.70f;
+      const bool preferAnchorIfBroadGutter = strongTwoPageNumberAnchor || singlePageNumberAnchor;
       const QLineF refinedSpine = SpineDarknessFinder::findSpine(
           refineGray, refineXform, virtualImageRect,
           /*centerWindowFraction=*/0.15,
           /*maxTiltDegrees=*/2.0,
-          /*centerXOverride=*/visionSplitX, dbg, &broadGutterRescue);
+          /*centerXOverride=*/visionSplitX, dbg, &broadGutterRescue,
+          preferAnchorIfBroadGutter,
+          /*keepExactAnchorIfBroadGutter=*/singlePageNumberAnchor);
 
       if (!refinedSpine.isNull()) {
         // Refinement leash: the refined position must stay within this

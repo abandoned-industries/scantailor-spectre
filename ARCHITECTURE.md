@@ -98,6 +98,27 @@ dependencies are compatible, no computation runs — only downstream tasks
 get triggered. Both Task variants exist so that re-running a later stage
 doesn't drag the whole project through actual image decoding again.
 
+For `page_split`, the task eventually runs a layered detector:
+
+- Apple Vision estimates whether the scan is a two-page spread from text
+  regions and page-number candidates. Its result is useful as an anchor,
+  but it should not be treated as exact geometry on photo-heavy books.
+- `SpineDarknessFinder` refines that anchor by scanning candidate vertical
+  gutter columns. It favors columns that are dark across much of the page
+  height, locally prominent, and consistent with a visible binding shadow.
+- Narrow rescue paths handle cases that the normal gates intentionally
+  reject, such as a dark gutter beside a photograph or a dark gutter between
+  photo material and text. Keep these rescues specific and documented. Broad
+  "center wins" or "darkest edge wins" rules have repeatedly regressed other
+  spreads.
+- Light/no-gutter spreads are protected by stricter rescue gates, including
+  minimum darkness/continuity checks and rejection of isolated off-anchor dark
+  strokes.
+
+Version 2.0a24 predated most of this layered spine refinement. The current
+2.0a25 line uses detector-versioned page-split params so cached results are
+invalidated whenever the page-split algorithm changes.
+
 ### Settings, Params, Dependencies
 
 - **Settings** is a per-filter, thread-safe container of `(PageId → Params)`.
