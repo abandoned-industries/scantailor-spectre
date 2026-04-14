@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/weasel/webui">
+    <file>photo_adjustments.html</file>
+    <file>fix_orientation.html</file>
+    <file>shared/panel.css</file>
+    <file>shared/panel.js</file>
+</qresource>
+</RCC>

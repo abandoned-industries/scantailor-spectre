@@ -87,7 +87,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void splitLineModeChanged(bool autoMode);
 
-  void resetAllAutoPages();
+  void resetAllSplits();
 
  private:
   void commitCurrentParams();

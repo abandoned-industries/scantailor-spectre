@@ -2732,7 +2732,7 @@ QToolButton:pressed {
                               <bool>false</bool>
                              </property>
                              <property name="tickPosition">
-                              <enum>QSlider::TicksBelow</enum>
+                              <enum>QSlider::NoTicks</enum>
                              </property>
                             </widget>
                            </item>

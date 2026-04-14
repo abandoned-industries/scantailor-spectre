@@ -33,7 +33,7 @@ PageBoxSummaryDialog::PageBoxSummaryDialog(QWidget* parent)
   m_thresholdSlider = new QSlider(Qt::Horizontal, this);
   m_thresholdSlider->setRange(5, 30);  // 5% to 30%
   m_thresholdSlider->setValue(10);
-  m_thresholdSlider->setTickPosition(QSlider::TicksBelow);
+  m_thresholdSlider->setTickPosition(QSlider::NoTicks);
   m_thresholdSlider->setTickInterval(5);
   connect(m_thresholdSlider, &QSlider::valueChanged,
           this, &PageBoxSummaryDialog::onThresholdChanged);

@@ -158,7 +158,7 @@ void OptionsWidget::updateSelectionIndicator() {
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
   if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
     selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
     selectionIndicatorLabel->show();
   } else {
     selectionIndicatorLabel->hide();

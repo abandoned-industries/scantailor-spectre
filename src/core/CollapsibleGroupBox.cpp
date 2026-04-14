@@ -32,6 +32,8 @@ void CollapsibleGroupBox::initialize() {
   m_collapseButton->setFixedSize(14, 14);
   m_collapseButton->setIconSize({10, 10});
   m_collapseButton->setIcon(m_collapseIcon);
+  // Hide the collapse button for a flat, decoration-free look.
+  m_collapseButton->setVisible(false);
   setFocusProxy(m_collapseButton);
   setFocusPolicy(Qt::StrongFocus);
 

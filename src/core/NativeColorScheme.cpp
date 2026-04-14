@@ -3,7 +3,11 @@
 
 #include "NativeColorScheme.h"
 
+#include <QFile>
 #include <QPalette>
+#include <QStyleFactory>
+
+#include "Utils.h"
 
 NativeColorScheme::NativeColorScheme() {
   loadStyleSheet();
@@ -11,7 +15,8 @@ NativeColorScheme::NativeColorScheme() {
 }
 
 QStyle* NativeColorScheme::getStyle() const {
-  return nullptr;
+  // Use Fusion so QSS has full control over widget rendering
+  return QStyleFactory::create("Fusion");
 }
 
 const QPalette* NativeColorScheme::getPalette() const {
@@ -27,13 +32,17 @@ const ColorScheme::ColorParams* NativeColorScheme::getColorParams() const {
 }
 
 void NativeColorScheme::loadStyleSheet() {
-  const QPalette palette = QPalette();
+  QFile styleSheetFile(QString::fromUtf8(":/light_scheme/stylesheet/stylesheet.qss"));
+  if (styleSheetFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    m_styleSheet = styleSheetFile.readAll();
+    styleSheetFile.close();
+  }
 
-  m_styleSheet.append(QString("QGraphicsView, ImageViewBase, QFrame#imageViewFrame {\n"
-                              "  background-color: %1;\n"
-                              "  background-attachment: scroll;\n"
-                              "}")
-                          .arg(palette.window().color().darker(115).name()));
+#ifdef _WIN32
+  m_styleSheet = core::Utils::qssConvertPxToEm(m_styleSheet, 13, 4);
+#else
+  m_styleSheet = core::Utils::qssConvertPxToEm(m_styleSheet, 16, 4);
+#endif
 }
 
 void NativeColorScheme::loadColorParams() {
@@ -43,7 +52,6 @@ void NativeColorScheme::loadColorParams() {
   m_customColors["ThumbnailSequenceSelectionLeaderBackground"] = palette.color(QPalette::Highlight);
   m_customColors["ProcessingIndicationFade"] = palette.window().color().darker(115);
   if (palette.window().color().lightnessF() < 0.5) {
-    // If system scheme is dark, adapt some colors.
     m_customColors["ProcessingIndicationHead"] = palette.color(QPalette::Window).lighter(200);
     m_customColors["ProcessingIndicationTail"] = palette.color(QPalette::Window).lighter(130);
     m_customColors["StageListHead"] = m_customColors.at("ProcessingIndicationHead");

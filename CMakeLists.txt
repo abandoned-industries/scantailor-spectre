@@ -193,7 +193,7 @@ endif()
 
 find_package(
     Qt6 6.4 REQUIRED
-    COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets
+    COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets WebEngineWidgets WebChannel
     CONFIG)
 set(QT_BINDIR "${QT6_INSTALL_PREFIX}/bin")
 

@@ -10,7 +10,10 @@
 
 #include "../../Utils.h"
 #include "filters/finalize/Settings.h"
+#include "weasel/GenericPanelBridge.h"
+#include "weasel/PhotoAdjustmentsWebView.h"
 #include "weasel/TonalCurve.h"
+#include "weasel/WebOptionsPanelBase.h"
 #include "ApplyColorsDialog.h"
 #include "ChangeDewarpingDialog.h"
 #include "ChangeDpiDialog.h"
@@ -30,6 +33,86 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
       m_lastTab(TAB_OUTPUT),
       m_connectionManager(std::bind(&OptionsWidget::setupUiConnections, this)) {
   setupUi(this);
+
+  // Replace Options, Reduce Noise, and Photo Adjustments sections with a
+  // unified web panel. Hide the Qt widgets (they stay wired so existing code
+  // doesn't crash, but the user sees the HTML version).
+  {
+    dpiPanel->setVisible(false);
+    commonOptions->setVisible(false);
+    colorOperationsOptions->setVisible(false);
+    adjustmentsPanel->setVisible(false);
+
+    m_webPanel = new weasel::WebOptionsPanelBase(QStringLiteral("photo_adjustments.html"), this);
+    m_webBridge = new weasel::GenericPanelBridge(this);
+    m_webPanel->registerBridge(m_webBridge);
+    m_webPanel->setMinimumHeight(380);
+    m_webPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+
+    // Insert the web panel right where commonOptions was (before dewarping)
+    if (auto* parentLayout = qobject_cast<QVBoxLayout*>(layout())) {
+      // Find the dewarping section index and insert before it
+      for (int i = 0; i < parentLayout->count(); ++i) {
+        auto* item = parentLayout->itemAt(i);
+        if (item && item->widget() && item->widget()->objectName().contains("dewarping", Qt::CaseInsensitive)) {
+          parentLayout->insertWidget(i, m_webPanel);
+          break;
+        }
+      }
+      // Fallback: add at end if not found
+      if (m_webPanel->parentWidget() != this) {
+        parentLayout->addWidget(m_webPanel);
+      }
+    } else {
+      layout()->addWidget(m_webPanel);
+    }
+
+    // Photo Adjustments sliders
+    connect(m_webBridge, &weasel::GenericPanelBridge::valueChanged,
+            this, [this](const QString& id, double value) {
+              weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+              if (id == "temp") adj.setTemp(value);
+              else if (id == "tint") adj.setTint(value);
+              else if (id == "exposure") adj.setExposure(value);
+              else if (id == "contrast") adj.setContrast(value);
+              else if (id == "highlights") adj.setHighlights(value);
+              else if (id == "shadows") adj.setShadows(value);
+              else if (id == "whites") adj.setWhites(value);
+              else if (id == "blacks") adj.setBlacks(value);
+              else if (id == "wienerCoef") { wienerCoefChanged(value); return; }
+              else if (id == "wienerWindow") { wienerWindowSizeChanged(static_cast<int>(value)); return; }
+              else if (id == "posterizeLevel") { posterizeLevelChanged(static_cast<int>(value)); return; }
+              else return;
+              m_colorParams.setPhotoAdjustments(adj);
+              m_settings->setColorParams(m_pageId, m_colorParams);
+              emit reloadRequested();
+              emit invalidateThumbnail(m_pageId);
+            });
+
+    // Checkboxes
+    connect(m_webBridge, &weasel::GenericPanelBridge::checkChanged,
+            this, [this](const QString& id, bool checked) {
+              if (id == "passThrough") passThroughToggled(checked);
+              else if (id == "fillOffcut") fillOffcutToggled(checked);
+              else if (id == "fillMargins") fillMarginsToggled(checked);
+              else if (id == "posterize") posterizeToggled(checked);
+              else if (id == "posterizeNorm") posterizeNormalizationToggled(checked);
+              else if (id == "forceBw") posterizeForceBwToggled(checked);
+            });
+
+    // Radio buttons
+    connect(m_webBridge, &weasel::GenericPanelBridge::radioChanged,
+            this, [this](const QString& name, const QString& selectedId) {
+              if (name == "fillingColor") fillingColorChanged();
+            });
+
+    // Buttons
+    connect(m_webBridge, &weasel::GenericPanelBridge::actionTriggered,
+            this, [this](const QString& action) {
+              if (action == "auto") photoAdjAutoClicked();
+              else if (action == "reset") photoAdjResetClicked();
+            });
+  }
 
   m_delayedReloadRequest.setSingleShot(true);
 
@@ -181,6 +264,39 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   updateDpiDisplay();
   updateColorsDisplay();
   updateDewarpingDisplay();
+
+  // Push all Options/ReduceNoise/PhotoAdj state into the web panel
+  if (m_webBridge) {
+    const OutputProcessingParams& opp2 = m_settings->getOutputProcessingParams(pageId);
+    const ColorCommonOptions cco = m_colorParams.colorCommonOptions();
+    const BlackWhiteOptions bwo = m_colorParams.blackWhiteOptions();
+    const weasel::PhotoAdjustments& adj = m_colorParams.photoAdjustments();
+
+    QVariantMap state;
+    // Options
+    state["passThrough"] = opp2.passThrough();
+    state["fillOffcut"] = cco.fillOffcut();
+    state["fillMargins"] = cco.fillMargins();
+    state["fillingColor"] = (cco.getFillingColor() == FILL_BACKGROUND) ? "fillBackground" : "fillWhite";
+    // Reduce Noise
+    state["wienerCoef"] = cco.wienerCoef();
+    state["wienerWindow"] = cco.wienerWindowSize();
+    state["posterize"] = cco.getPosterizationOptions().isEnabled();
+    state["posterizeLevel"] = cco.getPosterizationOptions().getLevel();
+    state["posterizeNorm"] = cco.getPosterizationOptions().isNormalizationEnabled();
+    state["forceBw"] = cco.getPosterizationOptions().isForceBlackAndWhite();
+    // Photo Adjustments
+    state["temp"] = adj.temp();
+    state["tint"] = adj.tint();
+    state["exposure"] = adj.exposure();
+    state["contrast"] = adj.contrast();
+    state["highlights"] = adj.highlights();
+    state["shadows"] = adj.shadows();
+    state["whites"] = adj.whites();
+    state["blacks"] = adj.blacks();
+
+    m_webBridge->setState(state);
+  }
 }
 
 void OptionsWidget::postUpdateUI() {
@@ -913,7 +1029,10 @@ void OptionsWidget::updateColorsDisplay() {
       break;
   }
 
-  commonOptions->setVisible(true);
+  // If the web panel is active, keep Qt sections hidden — the web panel renders them.
+  if (!m_webPanel) {
+    commonOptions->setVisible(true);
+  }
   ColorCommonOptions colorCommonOptions(m_colorParams.colorCommonOptions());
   BlackWhiteOptions blackWhiteOptions(m_colorParams.blackWhiteOptions());
 
@@ -963,7 +1082,9 @@ void OptionsWidget::updateColorsDisplay() {
   wbSectionLabel->setEnabled(!isBW && !isGray);
 
   // All photo adjustments disabled for B&W (binarization makes them meaningless)
-  adjustmentsPanel->setVisible(!isBW);
+  if (!m_webPanel) {
+    adjustmentsPanel->setVisible(!isBW);
+  }
 
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
@@ -975,7 +1096,9 @@ void OptionsWidget::updateColorsDisplay() {
   thresholdOptions->setVisible(thresholdOptionsVisible);
   despecklePanel->setVisible(thresholdOptionsVisible && m_lastTab != TAB_DEWARPING);
   // Color/grayscale operations only visible for those modes
-  colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING);
+  if (!m_webPanel) {
+    colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING);
+  }
 
   splittingOptions->setVisible(splittingOptionsVisible);
   splittingCB->setChecked(m_splittingOptions.isSplitOutput());
@@ -1442,7 +1565,7 @@ void OptionsWidget::updateSelectionIndicator() {
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
   if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
     selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
     selectionIndicatorLabel->show();
   } else {
     selectionIndicatorLabel->hide();

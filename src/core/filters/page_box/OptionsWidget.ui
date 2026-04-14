@@ -14,7 +14,7 @@
    <item>
     <widget class="QLabel" name="selectionIndicatorLabel">
      <property name="styleSheet">
-      <string>font-weight: bold; color: #0066cc;</string>
+      <string>font-weight: 500; color: #666;</string>
      </property>
      <property name="text">
       <string/>

@@ -955,7 +955,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -977,7 +977,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -1009,7 +1009,7 @@
           <property name="maximum"><number>500</number></property>
           <property name="singleStep"><number>10</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>100</number></property>
          </widget>
         </item>
@@ -1031,7 +1031,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -1053,7 +1053,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -1075,7 +1075,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -1097,7 +1097,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>
@@ -1119,7 +1119,7 @@
           <property name="maximum"><number>100</number></property>
           <property name="singleStep"><number>1</number></property>
           <property name="orientation"><enum>Qt::Horizontal</enum></property>
-          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
           <property name="tickInterval"><number>50</number></property>
          </widget>
         </item>

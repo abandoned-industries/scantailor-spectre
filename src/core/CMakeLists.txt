@@ -61,7 +61,11 @@ set(common_sources
     LeptonicaDetector.cpp LeptonicaDetector.h
     WhiteBalance.cpp WhiteBalance.h
     weasel/PhotoAdjustments.cpp weasel/PhotoAdjustments.h
+    weasel/WebOptionsPanelBase.cpp weasel/WebOptionsPanelBase.h
+    weasel/GenericPanelBridge.cpp weasel/GenericPanelBridge.h
+    weasel/PhotoAdjustmentsWebView.cpp weasel/PhotoAdjustmentsWebView.h
     weasel/TonalCurve.cpp weasel/TonalCurve.h
+    weasel/webui/webui.qrc
     AppleVisionDetector.h
     ErrorWidget.cpp ErrorWidget.h
     OrthogonalRotation.cpp OrthogonalRotation.h
@@ -162,11 +166,11 @@ target_link_libraries(
     $<$<BOOL:${ACCELERATE_FRAMEWORK}>:${ACCELERATE_FRAMEWORK}>
     $<$<BOOL:${COREGRAPHICS_FRAMEWORK}>:${COREGRAPHICS_FRAMEWORK}>
     $<$<BOOL:${CORETEXT_FRAMEWORK}>:${CORETEXT_FRAMEWORK}>
-  PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets
+  PUBLIC Qt::Core Qt::Gui Qt::Widgets Qt::Xml Qt::Network Qt::OpenGL Qt::Svg Qt::OpenGLWidgets Qt::WebEngineWidgets Qt::WebChannel
   imageproc zones
   fix_orientation page_split deskew page_box select_content page_layout finalize output ocr export_)
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-set_target_properties(core PROPERTIES AUTOUIC ON)
+set_target_properties(core PROPERTIES AUTOUIC ON AUTORCC ON)
 
 translation_sources(scantailor ${common_sources} ${common_ui_files})
 

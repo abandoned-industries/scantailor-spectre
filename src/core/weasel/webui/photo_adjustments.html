@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="shared/panel.css">
+</head>
+<body>
+
+<div class="panel">
+  <!-- Options -->
+  <div class="section-header">Options</div>
+  <label class="check-row"><input type="checkbox" id="passThrough"> Pass-through (skip processing)</label>
+  <div class="row" style="gap: 16px;">
+    <label class="check-row"><input type="checkbox" id="fillOffcut" checked> Fill offcut</label>
+    <label class="check-row"><input type="checkbox" id="fillMargins" checked> Fill margins</label>
+  </div>
+  <div class="row" style="padding-left: 20px; gap: 12px;">
+    <label class="radio-row"><input type="radio" name="fillingColor" id="fillWhite" checked> White</label>
+    <label class="radio-row"><input type="radio" name="fillingColor" id="fillBackground"> Background</label>
+  </div>
+
+  <div class="divider" style="margin: 8px 0;"></div>
+
+  <!-- Reduce Noise -->
+  <div class="section-header">Reduce Noise</div>
+  <div class="slider-row">
+    <span class="label">Wiener</span>
+    <input type="range" id="wienerCoef" min="0" max="300" step="1" value="0">
+    <span class="value" id="wienerCoef-val">0.00</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Window</span>
+    <input type="range" id="wienerWindow" min="3" max="15" step="2" value="5">
+    <span class="value" id="wienerWindow-val">5</span>
+  </div>
+  <label class="check-row"><input type="checkbox" id="posterize"> Posterize</label>
+  <div class="slider-row" style="padding-left: 20px;">
+    <span class="label">Level</span>
+    <input type="range" id="posterizeLevel" min="2" max="8" step="1" value="4">
+    <span class="value" id="posterizeLevel-val">4</span>
+  </div>
+  <label class="check-row" style="padding-left: 20px;"><input type="checkbox" id="posterizeNorm"> Normalize</label>
+  <label class="check-row"><input type="checkbox" id="forceBw" checked> Force b&amp;w</label>
+
+  <div class="divider" style="margin: 8px 0;"></div>
+
+  <!-- Photo Adjustments -->
+  <div class="section-header">Photo Adjustments</div>
+  <div class="btn-row">
+    <button class="btn" id="auto-btn">Auto</button>
+    <button class="btn" id="reset-btn">Reset</button>
+  </div>
+
+  <div class="sub-header">White Balance</div>
+  <div class="slider-row">
+    <span class="label">Temp</span>
+    <input type="range" id="temp" min="-100" max="100" step="1" value="0">
+    <span class="value" id="temp-val">0</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Tint</span>
+    <input type="range" id="tint" min="-100" max="100" step="1" value="0">
+    <span class="value" id="tint-val">0</span>
+  </div>
+
+  <div class="sub-header">Tone</div>
+  <div class="slider-row">
+    <span class="label">Exposure</span>
+    <input type="range" id="exposure" min="-500" max="500" step="1" value="0">
+    <span class="value" id="exposure-val">0.00</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Contrast</span>
+    <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
+    <span class="value" id="contrast-val">0</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Highlights</span>
+    <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
+    <span class="value" id="highlights-val">0</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Shadows</span>
+    <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
+    <span class="value" id="shadows-val">0</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Whites</span>
+    <input type="range" id="whites" min="-100" max="100" step="1" value="0">
+    <span class="value" id="whites-val">0</span>
+  </div>
+  <div class="slider-row">
+    <span class="label">Blacks</span>
+    <input type="range" id="blacks" min="-100" max="100" step="1" value="0">
+    <span class="value" id="blacks-val">0</span>
+  </div>
+</div>
+
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="shared/panel.js"></script>
+<script>
+  const intFormat = v => String(Math.round(v));
+  const expFormat = v => (v / 100).toFixed(2);
+  const wienerFormat = v => (v / 100).toFixed(2);
+  const expToBridge = v => v / 100;
+  const expFromBridge = v => Math.round(v * 100);
+  const wienerToBridge = v => v / 100;
+  const wienerFromBridge = v => Math.round(v * 100);
+  const intFromBridge = v => Math.round(v);
+
+  // Options
+  Panel.setupCheckbox('passThrough');
+  Panel.setupCheckbox('fillOffcut');
+  Panel.setupCheckbox('fillMargins');
+  Panel.setupRadio('fillingColor', ['fillWhite', 'fillBackground']);
+
+  // Reduce Noise
+  Panel.setupSlider('wienerCoef', { format: wienerFormat, toBridge: wienerToBridge, fromBridge: wienerFromBridge });
+  Panel.setupSlider('wienerWindow', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupCheckbox('posterize');
+  Panel.setupSlider('posterizeLevel', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupCheckbox('posterizeNorm');
+  Panel.setupCheckbox('forceBw');
+
+  // Photo Adjustments
+  Panel.setupSlider('temp', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('tint', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('exposure', {
+    format: expFormat, toBridge: expToBridge, fromBridge: expFromBridge
+  });
+  Panel.setupSlider('contrast', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('highlights', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('shadows', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('whites', { format: intFormat, fromBridge: intFromBridge });
+  Panel.setupSlider('blacks', { format: intFormat, fromBridge: intFromBridge });
+
+  Panel.setupButton('auto-btn', 'auto');
+  Panel.setupButton('reset-btn', 'reset');
+
+  Panel.init();
+</script>
+
+</body>
+</html>

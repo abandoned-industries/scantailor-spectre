@@ -1726,3 +1726,12 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 ---
 2026-04-13 17:00 - Release build 2.0a25: re-sign after user changes (cmake --build build -- -j4)
 - Rebuild after user made additional changes post-notarization
+
+---
+2026-04-14 00:00 - Version 2.0a26 release build (cmake --build build -- -j4)
+- version.h.in: bump 2.0a25 -> 2.0a26
+- README.md: update version, replace White Balance with Photo Adjustments
+- Cherry-picked photo adjustments (PhotoAdjustments, TonalCurve, output UI rework)
+- Cherry-picked UI redesign (modernized options panels, web-based panels, stylesheet)
+- Reverted fix_orientation web panel to native Qt (WebEngine bundling issues)
+- Removed resetAllAutoPages in favor of resetAllSplits

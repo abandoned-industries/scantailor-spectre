@@ -89,6 +89,8 @@ StageListView::StageListView(QWidget* parent)
   QHeaderView* vHeader = verticalHeader();
   vHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
   vHeader->setSectionsMovable(false);
+  // Ensure enough width for two-digit row numbers (e.g. "10").
+  vHeader->setMinimumWidth(28);
 
   const auto& iconProvider = IconProvider::getInstance();
   m_launchBtn = new SkinnedButton(iconProvider.getIcon("play"), iconProvider.getIcon("play-hovered"),

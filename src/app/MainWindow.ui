@@ -1125,7 +1125,7 @@ QToolButton:checked {
     <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
    </property>
    <property name="windowTitle">
-    <string>Filters</string>
+    <string>Stages</string>
    </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
@@ -1218,7 +1218,7 @@ QToolButton:checked {
           <number>0</number>
          </property>
          <property name="rightMargin">
-          <number>0</number>
+          <number>10</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>

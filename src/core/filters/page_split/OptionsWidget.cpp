@@ -239,19 +239,6 @@ void OptionsWidget::splitLineModeChanged(const bool autoMode) {
   }
 }
 
-void OptionsWidget::resetAllAutoPages() {
-  // Drop cached params for every page whose effective layout type is
-  // AUTO_LAYOUT_TYPE. Pages with a manually-set layoutType (single-uncut,
-  // page-plus-offcut, two-pages chosen by the user) are left intact.
-  m_settings->clearAllAutoParams();
-
-  // Tell MainWindow to refresh thumbnails and re-run the current page.
-  // The next time each page is processed, Task::process will see no
-  // cached Params and call PageLayoutEstimator::estimatePageLayout,
-  // which now includes the new fallbacks and the Vision refinement.
-  emit invalidateAllThumbnails();
-  emit reloadRequested();
-}
 
 void OptionsWidget::commitCurrentParams() {
   const Params params(m_uiData.pageLayout(), m_uiData.dependencies(), m_uiData.splitLineMode());
@@ -267,11 +254,20 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(pagePlusOffcutBtn, SIGNAL(toggled(bool)), this, SLOT(layoutTypeButtonToggled(bool)));
   CONNECT(twoPagesBtn, SIGNAL(toggled(bool)), this, SLOT(layoutTypeButtonToggled(bool)));
   CONNECT(changeBtn, SIGNAL(clicked()), this, SLOT(showChangeDialog()));
-  CONNECT(resetAllAutoBtn, SIGNAL(clicked()), this, SLOT(resetAllAutoPages()));
   CONNECT(autoBtn, SIGNAL(toggled(bool)), this, SLOT(splitLineModeChanged(bool)));
+  CONNECT(resetAllSplitsBtn, SIGNAL(clicked()), this, SLOT(resetAllSplits()));
 }
 
 #undef CONNECT
+
+void OptionsWidget::resetAllSplits() {
+  // Clear all page split settings and reset to single-page layout
+  m_settings->clear();
+  m_settings->setLayoutTypeForAllPages(SINGLE_PAGE_UNCUT);
+
+  emit invalidateAllThumbnails();
+  emit reloadRequested();
+}
 
 void OptionsWidget::setupIcons() {
   auto& iconProvider = IconProvider::getInstance();
@@ -341,7 +337,7 @@ void OptionsWidget::updateSelectionIndicator() {
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
   if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
     selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #4a90d9; font-weight: bold; }");
+    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
     selectionIndicatorLabel->show();
   } else {
     selectionIndicatorLabel->hide();

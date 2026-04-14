@@ -50,7 +50,7 @@ PageSizeWarningDialog::PageSizeWarningDialog(QWidget* parent)
   m_thresholdSlider = new QSlider(Qt::Horizontal, this);
   m_thresholdSlider->setRange(10, 100);  // 10% to 100% deviation
   m_thresholdSlider->setValue(30);
-  m_thresholdSlider->setTickPosition(QSlider::TicksBelow);
+  m_thresholdSlider->setTickPosition(QSlider::NoTicks);
   m_thresholdSlider->setTickInterval(10);
   connect(m_thresholdSlider, &QSlider::valueChanged,
           this, &PageSizeWarningDialog::onThresholdChanged);

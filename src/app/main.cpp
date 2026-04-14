@@ -10,6 +10,8 @@
 #include <core/IconProvider.h>
 #include <core/StyledIconPack.h>
 
+#include <QQuickWindow>
+#include <QSGRendererInterface>
 #include <QSettings>
 #include <QStringList>
 
@@ -21,6 +23,12 @@
 #endif
 
 int main(int argc, char* argv[]) {
+  // Force OpenGL backend for Qt Quick so QWebEngineView's internal QQuickWidget
+  // composites correctly. Without this, QWebEngineView renders as a black rectangle
+  // on macOS because the default Metal backend conflicts with WebEngine's OpenGL
+  // compositor.
+  QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+
   // Qt6 enables high DPI scaling by default
   Application app(argc, argv);
 

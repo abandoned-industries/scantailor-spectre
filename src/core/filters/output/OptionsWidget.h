@@ -32,6 +32,12 @@ namespace dewarping {
 class DistortionModel;
 }
 
+namespace weasel {
+class PhotoAdjustmentsPanel;
+class WebOptionsPanelBase;
+class GenericPanelBridge;
+}
+
 namespace finalize {
 class Settings;
 }
@@ -205,6 +211,10 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   double m_despeckleLevel;
   ImageViewTab m_lastTab;
   QTimer m_delayedReloadRequest;
+
+  weasel::PhotoAdjustmentsPanel* m_photoAdjPanel = nullptr;
+  weasel::WebOptionsPanelBase* m_webPanel = nullptr;
+  weasel::GenericPanelBridge* m_webBridge = nullptr;
 
   ConnectionManager m_connectionManager;
 };

@@ -31,7 +31,7 @@ ContentCoverageSummaryDialog::ContentCoverageSummaryDialog(QWidget* parent)
   m_thresholdSlider = new QSlider(Qt::Horizontal, this);
   m_thresholdSlider->setRange(20, 80);  // 20% to 80%
   m_thresholdSlider->setValue(50);
-  m_thresholdSlider->setTickPosition(QSlider::TicksBelow);
+  m_thresholdSlider->setTickPosition(QSlider::NoTicks);
   m_thresholdSlider->setTickInterval(10);
   connect(m_thresholdSlider, &QSlider::valueChanged,
           this, &ContentCoverageSummaryDialog::onThresholdChanged);

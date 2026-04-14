@@ -100,37 +100,21 @@
            <widget class="QToolButton" name="topBottomLink">
             <property name="minimumSize">
              <size>
-              <width>20</width>
-              <height>36</height>
+              <width>16</width>
+              <height>16</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
-              <width>20</width>
-              <height>36</height>
+              <width>16</width>
+              <height>16</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
+             <string notr="true">QToolButton { padding: 0; border: none; background: transparent; }</string>
             </property>
             <property name="text">
-             <string>...</string>
+             <string/>
             </property>
             <property name="icon">
              <iconset resource="../../../resources/resources.qrc">
@@ -138,8 +122,8 @@ QToolButton:pressed {
             </property>
             <property name="iconSize">
              <size>
-              <width>18</width>
-              <height>24</height>
+              <width>12</width>
+              <height>12</height>
              </size>
             </property>
            </widget>
@@ -169,37 +153,21 @@ QToolButton:pressed {
            <widget class="QToolButton" name="leftRightLink">
             <property name="minimumSize">
              <size>
-              <width>20</width>
-              <height>36</height>
+              <width>16</width>
+              <height>16</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
-              <width>20</width>
-              <height>36</height>
+              <width>16</width>
+              <height>16</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
+             <string notr="true">QToolButton { padding: 0; border: none; background: transparent; }</string>
             </property>
             <property name="text">
-             <string>...</string>
+             <string/>
             </property>
             <property name="icon">
              <iconset resource="../../../resources/resources.qrc">
@@ -207,8 +175,8 @@ QToolButton:pressed {
             </property>
             <property name="iconSize">
              <size>
-              <width>18</width>
-              <height>24</height>
+              <width>12</width>
+              <height>12</height>
              </size>
             </property>
             <property name="checked">
@@ -851,15 +819,18 @@ QToolButton:pressed {
         </property>
         <property name="html">
          <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣ Right-click&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; to create/remove guides from the &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;context menu&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; called.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣ Right-click&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; on a guide to delete that guide from the &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;context menu&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; called.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣ Ctrl+Alt+LMB&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; - drag the guide under the cursor.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣ Shift/Ctrl+LMB&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; on the content rectangle - drag the page content. Hold &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Shift&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; pressed to restrict moving along the horizontal axis only or &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Ctrl&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; for the vertical one. Hold &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Shift+Ctrl&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; for usual dragging.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣ Double-click&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; on content - automatically attach that content to the nearest guide. Hold &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Shift&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; pressed to select vertical guides only or &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Ctrl&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; for horizontal ones. Hold &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;Shift+Ctrl&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; to attach that to both the nearest vertical and horizontal guides.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;‣&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; Use the &lt;/span&gt;&lt;span style=&quot; font-size:7pt; font-weight:600;&quot;&gt;context menu&lt;/span&gt;&lt;span style=&quot; font-size:7pt;&quot;&gt; to enable/disable showing the hard margins rectangle.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;html&gt;&lt;head&gt;&lt;style type=&quot;text/css&quot;&gt;
+body { font-size: 11pt; color: #333; }
+p { margin: 3px 0; }
+b { font-weight: 600; }
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;p&gt;&lt;b&gt;Right-click&lt;/b&gt; to create or remove guides.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Right-click&lt;/b&gt; on a guide to delete it.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;&#x2303;&#x2325;+Click&lt;/b&gt; to drag a guide.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;&#x21E7;+Click&lt;/b&gt; or &lt;b&gt;&#x2303;+Click&lt;/b&gt; on content to drag it. &#x21E7; restricts to horizontal, &#x2303; to vertical.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Double-click&lt;/b&gt; on content to snap it to the nearest guide. Hold &#x21E7; for vertical guides, &#x2303; for horizontal, or both for both.&lt;/p&gt;
+&lt;p&gt;Use the &lt;b&gt;context menu&lt;/b&gt; to show or hide hard margins.&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="textInteractionFlags">
          <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>

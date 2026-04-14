@@ -5,7 +5,9 @@
 #define SCANTAILOR_EXPORT_OPTIONSWIDGET_H_
 
 #include <memory>
+#include <set>
 
+#include "Dpi.h"
 #include "FilterOptionsWidget.h"
 #include "PageId.h"
 #include "PageSelectionAccessor.h"
@@ -39,9 +41,12 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::ExportOptionsWidge
   void compressGrayscaleChanged(bool checked);
   void qualityChanged(int index);
   void exportToPdfClicked();
+  void changeOutputDpiClicked();
+  void outputDpiChanged(const std::set<PageId>& pages, const Dpi& dpi);
 
  private:
   void updateDisplay();
+  void updateOutputDpiDisplay();
   void populateQualityCombo();
 
   std::shared_ptr<Settings> m_settings;

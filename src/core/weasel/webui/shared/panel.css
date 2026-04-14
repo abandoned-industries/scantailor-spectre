@@ -1,0 +1,289 @@
+/* ============================================================
+   Panel design system — shared CSS for all web-based option panels.
+   Max Bill / Swiss International Style: monochrome, typographic
+   hierarchy, hairline dividers, no decoration.
+   ============================================================ */
+
+:root {
+  --bg:             #ffffff;
+  --bg-input:       #ffffff;
+  --text:           #333333;
+  --text-muted:     #666666;
+  --text-dim:       #888888;
+  --text-subtle:    #999999;
+  --border:         #cccccc;
+  --border-subtle:  #dddddd;
+  --accent:         #333333;
+  --accent-hover:   #111111;
+
+  --font: -apple-system, 'Helvetica Neue', Helvetica, sans-serif;
+  --fs-body:        11px;
+  --fs-label:       11px;
+  --fs-value:       10px;
+  --fs-section:     10px;
+  --fs-subheader:   10px;
+  --fs-button:      10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: hidden;
+}
+
+.panel {
+  padding: 6px 14px;
+}
+
+.panel-centered {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- Section headers ---------- */
+
+.section-header {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.section-header:first-child { padding-top: 2px; }
+
+.sub-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 4px 0 1px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  padding: 3px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  font-size: var(--fs-button);
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  border-radius: 0;
+}
+
+.btn:hover { border-color: #888; }
+.btn:active { background: #eeeeee; }
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* ---------- Sliders ---------- */
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  gap: 6px;
+  margin: 0;
+}
+
+.slider-row .label {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  width: 64px;
+  flex-shrink: 0;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: transparent;
+  outline: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+.slider-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--border);
+  border-radius: 0;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 2px;
+  height: 12px;
+  background: var(--accent);
+  cursor: pointer;
+  margin-top: -6px;
+  border: none;
+  border-radius: 0;
+}
+
+.slider-row input[type="range"]:hover::-webkit-slider-thumb {
+  background: var(--accent-hover);
+  width: 3px;
+}
+
+.slider-row .value {
+  font-size: var(--fs-value);
+  color: var(--text-dim);
+  width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+/* ---------- Checkboxes ---------- */
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: var(--fs-body);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.check-row input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--text-subtle);
+  background: var(--bg-input);
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.check-row input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.check-row input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: -1px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.check-row input[type="checkbox"]:hover {
+  border-color: var(--text-muted);
+}
+
+/* ---------- Radio buttons ---------- */
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: var(--fs-body);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.radio-row input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--text-subtle);
+  background: var(--bg-input);
+  border-radius: 50%;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radio-row input[type="radio"]:checked {
+  border-color: var(--accent);
+}
+
+.radio-row input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+/* ---------- Select / dropdown ---------- */
+
+select {
+  font-family: inherit;
+  font-size: var(--fs-body);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  padding: 2px 6px;
+  color: var(--text);
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ---------- Number input ---------- */
+
+input[type="number"], input[type="text"] {
+  font-family: inherit;
+  font-size: var(--fs-body);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  padding: 2px 4px;
+  color: var(--text);
+  border-radius: 0;
+  -webkit-appearance: none;
+}
+
+/* ---------- Row layouts ---------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: var(--fs-body);
+  color: var(--text);
+}
+
+.row .label {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+}
+
+.row .grow { flex: 1; }

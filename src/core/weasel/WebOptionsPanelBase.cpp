@@ -1,0 +1,65 @@
+// Copyright (C) 2026  ScanTailor Spectre contributors
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "WebOptionsPanelBase.h"
+
+#include <QColor>
+#include <QFile>
+#include <QUrl>
+#include <QVBoxLayout>
+#include <QWebChannel>
+#include <QWebEnginePage>
+#include <QWebEngineSettings>
+#include <QWebEngineView>
+
+// Force linking of the webui.qrc resource when compiled into a static library.
+// Q_INIT_RESOURCE cannot be called from an anonymous namespace.
+static void initWebUIResources() {
+  static bool initialized = false;
+  if (!initialized) {
+    Q_INIT_RESOURCE(webui);
+    initialized = true;
+  }
+}
+
+namespace weasel {
+
+WebOptionsPanelBase::WebOptionsPanelBase(const QString& htmlPath, QWidget* parent)
+    : QWidget(parent),
+      m_view(new QWebEngineView(this)),
+      m_channel(new QWebChannel(this)) {
+  initWebUIResources();
+
+  auto* layout = new QVBoxLayout(this);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(0);
+  layout->addWidget(m_view);
+
+  m_view->page()->setWebChannel(m_channel);
+
+  // NOTE: Do NOT use Qt::transparent here. On macOS + Qt 6.x, transparent
+  // background on QWebEnginePage breaks the GPU compositor and causes the
+  // view to render as a solid black rectangle. Match the HTML body background.
+  m_view->page()->setBackgroundColor(Qt::white);
+
+  auto* settings = m_view->settings();
+  settings->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, true);
+  settings->setAttribute(QWebEngineSettings::ShowScrollBars, false);
+
+  // Read HTML content directly from Qt resources, then setHtml() with a base
+  // URL so relative CSS/JS paths in the document resolve correctly.
+  const QString resourcePath = QStringLiteral(":/weasel/webui/") + htmlPath;
+  QFile file(resourcePath);
+  if (file.open(QIODevice::ReadOnly)) {
+    const QString html = QString::fromUtf8(file.readAll());
+    m_view->setHtml(html, QUrl("qrc:/weasel/webui/"));
+  }
+}
+
+WebOptionsPanelBase::~WebOptionsPanelBase() = default;
+
+void WebOptionsPanelBase::registerBridge(QObject* bridge) {
+  m_channel->registerObject(QStringLiteral("bridge"), bridge);
+}
+
+}  // namespace weasel
