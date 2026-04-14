@@ -122,27 +122,16 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void equalizeIlluminationToggled(bool checked);
 
-  void equalizeIlluminationColorToggled(bool checked);
-
-  void paperBrightnessChanged(int value);
-
-  void paperSaturationChanged(int value);
-
-  void paperCoverageChanged(double value);
-
-  void adaptiveDetectionToggled(bool checked);
-
-  void forceWhiteBalanceToggled(bool checked);
-
-  void pickPaperColorClicked();
-
-  void clearPaperColorClicked();
-
-  void brightnessChanged(int value);
-
-  void contrastChanged(int value);
-
-  void autoLevelsToggled(bool checked);
+  void photoAdjTempChanged(int value);
+  void photoAdjTintChanged(int value);
+  void photoAdjExposureChanged(int value);
+  void photoAdjContrastChanged(int value);
+  void photoAdjHighlightsChanged(int value);
+  void photoAdjShadowsChanged(int value);
+  void photoAdjWhitesChanged(int value);
+  void photoAdjBlacksChanged(int value);
+  void photoAdjAutoClicked();
+  void photoAdjResetClicked();
 
   void savitzkyGolaySmoothingToggled(bool checked);
 
@@ -192,8 +181,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updateDpiDisplay();
 
   void updateColorsDisplay();
-
-  void updatePaperColorSwatch();
 
   void updateDewarpingDisplay();
 

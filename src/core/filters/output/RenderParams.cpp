@@ -43,9 +43,7 @@ RenderParams::RenderParams(const ColorParams& colorParams, const SplittingOption
       }
     }
   } else {
-    if (colorCommonOptions.normalizeIllumination()) {
-      m_mask |= NORMALIZE_ILLUMINATION;
-    }
+    // Color illumination normalization replaced by photo adjustments.
     if (colorCommonOptions.getPosterizationOptions().isEnabled()) {
       m_mask |= POSTERIZE;
     }
@@ -56,8 +54,7 @@ RenderParams::RenderParams(const ColorParams& colorParams, const SplittingOption
   if (colorCommonOptions.fillOffcut()) {
     m_mask |= FILL_OFFCUT;
   }
-  if (colorCommonOptions.normalizeIllumination()) {
-    m_mask |= NORMALIZE_ILLUMINATION_COLOR;
-  }
+  // Color illumination normalization is replaced by photo adjustments (temp/tint/exposure sliders).
+  // No longer set NORMALIZE_ILLUMINATION_COLOR.
 }
 }  // namespace output

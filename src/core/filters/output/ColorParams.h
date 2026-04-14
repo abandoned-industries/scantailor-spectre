@@ -7,6 +7,7 @@
 #include "BlackWhiteOptions.h"
 #include "ColorCommonOptions.h"
 #include "SplittingOptions.h"
+#include "weasel/PhotoAdjustments.h"
 
 class QDomDocument;
 class QDomElement;
@@ -51,6 +52,10 @@ class ColorParams {
 
   void setBlackWhiteOptions(const BlackWhiteOptions& opt);
 
+  const weasel::PhotoAdjustments& photoAdjustments() const;
+
+  void setPhotoAdjustments(const weasel::PhotoAdjustments& adj);
+
  private:
   static ColorMode parseColorMode(const QString& str);
 
@@ -60,6 +65,7 @@ class ColorParams {
   bool m_colorModeUserSet;  // true if user explicitly chose this mode
   ColorCommonOptions m_colorCommonOptions;
   BlackWhiteOptions m_bwOptions;
+  weasel::PhotoAdjustments m_photoAdjustments;
 };
 
 
@@ -85,6 +91,14 @@ inline const BlackWhiteOptions& ColorParams::blackWhiteOptions() const {
 
 inline void ColorParams::setBlackWhiteOptions(const BlackWhiteOptions& opt) {
   m_bwOptions = opt;
+}
+
+inline const weasel::PhotoAdjustments& ColorParams::photoAdjustments() const {
+  return m_photoAdjustments;
+}
+
+inline void ColorParams::setPhotoAdjustments(const weasel::PhotoAdjustments& adj) {
+  m_photoAdjustments = adj;
 }
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_COLORPARAMS_H_

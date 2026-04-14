@@ -57,6 +57,7 @@
 #include "ColorParams.h"
 #include "DebugImages.h"
 #include "WhiteBalance.h"
+#include "weasel/TonalCurve.h"
 #include "DewarpingOptions.h"
 #include "Dpm.h"
 #include "EstimateBackground.h"
@@ -1310,134 +1311,23 @@ void OutputGenerator::Processor::initFilterData(const FilterData& input) {
   // Determine if output should be color based on mode and input
   const ColorMode colorMode = m_colorParams.colorMode();
 
-  // Start from the true source image (non-inverted). Apply WB before any black-on-white inversion.
+  // Start from the true source image (non-inverted). Apply adjustments before any black-on-white inversion.
   QImage wbOrigImage = input.origImage();
-  QColor wbAppliedColor;
 
-  // Apply white balance correction for color modes
-  // Priority: 1) Manual picked color, 2) Force WB (auto-detect brightest), 3) None
-  if (colorMode == COLOR || colorMode == COLOR_GRAYSCALE || colorMode == MIXED) {
-    const QColor manualWBColor = m_settings->getManualWhiteBalanceColor(m_pageId);
-    const bool forceWB = m_settings->getForceWhiteBalance(m_pageId);
-    const QColor marginColor
-        = WhiteBalance::detectPaperColor(wbOrigImage, m_contentAreaInOriginalCs.boundingRect().toRect());
-
-    const QByteArray pagePathUtf8 = m_pageId.imageId().filePath().toUtf8();
-    fprintf(stderr, "OutputGenerator: colorMode=%d forceWB=%d manualWB=%d page=%s\n",
-            colorMode, forceWB, manualWBColor.isValid(), pagePathUtf8.constData());
-
-    if (manualWBColor.isValid()) {
-      // User picked a paper color - use it directly
-      qDebug() << "OutputGenerator: Applying manual white balance with color:" << manualWBColor;
-      wbOrigImage = WhiteBalance::apply(wbOrigImage, manualWBColor);
-      wbAppliedColor = manualWBColor;
-      qDebug() << "OutputGenerator: APPLIED manual white balance";
-    } else if (forceWB) {
-      // Prefer margin-based paper detection; fallback to brightest pixels (paper-like) if needed.
-      QColor wbColor = marginColor;
-      if (!wbColor.isValid()) {
-        qDebug() << "OutputGenerator: force WB - no margin color, using brightest paper-like pixels";
-        wbColor = WhiteBalance::findBrightestPixels(wbOrigImage);
-      } else {
-        qDebug() << "OutputGenerator: force WB using margin-detected paper color:" << wbColor;
-      }
-
-      if (wbColor.isValid() && WhiteBalance::hasSignificantCast(wbColor)) {
-        wbOrigImage = WhiteBalance::apply(wbOrigImage, wbColor);
-        wbAppliedColor = wbColor;
-        qDebug() << "OutputGenerator: APPLIED forced white balance";
-      } else {
-        qDebug() << "OutputGenerator: NOT applying - color invalid or no cast";
-      }
-    } else if (marginColor.isValid() && WhiteBalance::hasSignificantCast(marginColor)) {
-      // Auto WB (non-force) can benefit from margin color if it shows a cast.
-      qDebug() << "OutputGenerator: Auto WB using margin-detected paper color:" << marginColor;
-      wbOrigImage = WhiteBalance::apply(wbOrigImage, marginColor);
-      wbAppliedColor = marginColor;
-      qDebug() << "OutputGenerator: APPLIED auto white balance (margin)";
-    }
-  }
-
-  // If we have a paper color (manual / margin / brightest), nudge background-like pixels inside content to it.
-  if (wbAppliedColor.isValid()) {
-    BinaryImage contentMask(input.origImage().size(), BLACK);
-    PolygonRasterizer::fill(contentMask, WHITE, m_contentAreaInOriginalCs, Qt::WindingFill);
-    const ColorCommonOptions& colorOpts = m_colorParams.colorCommonOptions();
-    flattenBackgroundToPaper(wbOrigImage, contentMask, wbAppliedColor,
-                             colorOpts.paperBrightnessThreshold(),
-                             colorOpts.paperSaturationThreshold());
-  }
-
-  // Apply per-page brightness / contrast adjustments (after WB / illumination, before inversion).
-  const OutputProcessingParams opp = m_settings->getOutputProcessingParams(m_pageId);
-
-  // Auto levels: stretch histogram to full 0-255 range
-  if (opp.autoLevels()) {
-    QImage work = wbOrigImage.convertToFormat(QImage::Format_ARGB32);
-    const int w = work.width();
-    const int h = work.height();
-
-    // First pass: find min/max values
-    int minVal = 255, maxVal = 0;
-    for (int y = 0; y < h; ++y) {
-      const QRgb* line = reinterpret_cast<const QRgb*>(work.constScanLine(y));
-      for (int x = 0; x < w; ++x) {
-        const QRgb p = line[x];
-        const int gray = (qRed(p) * 299 + qGreen(p) * 587 + qBlue(p) * 114) / 1000;
-        minVal = std::min(minVal, gray);
-        maxVal = std::max(maxVal, gray);
-      }
-    }
-
-    qDebug() << "OutputGenerator: Auto levels min=" << minVal << "max=" << maxVal;
-
-    // Second pass: stretch histogram if there's a meaningful range to stretch
-    if (maxVal > minVal && (minVal > 0 || maxVal < 255)) {
-      const double scale = 255.0 / (maxVal - minVal);
-      for (int y = 0; y < h; ++y) {
-        QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
-        for (int x = 0; x < w; ++x) {
-          const QRgb p = line[x];
-          int r = static_cast<int>((qRed(p) - minVal) * scale);
-          int g = static_cast<int>((qGreen(p) - minVal) * scale);
-          int b = static_cast<int>((qBlue(p) - minVal) * scale);
-          r = std::clamp(r, 0, 255);
-          g = std::clamp(g, 0, 255);
-          b = std::clamp(b, 0, 255);
-          line[x] = qRgb(r, g, b);
-        }
-      }
-      wbOrigImage = work.convertToFormat(wbOrigImage.format());
-      qDebug() << "OutputGenerator: Auto levels applied, stretched" << minVal << "-" << maxVal << "to 0-255";
-    }
-  }
-
-  qDebug() << "OutputGenerator: brightness=" << opp.brightness() << "contrast=" << opp.contrast();
-  if (opp.brightness() != 0.0 || opp.contrast() != 0.0) {
-    // brightness: [-1, 1] mapped to roughly [-255, 255] additive
-    const int bShift = static_cast<int>(opp.brightness() * 255.0);
-    // contrast: [-1, 1] mapped to ~[0.4, 2.5] multiplier around 128
-    const double cMul = std::max(0.2, std::pow(2.0, opp.contrast() * 1.3));
-    qDebug() << "OutputGenerator: APPLYING brightness/contrast bShift=" << bShift << "cMul=" << cMul;
-
-    QImage work = wbOrigImage.convertToFormat(QImage::Format_ARGB32);
-    const int w = work.width();
-    const int h = work.height();
-    for (int y = 0; y < h; ++y) {
-      QRgb* line = reinterpret_cast<QRgb*>(work.scanLine(y));
-      for (int x = 0; x < w; ++x) {
-        const QRgb p = line[x];
-        int r = static_cast<int>((qRed(p) - 128) * cMul + 128 + bShift);
-        int g = static_cast<int>((qGreen(p) - 128) * cMul + 128 + bShift);
-        int b = static_cast<int>((qBlue(p) - 128) * cMul + 128 + bShift);
-        r = std::clamp(r, 0, 255);
-        g = std::clamp(g, 0, 255);
-        b = std::clamp(b, 0, 255);
-        line[x] = qRgb(r, g, b);
-      }
-    }
-    wbOrigImage = work.convertToFormat(wbOrigImage.format());
-    qDebug() << "OutputGenerator: brightness/contrast applied to" << w << "x" << h << "pixels";
+  // Apply photo adjustments (temp/tint + tonal curve) via LUT-based pipeline
+  const weasel::PhotoAdjustments& adj = m_colorParams.photoAdjustments();
+  qDebug() << "OutputGenerator: PhotoAdjustments isDefault=" << adj.isDefault()
+           << "temp=" << adj.temp() << "tint=" << adj.tint()
+           << "exposure=" << adj.exposure() << "contrast=" << adj.contrast()
+           << "highlights=" << adj.highlights() << "shadows=" << adj.shadows()
+           << "whites=" << adj.whites() << "blacks=" << adj.blacks();
+  if (!adj.isDefault()) {
+    wbOrigImage = weasel::TonalCurve::apply(wbOrigImage,
+                                             adj.temp(), adj.tint(),
+                                             adj.exposure(), adj.contrast(),
+                                             adj.highlights(), adj.shadows(),
+                                             adj.whites(), adj.blacks());
+    qDebug() << "OutputGenerator: Applied photo adjustments";
   }
 
   // Assign processed originals and apply inversion only after WB, if needed.

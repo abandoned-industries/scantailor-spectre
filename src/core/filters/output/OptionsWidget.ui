@@ -231,197 +231,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="equalizeIlluminationColorCB">
-             <property name="toolTip">
-              <string>Normalize illumination in color mode / in picture zones in mixed mode.</string>
-             </property>
-             <property name="text">
-              <string>Equalize illumination (Color)</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QWidget" name="paperDetectionWidget">
-             <layout class="QGridLayout" name="paperDetectionLayout">
-              <property name="leftMargin">
-               <number>15</number>
-              </property>
-              <property name="topMargin">
-               <number>2</number>
-              </property>
-              <property name="bottomMargin">
-               <number>2</number>
-              </property>
-              <item row="0" column="0">
-               <widget class="QLabel" name="paperBrightnessLabel">
-                <property name="text">
-                 <string>Min Brightness:</string>
-                </property>
-                <property name="toolTip">
-                 <string>Pixels brighter than this are considered paper (0-255)</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QSpinBox" name="paperBrightnessSB">
-                <property name="minimum">
-                 <number>0</number>
-                </property>
-                <property name="maximum">
-                 <number>255</number>
-                </property>
-                <property name="value">
-                 <number>120</number>
-                </property>
-                <property name="toolTip">
-                 <string>Lower values detect darker/yellowed paper</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="0">
-               <widget class="QLabel" name="paperSaturationLabel">
-                <property name="text">
-                 <string>Max Saturation:</string>
-                </property>
-                <property name="toolTip">
-                 <string>Pixels less saturated than this are considered paper (0-255)</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QSpinBox" name="paperSaturationSB">
-                <property name="minimum">
-                 <number>0</number>
-                </property>
-                <property name="maximum">
-                 <number>255</number>
-                </property>
-                <property name="value">
-                 <number>60</number>
-                </property>
-                <property name="toolTip">
-                 <string>Higher values allow more colored pixels to count as paper</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QLabel" name="paperCoverageLabel">
-                <property name="text">
-                 <string>Min Coverage:</string>
-                </property>
-                <property name="toolTip">
-                 <string>Minimum % of image that must be paper-like for equalization</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="1">
-               <widget class="QDoubleSpinBox" name="paperCoverageSB">
-                <property name="minimum">
-                 <double>0.0</double>
-                </property>
-                <property name="maximum">
-                 <double>50.0</double>
-                </property>
-                <property name="value">
-                 <double>1.0</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.5</double>
-                </property>
-                <property name="suffix">
-                 <string>%</string>
-                </property>
-                <property name="toolTip">
-                 <string>If less than this % is paper-like, equalization is skipped</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0" colspan="2">
-               <widget class="QCheckBox" name="adaptiveDetectionCB">
-                <property name="text">
-                 <string>Adaptive (sample margins)</string>
-                </property>
-                <property name="checked">
-                 <bool>true</bool>
-                </property>
-                <property name="toolTip">
-                 <string>Automatically detect paper color from page margins</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-           <widget class="QCheckBox" name="forceWhiteBalanceCB">
-            <property name="toolTip">
-             <string>Find brightest pixels and assume they should be white. Use for pages with color cast but no clear margins.</string>
-            </property>
-            <property name="text">
-             <string>Force white balance</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="pickPaperColorLayout">
-            <item>
-             <widget class="QPushButton" name="pickPaperColorBtn">
-              <property name="toolTip">
-                <string>Click to pick a paper color from the screen. This color will be corrected to neutral white.</string>
-               </property>
-               <property name="text">
-                <string>Pick Paper Color...</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="paperColorSwatch">
-               <property name="minimumSize">
-                <size>
-                 <width>24</width>
-                 <height>24</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>24</width>
-                 <height>24</height>
-                </size>
-               </property>
-               <property name="frameShape">
-                <enum>QFrame::Box</enum>
-               </property>
-               <property name="text">
-                <string/>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="clearPaperColorBtn">
-               <property name="toolTip">
-                <string>Clear the manually picked paper color</string>
-               </property>
-               <property name="text">
-                <string>Clear</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="pickPaperColorSpacer">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>1</width>
-                 <height>1</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </item>
-           <item>
             <widget class="QCheckBox" name="savitzkyGolaySmoothingCB">
              <property name="text">
               <string>Savitzky-Golay smoothing</string>
@@ -1068,7 +877,7 @@
    <item>
     <widget class="CollapsibleGroupBox" name="adjustmentsPanel">
      <property name="title">
-      <string>Adjustments</string>
+      <string>Photo Adjustments</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -1081,75 +890,247 @@
        <number>2</number>
       </property>
       <item>
-       <widget class="QLabel" name="brightnessLabel">
-        <property name="styleSheet">
-         <string>margin-top: 8px;</string>
-        </property>
-        <property name="text">
-         <string>Brightness</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="photoAdjAutoResetLayout">
+        <item>
+         <widget class="QPushButton" name="photoAdjAutoBtn">
+          <property name="text">
+           <string>Auto</string>
+          </property>
+          <property name="toolTip">
+           <string>Analyze image and set suggested adjustment values</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="photoAdjResetBtn">
+          <property name="text">
+           <string>Reset</string>
+          </property>
+          <property name="toolTip">
+           <string>Reset all photo adjustments to zero</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="photoAdjBtnSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>1</width>
+            <height>1</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
       <item>
-       <widget class="CenteredTickSlider" name="brightnessSlider">
-        <property name="minimum">
-         <number>-100</number>
+       <layout class="QGridLayout" name="photoAdjGrid">
+        <property name="horizontalSpacing">
+         <number>4</number>
         </property>
-        <property name="maximum">
-         <number>100</number>
-        </property>
-        <property name="singleStep">
+        <property name="verticalSpacing">
          <number>1</number>
         </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="tickPosition">
-         <enum>QSlider::TicksBelow</enum>
-        </property>
-        <property name="tickInterval">
-         <number>50</number>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="contrastLabel">
-        <property name="text">
-         <string>Contrast</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="CenteredTickSlider" name="contrastSlider">
-        <property name="minimum">
-         <number>-100</number>
-        </property>
-        <property name="maximum">
-         <number>100</number>
-        </property>
-        <property name="singleStep">
-         <number>1</number>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="tickPosition">
-         <enum>QSlider::TicksBelow</enum>
-        </property>
-        <property name="tickInterval">
-         <number>50</number>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="autoLevelsCB">
-        <property name="toolTip">
-         <string>Stretch histogram to full 0-255 range for maximum contrast</string>
-        </property>
-        <property name="text">
-         <string>Auto levels</string>
-        </property>
-       </widget>
+        <item row="0" column="0" colspan="3">
+         <widget class="QLabel" name="wbSectionLabel">
+          <property name="styleSheet">
+           <string>font-weight: bold; margin-top: 4px;</string>
+          </property>
+          <property name="text">
+           <string>White Balance</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="tempLabel">
+          <property name="text"><string>Temp</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="CenteredTickSlider" name="tempSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="tempValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="tintLabel">
+          <property name="text"><string>Tint</string></property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="CenteredTickSlider" name="tintSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLabel" name="tintValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="3">
+         <widget class="QLabel" name="toneSectionLabel">
+          <property name="styleSheet">
+           <string>font-weight: bold; margin-top: 4px;</string>
+          </property>
+          <property name="text">
+           <string>Tone</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="exposureLabel">
+          <property name="text"><string>Exposure</string></property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="CenteredTickSlider" name="exposureSlider">
+          <property name="minimum"><number>-500</number></property>
+          <property name="maximum"><number>500</number></property>
+          <property name="singleStep"><number>10</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>100</number></property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QLabel" name="exposureValue">
+          <property name="text"><string>0.00</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>38</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="contrastLabel">
+          <property name="text"><string>Contrast</string></property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="CenteredTickSlider" name="contrastSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="5" column="2">
+         <widget class="QLabel" name="contrastValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QLabel" name="highlightsLabel">
+          <property name="text"><string>Highlights</string></property>
+         </widget>
+        </item>
+        <item row="6" column="1">
+         <widget class="CenteredTickSlider" name="highlightsSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="6" column="2">
+         <widget class="QLabel" name="highlightsValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="shadowsLabel">
+          <property name="text"><string>Shadows</string></property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="CenteredTickSlider" name="shadowsSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="7" column="2">
+         <widget class="QLabel" name="shadowsValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="8" column="0">
+         <widget class="QLabel" name="whitesLabel">
+          <property name="text"><string>Whites</string></property>
+         </widget>
+        </item>
+        <item row="8" column="1">
+         <widget class="CenteredTickSlider" name="whitesSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="8" column="2">
+         <widget class="QLabel" name="whitesValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+        <item row="9" column="0">
+         <widget class="QLabel" name="blacksLabel">
+          <property name="text"><string>Blacks</string></property>
+         </widget>
+        </item>
+        <item row="9" column="1">
+         <widget class="CenteredTickSlider" name="blacksSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::TicksBelow</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="9" column="2">
+         <widget class="QLabel" name="blacksValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

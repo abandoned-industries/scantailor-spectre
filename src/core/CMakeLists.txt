@@ -60,6 +60,8 @@ set(common_sources
     ImageTypeDetector.cpp ImageTypeDetector.h
     LeptonicaDetector.cpp LeptonicaDetector.h
     WhiteBalance.cpp WhiteBalance.h
+    weasel/PhotoAdjustments.cpp weasel/PhotoAdjustments.h
+    weasel/TonalCurve.cpp weasel/TonalCurve.h
     AppleVisionDetector.h
     ErrorWidget.cpp ErrorWidget.h
     OrthogonalRotation.cpp OrthogonalRotation.h
