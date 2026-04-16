@@ -96,6 +96,10 @@ target_include_directories(
 
 # macOS bundle configuration
 if(APPLE)
+  option(SCANTAILOR_MAC_BUNDLE_POST_BUILD
+         "Run macdeployqt, bundle-fixups, and ad-hoc signing after every scantailor build"
+         OFF)
+
   set_target_properties(scantailor PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "ScanTailor Spectre"
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.scantailor.spectre"
@@ -134,26 +138,50 @@ if(APPLE)
   find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
 
   if(MACDEPLOYQT_EXECUTABLE)
-    # Run macdeployqt to bundle Qt frameworks
-    add_custom_command(TARGET scantailor POST_BUILD
+    set(SCANTAILOR_BUNDLE_DIR "$<TARGET_BUNDLE_DIR:scantailor>")
+    set(SCANTAILOR_BUNDLE_CONTENTS_DIR "${SCANTAILOR_BUNDLE_DIR}/Contents")
+    set(SCANTAILOR_BUNDLE_FRAMEWORKS_DIR "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/Frameworks")
+    set(SCANTAILOR_BUNDLE_PLUGINS_DIR "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/PlugIns")
+    set(SCANTAILOR_BUNDLE_SIGNATURE_DIR "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/_CodeSignature")
+    set(SCANTAILOR_BUNDLE_QT_CONF "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/Resources/qt.conf")
+
+    add_custom_target(scantailor_bundle
+      COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_FRAMEWORKS_DIR}"
+      COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_PLUGINS_DIR}"
+      COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_SIGNATURE_DIR}"
+      COMMAND ${CMAKE_COMMAND} -E rm -f "${SCANTAILOR_BUNDLE_QT_CONF}"
+      COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+        "${SCANTAILOR_BUNDLE_DIR}"
+        -always-overwrite
+      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/packaging/macos/fix-bundle-libs.sh" "${SCANTAILOR_BUNDLE_DIR}"
+      COMMAND codesign --force --deep --sign - "${SCANTAILOR_BUNDLE_DIR}"
+      DEPENDS scantailor
+      COMMENT "Bundling Qt frameworks and ad-hoc signing the app bundle..."
+      VERBATIM
+    )
+
+    if(SCANTAILOR_MAC_BUNDLE_POST_BUILD)
+      # Run macdeployqt to bundle Qt frameworks
+      add_custom_command(TARGET scantailor POST_BUILD
       COMMAND "${MACDEPLOYQT_EXECUTABLE}"
         "$<TARGET_BUNDLE_DIR:scantailor>"
         -always-overwrite
       COMMENT "Running macdeployqt to bundle Qt frameworks..."
-    )
+      )
 
-    # Fix missing transitive dependencies (brotli libraries)
-    # macdeployqt sometimes misses these
-    add_custom_command(TARGET scantailor POST_BUILD
+      # Fix missing transitive dependencies (brotli libraries)
+      # macdeployqt sometimes misses these
+      add_custom_command(TARGET scantailor POST_BUILD
       COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/packaging/macos/fix-bundle-libs.sh" "$<TARGET_BUNDLE_DIR:scantailor>"
       COMMENT "Fixing missing library dependencies..."
-    )
+      )
 
-    # Ad-hoc code signing for local development
-    add_custom_command(TARGET scantailor POST_BUILD
+      # Ad-hoc code signing for local development
+      add_custom_command(TARGET scantailor POST_BUILD
       COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:scantailor>"
       COMMENT "Ad-hoc signing the app bundle..."
-    )
+      )
+    endif()
   else()
     message(WARNING "macdeployqt not found. The app bundle will not be self-contained.")
   endif()

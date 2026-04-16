@@ -2,11 +2,18 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a27** | macOS (Apple Silicon) | Requires macOS 12 or later
+**Version 2.0a28** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
+
+## Version 2.0a28
+
+- Adds photo adjustment controls in Output, including exposure, contrast, highlights, shadows, whites, blacks, temperature, and tint.
+- Fixes photo adjustments so they apply properly to multiple selected pages and refresh the thumbnails afterward.
+- Fixes Output so B&W and grayscale pages show the right controls instead of the full color adjustment panel.
+- Sets the minimum supported macOS version to 15.
 
 ## Features
 - **Auto Mode** - One-button processing through all stages with smart defaults: majority-vote page splitting, zero deskew, content outlier detection, and size outlier handling

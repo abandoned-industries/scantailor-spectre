@@ -176,10 +176,12 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updateBinarizationOptionsDisplay(int idx);
 
   void sendReloadRequested();
+  void sendSelectedPagesBatchProcessingRequested();
 
   void passThroughToggled(bool checked);
 
  private:
+  ColorMode effectiveColorMode() const;
   void handleDespeckleLevelChange(double level, bool delay = false);
 
   void reloadIfNecessary();
@@ -194,7 +196,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void setupUiConnections();
 
-  void applyColorParamsToSelectedPages();
+  void applyColorParamsToSelectedPages(bool triggerBatchProcessing = false);
 
   void updateSelectionIndicator();
 
@@ -213,10 +215,13 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   double m_despeckleLevel;
   ImageViewTab m_lastTab;
   QTimer m_delayedReloadRequest;
+  QTimer m_delayedSelectedPagesBatchProcessing;
+  std::set<PageId> m_pendingSelectedPagesBatchProcessing;
 
   weasel::PhotoAdjustmentsPanel* m_photoAdjPanel = nullptr;
   weasel::WebOptionsPanelBase* m_webPanel = nullptr;
   weasel::GenericPanelBridge* m_webBridge = nullptr;
+  bool m_webPanelActive = false;
 
   ConnectionManager m_connectionManager;
 };

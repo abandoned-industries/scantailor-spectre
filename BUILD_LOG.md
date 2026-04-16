@@ -1766,3 +1766,53 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 - Cherry-picked UI redesign (modernized options panels, web-based panels, stylesheet)
 - Reverted fix_orientation web panel to native Qt (WebEngine bundling issues)
 - Removed resetAllAutoPages in favor of resetAllSplits
+---
+2026-04-14 14:59 - Restore Output photo/options panels fallback before build
+- src/core/filters/output/OptionsWidget.cpp: keep native Output controls visible unless the web panel loads successfully, and insert the web panel deterministically before dewarping
+- src/core/filters/output/OptionsWidget.h: track whether the web panel is actually active
+- src/core/weasel/WebOptionsPanelBase.h: add a loadFinished(bool) signal for runtime fallback decisions
+- src/core/weasel/WebOptionsPanelBase.cpp: emit web panel load status to callers
+---
+2026-04-14 22:27 - Propagate Output photo adjustments across multi-selection before build
+- src/core/filters/output/OptionsWidget.cpp: route photo adjustment slider changes and Auto/Reset through the existing selected-pages color propagation helper
+
+---
+2026-04-14 22:35 - Preserve edited page settings during targeted Output batch reprocessing before build
+- src/app/MainWindow.cpp: stop reloading default settings inside batchProcessPages(), which was clobbering freshly edited Output params before queued reprocessing
+---
+2026-04-15 09:52 - Bump app version to 2.0a28 and rebuild
+- version.h.in: increment VERSION from 2.0a27 to 2.0a28
+- README.md: update displayed version banner to 2.0a28
+---
+2026-04-15 10:15 - Fix Output web panel mode visibility and selected-pages photo adjustment propagation before build
+- src/core/filters/output/OptionsWidget.cpp/.h: add mode-aware web panel state and stop sending photo slider edits through batch processing on every change
+- src/core/weasel/webui/photo_adjustments.html: add section wrappers and IDs for mode-aware visibility control
+- src/core/weasel/webui/shared/panel.js: add generic visibility setter support for web option panels
+---
+2026-04-15 10:28 - Fix Output web panel refresh and clipped slider values before build
+- src/core/filters/output/OptionsWidget.cpp: always push fresh mode state to the web panel at the end of updateColorsDisplay()
+- src/core/weasel/webui/shared/panel.css: widen slider value column so negative and multi-digit values are not clipped
+---
+2026-04-15 10:42 - Fix Output effective color mode and selected-pages thumbnail reprocessing before build
+- src/core/filters/output/OptionsWidget.cpp/.h: resolve Output UI state from Finalize color mode when present, keep Output color params in sync with that effective mode, and debounce selected-pages batch reprocessing after photo adjustment edits so non-current thumbnails refresh
+---
+2026-04-15 10:55 - Restrict Output web panel to color mode before build
+- src/core/filters/output/OptionsWidget.cpp: use web options panel only for color output, keep native Qt controls for grayscale and B&W, and hide native Temp/Tint controls outside color mode
+---
+2026-04-15 11:08 - Fix grayscale photo adjustments persistence and add typed value fields before build
+- src/core/filters/output/OptionsWidget.cpp: sync photo-adjustment saves to the effective Output color mode and keep slider positions in sync with typed entry
+- src/core/filters/output/OptionsWidget.ui: replace photo-adjustment value labels with editable line edits for direct numeric entry
+---
+2026-04-15 12:55 - Fix macOS bundle packaging flow before clean validation build
+- src/app/CMakeLists.txt: stop running macdeployqt/fix-bundle-libs/codesign on every scantailor build by default; add explicit scantailor_bundle target for deploy/sign work
+- CLAUDE.md: update local build recipe to use separate scantailor and scantailor_bundle targets
+---
+2026-04-15 13:27 - Allow clean macOS builds without local Metal shader compiler before clean validation build
+- src/acceleration/CMakeLists.txt: detect metal/metallib availability via xcrun and skip bundled shader compilation when the optional Metal toolchain component is missing, keeping CPU fallbacks available
+---
+2026-04-15 13:36 - Clear stale Metal shader bundle path before clean validation build
+- src/acceleration/CMakeLists.txt: unset cached SCANTAILOR_METALLIB when shader compilation is unavailable so clean builds do not try to copy a missing default.metallib
+2026-04-15 14:02 - Make macOS bundle packaging target clean stale app bundle contents before deploy verification
+2026-04-15 14:22 - Rebuild clean packaging tree for macOS 15.0 deployment target and regenerate distributable bundle
+2026-04-15 15:36 - Normalize bundled dylib deployment targets to app minimum during macOS 15 packaging rebuild
+2026-04-15 16:22 - Finalize 2.0a28 release docs, regenerate README PDF, and prepare signed notarized release artifacts

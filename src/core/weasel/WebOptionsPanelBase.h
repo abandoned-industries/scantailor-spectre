@@ -41,6 +41,9 @@ class WebOptionsPanelBase : public QWidget {
    */
   void registerBridge(QObject* bridge);
 
+ signals:
+  void loadFinished(bool ok);
+
  protected:
   QWebEngineView* webView() const { return m_view; }
   QWebChannel* channel() const { return m_channel; }

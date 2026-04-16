@@ -13,6 +13,10 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   message(FATAL_ERROR "ScanTailor Spectre is supported on macOS only.")
 endif()
 
+if (APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum macOS deployment target." FORCE)
+endif()
+
 # Set compiler flags.
 set(CMAKE_CXX_STANDARD 17)
 

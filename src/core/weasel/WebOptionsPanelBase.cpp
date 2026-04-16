@@ -57,6 +57,7 @@ WebOptionsPanelBase::WebOptionsPanelBase(const QString& htmlPath, QWidget* paren
   }
 
   connect(m_view->page(), &QWebEnginePage::loadFinished, this, [this](bool ok) {
+    emit loadFinished(ok);
     if (!ok) {
       return;
     }

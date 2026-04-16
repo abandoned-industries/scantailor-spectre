@@ -9,6 +9,74 @@ if [ -z "$APP_BUNDLE" ]; then
 fi
 
 FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
+INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
+
+version_gt() {
+    [ "$1" = "$2" ] && return 1
+
+    local IFS=.
+    local i
+    local -a lhs=($1) rhs=($2)
+    local len=${#lhs[@]}
+    if [ ${#rhs[@]} -gt $len ]; then
+        len=${#rhs[@]}
+    fi
+
+    for ((i=0; i<len; i++)); do
+        local lv=${lhs[i]:-0}
+        local rv=${rhs[i]:-0}
+        if (( lv > rv )); then
+            return 0
+        fi
+        if (( lv < rv )); then
+            return 1
+        fi
+    done
+
+    return 1
+}
+
+retarget_newer_dylibs() {
+    local target_minos=""
+    local vtool_bin=""
+
+    if [ -f "$INFO_PLIST" ]; then
+        target_minos=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$INFO_PLIST" 2>/dev/null || true)
+    fi
+    if [ -z "$target_minos" ]; then
+        echo "LSMinimumSystemVersion not found - skipping dylib deployment target normalization."
+        return
+    fi
+
+    vtool_bin=$(xcrun -find vtool 2>/dev/null || true)
+    if [ -z "$vtool_bin" ]; then
+        echo "vtool not available - skipping dylib deployment target normalization."
+        return
+    fi
+
+    while IFS= read -r dylib; do
+        [ -z "$dylib" ] && continue
+
+        local current_minos=""
+        local sdk_version=""
+        current_minos=$(otool -l "$dylib" | awk '/minos / { print $2; exit }')
+        sdk_version=$(otool -l "$dylib" | awk '/sdk / { print $2; exit }')
+
+        if [ -z "$current_minos" ] || [ -z "$sdk_version" ]; then
+            continue
+        fi
+
+        if version_gt "$current_minos" "$target_minos"; then
+            echo "Retargeting $(basename "$dylib") from macOS $current_minos to $target_minos..."
+            local tmp_output
+            tmp_output="${dylib}.retargeted"
+            rm -f "$tmp_output"
+            "$vtool_bin" -set-build-version macos "$target_minos" "$sdk_version" -replace -output "$tmp_output" "$dylib"
+            mv "$tmp_output" "$dylib"
+            chmod 755 "$dylib"
+        fi
+    done < <(find "$FRAMEWORKS_DIR" -maxdepth 1 -type f -name '*.dylib' -print)
+}
 
 fix_webengine_helper_frameworks() {
     local helper_app="$FRAMEWORKS_DIR/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app"
@@ -163,5 +231,7 @@ if [ -f "$FRAMEWORKS_DIR/libwebp.7.dylib" ]; then
 fi
 
 fix_webengine_helper_frameworks
+
+retarget_newer_dylibs
 
 echo "Bundle library fix complete."

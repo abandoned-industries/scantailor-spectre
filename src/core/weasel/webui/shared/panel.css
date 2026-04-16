@@ -150,10 +150,11 @@ html, body {
 .slider-row .value {
   font-size: var(--fs-value);
   color: var(--text-dim);
-  width: 40px;
+  width: 52px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   cursor: default;
+  padding-right: 2px;
 }
 
 /* ---------- Checkboxes ---------- */

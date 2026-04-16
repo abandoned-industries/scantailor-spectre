@@ -4,6 +4,8 @@
 #include "OptionsWidget.h"
 
 #include <QColorDialog>
+#include <QDoubleValidator>
+#include <QIntValidator>
 #include <QDebug>
 #include <QSignalBlocker>
 #include <QToolTip>
@@ -28,6 +30,35 @@
 using namespace core;
 
 namespace output {
+namespace {
+finalize::ColorMode toFinalizeColorMode(ColorMode mode) {
+  switch (mode) {
+    case BLACK_AND_WHITE:
+      return finalize::ColorMode::BlackAndWhite;
+    case GRAYSCALE:
+      return finalize::ColorMode::Grayscale;
+    case COLOR:
+    case COLOR_GRAYSCALE:
+    case MIXED:
+    case AUTO_DETECT:
+    default:
+      return finalize::ColorMode::Color;
+  }
+}
+
+ColorMode fromFinalizeColorMode(finalize::ColorMode mode) {
+  switch (mode) {
+    case finalize::ColorMode::BlackAndWhite:
+      return BLACK_AND_WHITE;
+    case finalize::ColorMode::Grayscale:
+      return GRAYSCALE;
+    case finalize::ColorMode::Color:
+    default:
+      return COLOR;
+  }
+}
+}  // namespace
+
 OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelectionAccessor& pageSelectionAccessor)
     : m_settings(std::move(settings)),
       m_pageSelectionAccessor(pageSelectionAccessor),
@@ -36,37 +67,44 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
       m_connectionManager(std::bind(&OptionsWidget::setupUiConnections, this)) {
   setupUi(this);
 
-  // Replace Options, Reduce Noise, and Photo Adjustments sections with a
-  // unified web panel. Hide the Qt widgets (they stay wired so existing code
-  // doesn't crash, but the user sees the HTML version).
-  {
-    commonOptions->setVisible(false);
-    colorOperationsOptions->setVisible(false);
-    adjustmentsPanel->setVisible(false);
+  tempValue->setValidator(new QIntValidator(-100, 100, tempValue));
+  tintValue->setValidator(new QIntValidator(-100, 100, tintValue));
+  contrastValue->setValidator(new QIntValidator(-100, 100, contrastValue));
+  highlightsValue->setValidator(new QIntValidator(-100, 100, highlightsValue));
+  shadowsValue->setValidator(new QIntValidator(-100, 100, shadowsValue));
+  whitesValue->setValidator(new QIntValidator(-100, 100, whitesValue));
+  blacksValue->setValidator(new QIntValidator(-100, 100, blacksValue));
 
+  auto* exposureValidator = new QDoubleValidator(-5.0, 5.0, 2, exposureValue);
+  exposureValidator->setNotation(QDoubleValidator::StandardNotation);
+  exposureValue->setValidator(exposureValidator);
+
+  // Try to replace the native sections with a unified web panel.
+  // If the panel fails to load or can't be inserted, keep the native widgets.
+  {
     m_webPanel = new weasel::WebOptionsPanelBase(QStringLiteral("photo_adjustments.html"), this);
     m_webBridge = new weasel::GenericPanelBridge(this);
     m_webPanel->registerBridge(m_webBridge);
     m_webPanel->setMinimumHeight(380);
     m_webPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+    m_webPanel->hide();
+    m_webPanel->setObjectName(QStringLiteral("webOptionsPanel"));
 
-    // Insert the web panel right where commonOptions was (before dewarping)
     if (auto* parentLayout = qobject_cast<QVBoxLayout*>(layout())) {
-      // Find the dewarping section index and insert before it
-      for (int i = 0; i < parentLayout->count(); ++i) {
-        auto* item = parentLayout->itemAt(i);
-        if (item && item->widget() && item->widget()->objectName().contains("dewarping", Qt::CaseInsensitive)) {
-          parentLayout->insertWidget(i, m_webPanel);
-          break;
-        }
-      }
-      // Fallback: add at end if not found
-      if (m_webPanel->parentWidget() != this) {
+      const int insertIdx = parentLayout->indexOf(dewarpingPanel);
+      if (insertIdx >= 0) {
+        parentLayout->insertWidget(insertIdx, m_webPanel);
+      } else {
         parentLayout->addWidget(m_webPanel);
       }
     } else {
       layout()->addWidget(m_webPanel);
     }
+
+    connect(m_webPanel, &weasel::WebOptionsPanelBase::loadFinished, this, [this](bool ok) {
+      m_webPanelActive = ok;
+      updateColorsDisplay();
+    });
 
     // Photo Adjustments sliders
     connect(m_webBridge, &weasel::GenericPanelBridge::valueChanged,
@@ -86,8 +124,9 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
               else return;
               m_colorParams.setPhotoAdjustments(adj);
               m_settings->setColorParams(m_pageId, m_colorParams);
+              applyColorParamsToSelectedPages(false);
               emit reloadRequested();
-              emit invalidateThumbnail(m_pageId);
+              emit invalidateAllThumbnails();
             });
 
     // Checkboxes
@@ -141,6 +180,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   }
 
   m_delayedReloadRequest.setSingleShot(true);
+  m_delayedSelectedPagesBatchProcessing.setSingleShot(true);
 
   depthPerceptionSlider->setMinimum(qRound(DepthPerception::minValue() * 10));
   depthPerceptionSlider->setMaximum(qRound(DepthPerception::maxValue() * 10));
@@ -276,6 +316,7 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   m_pageId = pageId;
   m_outputDpi = params.outputDpi();
   m_colorParams = params.colorParams();
+  m_colorParams.setColorMode(effectiveColorMode());
   m_splittingOptions = params.splittingOptions();
   m_pictureShapeOptions = params.pictureShapeOptions();
   m_dewarpingOptions = params.dewarpingOptions();
@@ -324,6 +365,17 @@ void OptionsWidget::updateWebPanelState() {
   state[QStringLiteral("whites")] = adj.whites();
   state[QStringLiteral("blacks")] = adj.blacks();
 
+  const ColorMode colorMode = effectiveColorMode();
+  const bool isBW = (colorMode == BLACK_AND_WHITE);
+  const bool isGray = (colorMode == GRAYSCALE);
+  const bool isColorOrGrayscale = (colorMode == COLOR_GRAYSCALE || colorMode == COLOR || colorMode == GRAYSCALE);
+  state[QStringLiteral("showFillColor")] = !isBW;
+  state[QStringLiteral("showReduceNoise")] = isColorOrGrayscale && m_lastTab != TAB_DEWARPING;
+  state[QStringLiteral("showPhotoAdjustments")] = !isBW;
+  state[QStringLiteral("showWhiteBalance")] = !isBW && !isGray;
+  state[QStringLiteral("showTemp")] = !isBW && !isGray;
+  state[QStringLiteral("showTint")] = !isBW && !isGray;
+
   m_webBridge->setState(state);
 }
 
@@ -361,26 +413,13 @@ void OptionsWidget::colorModeChanged(const int idx) {
 
   // Also update finalize settings so finalize filter stays in sync
   if (m_finalizeSettings) {
-    finalize::ColorMode finalizeMode;
-    switch ((ColorMode) mode) {
-      case BLACK_AND_WHITE:
-        finalizeMode = finalize::ColorMode::BlackAndWhite;
-        break;
-      case GRAYSCALE:
-        finalizeMode = finalize::ColorMode::Grayscale;
-        break;
-      case COLOR:
-      default:
-        finalizeMode = finalize::ColorMode::Color;
-        break;
-    }
-    m_finalizeSettings->setColorMode(m_pageId, finalizeMode);
+    m_finalizeSettings->setColorMode(m_pageId, toFinalizeColorMode(static_cast<ColorMode>(mode)));
     qDebug() << "Output: User set color mode to" << mode << "for page" << m_pageId.imageId().filePath()
              << "- synced to finalize filter";
   }
 
   // Apply to all selected pages
-  applyColorParamsToSelectedPages();
+  applyColorParamsToSelectedPages(true);
 
   emit invalidateThumbnail(m_pageId);
   emit reloadRequested();
@@ -472,95 +511,129 @@ static void snapSliderToZero(CenteredTickSlider* slider, int& value, int deadzon
   }
 }
 
+static void syncSliderValue(CenteredTickSlider* slider, int value) {
+  if (slider->value() == value) {
+    return;
+  }
+  slider->blockSignals(true);
+  slider->setValue(value);
+  slider->blockSignals(false);
+}
+
 void OptionsWidget::photoAdjTempChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(tempSlider, value);
+  syncSliderValue(tempSlider, value);
   tempValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setTemp(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjTintChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(tintSlider, value);
+  syncSliderValue(tintSlider, value);
   tintValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setTint(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjExposureChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(exposureSlider, value, 25);
+  syncSliderValue(exposureSlider, value);
   exposureValue->setText(QString::number(value / 100.0, 'f', 2));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setExposure(value / 100.0);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjContrastChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(contrastSlider, value);
+  syncSliderValue(contrastSlider, value);
   contrastValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setContrast(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjHighlightsChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(highlightsSlider, value);
+  syncSliderValue(highlightsSlider, value);
   highlightsValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setHighlights(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjShadowsChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(shadowsSlider, value);
+  syncSliderValue(shadowsSlider, value);
   shadowsValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setShadows(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjWhitesChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(whitesSlider, value);
+  syncSliderValue(whitesSlider, value);
   whitesValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setWhites(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjBlacksChanged(int value) {
+  m_colorParams.setColorMode(effectiveColorMode());
   snapSliderToZero(blacksSlider, value);
+  syncSliderValue(blacksSlider, value);
   blacksValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setBlacks(value);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjAutoClicked() {
+  m_colorParams.setColorMode(effectiveColorMode());
   // Load the source image for this page to analyze
   const QString filePath = m_pageId.imageId().filePath();
   const QImage sourceImage(filePath);
@@ -578,6 +651,7 @@ void OptionsWidget::photoAdjAutoClicked() {
   adj.setBlacks(ar.blacks);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
 
   // Update all sliders and value labels
   tempSlider->setValue(static_cast<int>(adj.temp()));
@@ -592,13 +666,15 @@ void OptionsWidget::photoAdjAutoClicked() {
   updateWebPanelState();
 
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::photoAdjResetClicked() {
+  m_colorParams.setColorMode(effectiveColorMode());
   weasel::PhotoAdjustments adj;  // all defaults = 0
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
+  applyColorParamsToSelectedPages(false);
 
   // Update slider positions
   tempSlider->setValue(0);
@@ -613,7 +689,7 @@ void OptionsWidget::photoAdjResetClicked() {
   updateWebPanelState();
 
   emit reloadRequested();
-  emit invalidateThumbnail(m_pageId);
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::passThroughToggled(bool checked) {
@@ -1034,7 +1110,7 @@ void OptionsWidget::updateDpiDisplay() {
 void OptionsWidget::updateColorsDisplay() {
   colorModeSelector->blockSignals(true);
 
-  ColorMode colorMode = m_colorParams.colorMode();
+  ColorMode colorMode = effectiveColorMode();
   // Map legacy COLOR_GRAYSCALE to COLOR for backward compatibility
   if (colorMode == COLOR_GRAYSCALE) {
     colorMode = COLOR;
@@ -1062,8 +1138,9 @@ void OptionsWidget::updateColorsDisplay() {
       break;
   }
 
-  // If the web panel is active, keep Qt sections hidden — the web panel renders them.
-  if (!m_webPanel) {
+  const bool useWebPanel = m_webPanelActive && (colorMode == COLOR || colorMode == COLOR_GRAYSCALE);
+
+  if (!useWebPanel) {
     commonOptions->setVisible(true);
   }
   ColorCommonOptions colorCommonOptions(m_colorParams.colorCommonOptions());
@@ -1072,6 +1149,7 @@ void OptionsWidget::updateColorsDisplay() {
   if (!blackWhiteOptions.normalizeIllumination() && colorMode == MIXED) {
     colorCommonOptions.setNormalizeIllumination(false);
   }
+  m_colorParams.setColorMode(colorMode);
   m_colorParams.setColorCommonOptions(colorCommonOptions);
   m_settings->setColorParams(m_pageId, m_colorParams);
 
@@ -1107,15 +1185,22 @@ void OptionsWidget::updateColorsDisplay() {
   blacksSlider->setValue(static_cast<int>(adj.blacks()));
   blacksValue->setText(QString::number(static_cast<int>(adj.blacks())));
 
-  // Temp/Tint disabled for grayscale and B&W
+  // Temp/Tint are only meaningful for color mode.
   tempSlider->setEnabled(!isBW && !isGray);
   tintSlider->setEnabled(!isBW && !isGray);
   tempLabel->setEnabled(!isBW && !isGray);
   tintLabel->setEnabled(!isBW && !isGray);
   wbSectionLabel->setEnabled(!isBW && !isGray);
+  tempLabel->setVisible(!isBW && !isGray);
+  tempSlider->setVisible(!isBW && !isGray);
+  tempValue->setVisible(!isBW && !isGray);
+  tintLabel->setVisible(!isBW && !isGray);
+  tintSlider->setVisible(!isBW && !isGray);
+  tintValue->setVisible(!isBW && !isGray);
+  wbSectionLabel->setVisible(!isBW && !isGray);
 
   // All photo adjustments disabled for B&W (binarization makes them meaningless)
-  if (!m_webPanel) {
+  if (!useWebPanel) {
     adjustmentsPanel->setVisible(!isBW);
   }
 
@@ -1129,8 +1214,12 @@ void OptionsWidget::updateColorsDisplay() {
   thresholdOptions->setVisible(thresholdOptionsVisible);
   despecklePanel->setVisible(thresholdOptionsVisible && m_lastTab != TAB_DEWARPING);
   // Color/grayscale operations only visible for those modes
-  if (!m_webPanel) {
+  if (!useWebPanel) {
     colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING);
+  }
+
+  if (m_webPanel) {
+    m_webPanel->setVisible(useWebPanel);
   }
 
   splittingOptions->setVisible(splittingOptionsVisible);
@@ -1230,6 +1319,8 @@ void OptionsWidget::updateColorsDisplay() {
   fillWhiteRB->setEnabled(!pt);
   fillBackgroundRB->setEnabled(!pt);
   adjustmentsPanel->setEnabled(!pt);
+
+  updateWebPanelState();
 }  // OptionsWidget::updateColorsDisplay
 
 void OptionsWidget::updateDewarpingDisplay() {
@@ -1480,6 +1571,23 @@ void OptionsWidget::sendReloadRequested() {
   emit reloadRequested();
 }
 
+void OptionsWidget::sendSelectedPagesBatchProcessingRequested() {
+  if (m_pendingSelectedPagesBatchProcessing.empty()) {
+    return;
+  }
+
+  emit batchProcessingRequested(m_pendingSelectedPagesBatchProcessing);
+  m_pendingSelectedPagesBatchProcessing.clear();
+}
+
+ColorMode OptionsWidget::effectiveColorMode() const {
+  if (!m_finalizeSettings) {
+    return m_colorParams.colorMode();
+  }
+
+  return fromFinalizeColorMode(m_finalizeSettings->getColorMode(m_pageId));
+}
+
 #define CONNECT(...) m_connectionManager.addConnection(connect(__VA_ARGS__))
 
 void OptionsWidget::setupUiConnections() {
@@ -1518,6 +1626,46 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(blacksSlider, SIGNAL(valueChanged(int)), this, SLOT(photoAdjBlacksChanged(int)));
   CONNECT(photoAdjAutoBtn, SIGNAL(clicked()), this, SLOT(photoAdjAutoClicked()));
   CONNECT(photoAdjResetBtn, SIGNAL(clicked()), this, SLOT(photoAdjResetClicked()));
+  CONNECT(tempValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = tempValue->text().toInt(&ok);
+    photoAdjTempChanged(ok ? value : tempSlider->value());
+  });
+  CONNECT(tintValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = tintValue->text().toInt(&ok);
+    photoAdjTintChanged(ok ? value : tintSlider->value());
+  });
+  CONNECT(exposureValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const double value = exposureValue->text().toDouble(&ok);
+    photoAdjExposureChanged(ok ? qRound(value * 100.0) : exposureSlider->value());
+  });
+  CONNECT(contrastValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = contrastValue->text().toInt(&ok);
+    photoAdjContrastChanged(ok ? value : contrastSlider->value());
+  });
+  CONNECT(highlightsValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = highlightsValue->text().toInt(&ok);
+    photoAdjHighlightsChanged(ok ? value : highlightsSlider->value());
+  });
+  CONNECT(shadowsValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = shadowsValue->text().toInt(&ok);
+    photoAdjShadowsChanged(ok ? value : shadowsSlider->value());
+  });
+  CONNECT(whitesValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = whitesValue->text().toInt(&ok);
+    photoAdjWhitesChanged(ok ? value : whitesSlider->value());
+  });
+  CONNECT(blacksValue, &QLineEdit::editingFinished, this, [this]() {
+    bool ok = false;
+    const int value = blacksValue->text().toInt(&ok);
+    photoAdjBlacksChanged(ok ? value : blacksSlider->value());
+  });
   CONNECT(savitzkyGolaySmoothingCB, SIGNAL(clicked(bool)), this, SLOT(savitzkyGolaySmoothingToggled(bool)));
   CONNECT(morphologicalSmoothingCB, SIGNAL(clicked(bool)), this, SLOT(morphologicalSmoothingToggled(bool)));
   CONNECT(splittingCB, SIGNAL(clicked(bool)), this, SLOT(splittingToggled(bool)));
@@ -1538,6 +1686,8 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(applyDespeckleButton, SIGNAL(clicked()), this, SLOT(applyDespeckleButtonClicked()));
   CONNECT(depthPerceptionSlider, SIGNAL(valueChanged(int)), this, SLOT(depthPerceptionChangedSlot(int)));
   CONNECT(&m_delayedReloadRequest, SIGNAL(timeout()), this, SLOT(sendReloadRequested()));
+  CONNECT(&m_delayedSelectedPagesBatchProcessing, SIGNAL(timeout()), this,
+          SLOT(sendSelectedPagesBatchProcessingRequested()));
 
 }
 
@@ -1551,12 +1701,15 @@ const DepthPerception& OptionsWidget::depthPerception() const {
   return m_depthPerception;
 }
 
-void OptionsWidget::applyColorParamsToSelectedPages() {
+void OptionsWidget::applyColorParamsToSelectedPages(bool triggerBatchProcessing) {
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
 
   // Only apply to multiple pages if current page is in selection and there are multiple selected
   if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    const ColorMode colorMode = effectiveColorMode();
     std::set<PageId> pagesToReprocess;
+    m_colorParams.setColorMode(colorMode);
+    m_settings->setColorParams(m_pageId, m_colorParams);
 
     for (const PageId& pageId : selectedPages) {
       if (pageId == m_pageId) {
@@ -1570,26 +1723,15 @@ void OptionsWidget::applyColorParamsToSelectedPages() {
 
       // Also update finalize settings so finalize filter stays in sync
       if (m_finalizeSettings) {
-        finalize::ColorMode finalizeMode;
-        switch (m_colorParams.colorMode()) {
-          case BLACK_AND_WHITE:
-            finalizeMode = finalize::ColorMode::BlackAndWhite;
-            break;
-          case GRAYSCALE:
-            finalizeMode = finalize::ColorMode::Grayscale;
-            break;
-          case COLOR:
-          default:
-            finalizeMode = finalize::ColorMode::Color;
-            break;
-        }
-        m_finalizeSettings->setColorMode(pageId, finalizeMode);
+        m_finalizeSettings->setColorMode(pageId, toFinalizeColorMode(colorMode));
       }
     }
 
-    // Request batch processing of ALL selected pages (including current)
-    if (!pagesToReprocess.empty()) {
+    if (triggerBatchProcessing && !pagesToReprocess.empty()) {
       emit batchProcessingRequested(pagesToReprocess);
+    } else if (!pagesToReprocess.empty()) {
+      m_pendingSelectedPagesBatchProcessing.insert(pagesToReprocess.begin(), pagesToReprocess.end());
+      m_delayedSelectedPagesBatchProcessing.start(250);
     }
   }
 }

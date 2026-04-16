@@ -960,7 +960,7 @@
          </widget>
         </item>
         <item row="1" column="2">
-         <widget class="QLabel" name="tempValue">
+         <widget class="QLineEdit" name="tempValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -982,7 +982,7 @@
          </widget>
         </item>
         <item row="2" column="2">
-         <widget class="QLabel" name="tintValue">
+         <widget class="QLineEdit" name="tintValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -1014,7 +1014,7 @@
          </widget>
         </item>
         <item row="4" column="2">
-         <widget class="QLabel" name="exposureValue">
+         <widget class="QLineEdit" name="exposureValue">
           <property name="text"><string>0.00</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>38</width><height>0</height></size></property>
@@ -1036,7 +1036,7 @@
          </widget>
         </item>
         <item row="5" column="2">
-         <widget class="QLabel" name="contrastValue">
+         <widget class="QLineEdit" name="contrastValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -1058,7 +1058,7 @@
          </widget>
         </item>
         <item row="6" column="2">
-         <widget class="QLabel" name="highlightsValue">
+         <widget class="QLineEdit" name="highlightsValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -1080,7 +1080,7 @@
          </widget>
         </item>
         <item row="7" column="2">
-         <widget class="QLabel" name="shadowsValue">
+         <widget class="QLineEdit" name="shadowsValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -1102,7 +1102,7 @@
          </widget>
         </item>
         <item row="8" column="2">
-         <widget class="QLabel" name="whitesValue">
+         <widget class="QLineEdit" name="whitesValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
@@ -1124,7 +1124,7 @@
          </widget>
         </item>
         <item row="9" column="2">
-         <widget class="QLabel" name="blacksValue">
+         <widget class="QLineEdit" name="blacksValue">
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>

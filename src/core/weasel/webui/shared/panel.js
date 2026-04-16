@@ -95,6 +95,16 @@ const Panel = (function() {
     };
   }
 
+  function setupVisibility(id, displayValue) {
+    const el = document.getElementById(id);
+    const visibleDisplay = displayValue || '';
+    setters[id] = function(visible) {
+      syncing = true;
+      el.style.display = visible ? visibleDisplay : 'none';
+      syncing = false;
+    };
+  }
+
   /**
    * Initialize the panel. Call after all setupSlider/setupCheckbox/etc.
    * Connects to the C++ bridge and requests initial values.
@@ -120,6 +130,7 @@ const Panel = (function() {
     setupRadio: setupRadio,
     setupButton: setupButton,
     setupSelect: setupSelect,
+    setupVisibility: setupVisibility,
     init: init,
     getBridge: function() { return bridge; }
   };

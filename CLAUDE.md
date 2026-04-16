@@ -168,10 +168,11 @@ brew install qt6 boost libtiff libpng jpeg cmake libharu leptonica
 
 # Build
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) ..
-cmake --build . -j$(sysctl -n hw.ncpu)  # or: make -j$(sysctl -n hw.ncpu)
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 ..
+cmake --build . --target scantailor -j$(sysctl -n hw.ncpu)  # fast incremental app build
+cmake --build . --target scantailor_bundle                # explicit bundle/deploy/sign step
 
-# Bundle Qt frameworks
+# Bundle Qt frameworks manually only if needed
 macdeployqt "ScanTailor Spectre.app" -always-overwrite
 
 # RELEASE PREP — Update README and generate PDF for DMG

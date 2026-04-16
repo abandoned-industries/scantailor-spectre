@@ -1059,9 +1059,6 @@ void MainWindow::batchProcessPages(const std::set<PageId>& pages) {
   for (const PageId& pageId : pages) {
     const PageInfo& pageInfo = pageSequence.pageAt(pageId);
     if (!pageInfo.isNull()) {
-      for (int i = 0; i < m_stages->count(); i++) {
-        m_stages->filterAt(i)->loadDefaultSettings(pageInfo);
-      }
       m_batchQueue->addProcessingTask(pageInfo, createCompositeTask(pageInfo, m_curFilter, /*batch=*/true, m_debug));
     }
   }
