@@ -27,18 +27,18 @@
     <div class="slider-row">
       <span class="label">Wiener</span>
       <input type="range" id="wienerCoef" min="0" max="300" step="1" value="0">
-      <span class="value" id="wienerCoef-val">0.00</span>
+      <input type="number" class="value" id="wienerCoef-val" min="0" max="3" step="0.01" value="0.00">
     </div>
     <div class="slider-row">
       <span class="label">Window</span>
       <input type="range" id="wienerWindow" min="3" max="15" step="2" value="5">
-      <span class="value" id="wienerWindow-val">5</span>
+      <input type="number" class="value" id="wienerWindow-val" min="3" max="15" step="2" value="5">
     </div>
     <label class="check-row"><input type="checkbox" id="posterize"> Posterize</label>
     <div class="slider-row" style="padding-left: 20px;">
       <span class="label">Level</span>
       <input type="range" id="posterizeLevel" min="2" max="8" step="1" value="4">
-      <span class="value" id="posterizeLevel-val">4</span>
+      <input type="number" class="value" id="posterizeLevel-val" min="2" max="8" step="1" value="4">
     </div>
     <label class="check-row" style="padding-left: 20px;"><input type="checkbox" id="posterizeNorm"> Normalize</label>
     <label class="check-row"><input type="checkbox" id="forceBw" checked> Force b&amp;w</label>
@@ -59,12 +59,12 @@
       <div class="slider-row" id="temp-row">
         <span class="label">Temp</span>
         <input type="range" id="temp" min="-100" max="100" step="1" value="0">
-        <span class="value" id="temp-val">0</span>
+        <input type="number" class="value" id="temp-val" min="-100" max="100" step="1" value="0">
       </div>
       <div class="slider-row" id="tint-row">
         <span class="label">Tint</span>
         <input type="range" id="tint" min="-100" max="100" step="1" value="0">
-        <span class="value" id="tint-val">0</span>
+        <input type="number" class="value" id="tint-val" min="-100" max="100" step="1" value="0">
       </div>
     </div>
 
@@ -72,32 +72,32 @@
     <div class="slider-row">
       <span class="label">Exposure</span>
       <input type="range" id="exposure" min="-500" max="500" step="1" value="0">
-      <span class="value" id="exposure-val">0.00</span>
+      <input type="number" class="value" id="exposure-val" min="-5" max="5" step="0.01" value="0.00">
     </div>
     <div class="slider-row">
       <span class="label">Contrast</span>
       <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
-      <span class="value" id="contrast-val">0</span>
+      <input type="number" class="value" id="contrast-val" min="-100" max="100" step="1" value="0">
     </div>
     <div class="slider-row">
       <span class="label">Highlights</span>
       <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
-      <span class="value" id="highlights-val">0</span>
+      <input type="number" class="value" id="highlights-val" min="-100" max="100" step="1" value="0">
     </div>
     <div class="slider-row">
       <span class="label">Shadows</span>
       <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
-      <span class="value" id="shadows-val">0</span>
+      <input type="number" class="value" id="shadows-val" min="-100" max="100" step="1" value="0">
     </div>
     <div class="slider-row">
       <span class="label">Whites</span>
       <input type="range" id="whites" min="-100" max="100" step="1" value="0">
-      <span class="value" id="whites-val">0</span>
+      <input type="number" class="value" id="whites-val" min="-100" max="100" step="1" value="0">
     </div>
     <div class="slider-row">
       <span class="label">Blacks</span>
       <input type="range" id="blacks" min="-100" max="100" step="1" value="0">
-      <span class="value" id="blacks-val">0</span>
+      <input type="number" class="value" id="blacks-val" min="-100" max="100" step="1" value="0">
     </div>
   </div>
 </div>
@@ -113,6 +113,7 @@
   const wienerToBridge = v => v / 100;
   const wienerFromBridge = v => Math.round(v * 100);
   const intFromBridge = v => Math.round(v);
+  const displayTimes100 = v => Math.round(v * 100);  // typed -5.00 → slider raw -500
 
   // Options
   Panel.setupCheckbox('passThrough');
@@ -123,7 +124,7 @@
 
   // Reduce Noise
   Panel.setupVisibility('reduce-noise-section');
-  Panel.setupSlider('wienerCoef', { format: wienerFormat, toBridge: wienerToBridge, fromBridge: wienerFromBridge });
+  Panel.setupSlider('wienerCoef', { format: wienerFormat, toBridge: wienerToBridge, fromBridge: wienerFromBridge, inputToRaw: displayTimes100 });
   Panel.setupSlider('wienerWindow', { format: intFormat, fromBridge: intFromBridge });
   Panel.setupCheckbox('posterize');
   Panel.setupSlider('posterizeLevel', { format: intFormat, fromBridge: intFromBridge });
@@ -138,7 +139,7 @@
   Panel.setupSlider('temp', { format: intFormat, fromBridge: intFromBridge });
   Panel.setupSlider('tint', { format: intFormat, fromBridge: intFromBridge });
   Panel.setupSlider('exposure', {
-    format: expFormat, toBridge: expToBridge, fromBridge: expFromBridge
+    format: expFormat, toBridge: expToBridge, fromBridge: expFromBridge, inputToRaw: displayTimes100
   });
   Panel.setupSlider('contrast', { format: intFormat, fromBridge: intFromBridge });
   Panel.setupSlider('highlights', { format: intFormat, fromBridge: intFromBridge });

@@ -2,11 +2,18 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a28** | macOS (Apple Silicon) | Requires macOS 15 or later
+**Version 2.0a29** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
+
+## Version 2.0a29
+
+- Output photo-adjustment sliders are now responsive: thumbnails redraw once after a 300 ms pause instead of on every drag tick.
+- Clicking anywhere on a slider track now jumps the handle to that position (Lightroom-style), in addition to the existing drag behaviour.
+- Numeric value boxes next to each slider are now compact and no longer expand to fill the column.
+- Removes a stale snap-to-zero behaviour that interrupted slider drags mid-stroke.
 
 ## Version 2.0a28
 

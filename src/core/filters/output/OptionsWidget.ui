@@ -964,6 +964,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="2" column="0">
@@ -986,6 +987,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="3" column="0" colspan="3">
@@ -1018,6 +1020,7 @@
           <property name="text"><string>0.00</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>38</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>48</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="5" column="0">
@@ -1040,6 +1043,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="6" column="0">
@@ -1062,6 +1066,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="7" column="0">
@@ -1084,6 +1089,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="8" column="0">
@@ -1106,6 +1112,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
         <item row="9" column="0">
@@ -1128,6 +1135,7 @@
           <property name="text"><string>0</string></property>
           <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
           <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
          </widget>
         </item>
        </layout>

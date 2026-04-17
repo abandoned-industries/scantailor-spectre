@@ -11,30 +11,63 @@ const Panel = (function() {
 
   /**
    * Register a slider. Options:
-   *   format:    (raw) => string            — how to display the value
-   *   toBridge:  (raw) => number            — convert slider value to bridge value
-   *   fromBridge: (bridge) => number        — convert bridge value to slider value
+   *   format:     (raw) => string            — how to display the value
+   *   toBridge:   (raw) => number            — convert slider value to bridge value
+   *   fromBridge: (bridge) => number         — convert bridge value to slider value
+   *   inputToRaw: (displayed) => rawNumber   — convert user-typed display value back to slider raw
+   *                                            (defaults to identity; used when value field is an <input>)
    */
   function setupSlider(id, opts) {
     opts = opts || {};
     const slider = document.getElementById(id);
     const valueEl = document.getElementById(id + '-val');
+    const valueIsInput = valueEl && valueEl.tagName === 'INPUT';
     const formatter = opts.format || function(v) { return String(Math.round(v)); };
     const toBridge = opts.toBridge || function(v) { return v; };
     const fromBridge = opts.fromBridge || function(v) { return v; };
+    const inputToRaw = opts.inputToRaw || function(v) { return v; };
+
+    function writeValueEl(raw) {
+      if (!valueEl) return;
+      const text = formatter(raw);
+      if (valueIsInput) valueEl.value = text;
+      else valueEl.textContent = text;
+    }
 
     slider.addEventListener('input', function() {
       const raw = parseFloat(slider.value);
-      if (valueEl) valueEl.textContent = formatter(raw);
+      writeValueEl(raw);
       if (bridge && !syncing && bridge.setValue) {
         bridge.setValue(id, toBridge(raw));
       }
     });
 
+    if (valueIsInput) {
+      const commit = function() {
+        if (syncing) return;
+        const displayVal = parseFloat(valueEl.value);
+        if (isNaN(displayVal)) return;
+        let raw = inputToRaw(displayVal);
+        const min = parseFloat(slider.min);
+        const max = parseFloat(slider.max);
+        if (!isNaN(min) && raw < min) raw = min;
+        if (!isNaN(max) && raw > max) raw = max;
+        slider.value = raw;
+        writeValueEl(parseFloat(slider.value));  // re-read in case slider snapped to step
+        if (bridge && bridge.setValue) {
+          bridge.setValue(id, toBridge(parseFloat(slider.value)));
+        }
+      };
+      valueEl.addEventListener('change', commit);
+      valueEl.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); valueEl.blur(); }
+      });
+    }
+
     setters[id] = function(bridgeValue) {
       syncing = true;
       slider.value = fromBridge(bridgeValue);
-      if (valueEl) valueEl.textContent = formatter(parseFloat(slider.value));
+      writeValueEl(parseFloat(slider.value));
       syncing = false;
     };
   }

@@ -1816,3 +1816,46 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 2026-04-15 14:22 - Rebuild clean packaging tree for macOS 15.0 deployment target and regenerate distributable bundle
 2026-04-15 15:36 - Normalize bundled dylib deployment targets to app minimum during macOS 15 packaging rebuild
 2026-04-15 16:22 - Finalize 2.0a28 release docs, regenerate README PDF, and prepare signed notarized release artifacts
+
+---
+2026-04-16 09:30 - Fix photo adjustment sliders: debounce reload, remove snap, editable numbers in web panel (cmake --build build -- -j8)
+- src/core/filters/output/OptionsWidget.cpp: debounce reloadRequested via m_delayedReloadRequest instead of emitting on every slider tick; remove snap-to-zero calls
+- src/core/weasel/webui/photo_adjustments.html: replace value <span>s with <input type="number"> so users can type exact values
+- src/core/weasel/webui/shared/panel.js: handle input-element value field bidirectionally with slider
+- src/core/weasel/webui/shared/panel.css: style numeric input to match previous value display
+
+---
+2026-04-16 14:50 - Fix install_name paths: run scantailor_bundle target to make app launchable (cmake --build build --target scantailor_bundle)
+- Diagnosis: build/ScanTailor Spectre.app/Contents/MacOS/ScanTailor Spectre had absolute /opt/homebrew/opt/qt*/lib/... paths instead of @executable_path/../Frameworks. App loaded both bundled and Homebrew Qt → duplicate Objective-C classes → qcocoa platform plugin init failed.
+- Fix: run scantailor_bundle to invoke macdeployqt + install_name fixup
+
+---
+2026-04-16 14:55 - Fix oversized numeric inputs squeezing sliders to zero width (cmake --build build --target scantailor + scantailor_bundle)
+- panel.css: input.value[type=number] needs flex: 0 0 52px / width: 52px / min-width: 0 / box-sizing: border-box, plus right-align + dim color matching the span it replaced. Default <input> intrinsic width was overriding .slider-row .value width: 52px because of min-width: auto in flex layout.
+
+---
+2026-04-16 15:18 - Strengthen numeric input width rule with higher specificity + !important + max-width (cmake --build build --target scantailor + scantailor_bundle)
+- panel.css: prior rule wasn't taking effect at runtime even though decompressed QRC had it. Use .slider-row input[type=number].value with !important on width/flex/min-width/max-width to force 36px.
+
+---
+2026-04-16 15:25 - Inline <style> in photo_adjustments.html as override + bigger slider thumb (cmake --build build --target scantailor + scantailor_bundle)
+- photo_adjustments.html: inline style block with !important rules forcing 36px-wide value inputs and 12x18px slider thumb (was 2x12px). Diagnosing why panel.css rules aren't applying.
+
+---
+2026-04-16 16:05 - DIAG: red body background to verify HTML loading (cmake --build build --target scantailor + scantailor_bundle)
+- photo_adjustments.html: body {background: red} — if panel doesn't go red, HTML isn't being reloaded by the renderer.
+
+---
+2026-04-16 16:10 - Native Qt photo-adjustment panel UX fixes (cmake --build build --target scantailor_bundle -j8)
+- OptionsWidget.ui: cap QLineEdit maximumSize on tempValue/tintValue/exposureValue/contrastValue/highlightsValue/shadowsValue/whitesValue/blacksValue so they don't expand to fill the grid column (user reported value boxes "way too big").
+- OptionsWidget.cpp: remove invalidateAllThumbnails from the 8 photoAdj*Changed handlers and emit it from sendReloadRequested instead, so thumbnails redraw once after the user pauses (300ms debounce) instead of on every slider tick (cause of slider sluggishness).
+- photo_adjustments.html: remove diagnostic red-bg inline <style> block — was a stale debug aid; user is on the native panel anyway.
+
+---
+2026-04-16 16:35 - CenteredTickSlider click-to-position (cmake --build build --target scantailor_bundle -j8)
+- CenteredTickSlider.h/cpp: install a QProxyStyle returning Qt::LeftButton for SH_Slider_AbsoluteSetButtons so left-click on the track jumps the handle to the clicked position (Lightroom-style), preserving normal drag behaviour.
+
+---
+2026-04-16 16:50 - Release build v2.0a29 (cmake --build build --target scantailor_bundle -j8)
+- version.h.in: 2.0a28 → 2.0a29
+- README.md: add v2.0a29 changelog (slider responsiveness, click-to-position, compact value boxes, snap-to-zero removal)

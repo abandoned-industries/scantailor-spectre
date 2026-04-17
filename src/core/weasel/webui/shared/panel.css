@@ -157,6 +157,43 @@ html, body {
   padding-right: 2px;
 }
 
+/* Editable numeric value next to a slider — keep the compact look of the span
+   it replaced, but become an outlined field on focus. */
+.slider-row input[type="number"].value {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 1px 2px;
+  font-family: inherit;
+  font-size: var(--fs-value);
+  color: var(--text-dim);
+  text-align: right;
+  cursor: text;
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  min-width: 0 !important;
+  max-width: 36px !important;
+  box-sizing: border-box;
+}
+
+input.value[type="number"]:hover {
+  border-color: var(--border-subtle);
+}
+
+input.value[type="number"]:focus {
+  outline: none;
+  border-color: var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+input.value[type="number"]::-webkit-outer-spin-button,
+input.value[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ---------- Checkboxes ---------- */
 
 .check-row {

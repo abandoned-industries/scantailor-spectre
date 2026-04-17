@@ -125,8 +125,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
               m_colorParams.setPhotoAdjustments(adj);
               m_settings->setColorParams(m_pageId, m_colorParams);
               applyColorParamsToSelectedPages(false);
-              emit reloadRequested();
-              emit invalidateAllThumbnails();
+              m_delayedReloadRequest.start(300);
             });
 
     // Checkboxes
@@ -501,16 +500,6 @@ void OptionsWidget::equalizeIlluminationToggled(const bool checked) {
   emit reloadRequested();
 }
 
-// Helper: update a single photo adjustment parameter, with snap-to-zero and reload
-static void snapSliderToZero(CenteredTickSlider* slider, int& value, int deadzone = 5) {
-  if (value > -deadzone && value < deadzone && value != 0) {
-    slider->blockSignals(true);
-    slider->setValue(0);
-    slider->blockSignals(false);
-    value = 0;
-  }
-}
-
 static void syncSliderValue(CenteredTickSlider* slider, int value) {
   if (slider->value() == value) {
     return;
@@ -522,7 +511,6 @@ static void syncSliderValue(CenteredTickSlider* slider, int value) {
 
 void OptionsWidget::photoAdjTempChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(tempSlider, value);
   syncSliderValue(tempSlider, value);
   tempValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -530,13 +518,11 @@ void OptionsWidget::photoAdjTempChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjTintChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(tintSlider, value);
   syncSliderValue(tintSlider, value);
   tintValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -544,13 +530,11 @@ void OptionsWidget::photoAdjTintChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjExposureChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(exposureSlider, value, 25);
   syncSliderValue(exposureSlider, value);
   exposureValue->setText(QString::number(value / 100.0, 'f', 2));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -558,13 +542,11 @@ void OptionsWidget::photoAdjExposureChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjContrastChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(contrastSlider, value);
   syncSliderValue(contrastSlider, value);
   contrastValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -572,13 +554,11 @@ void OptionsWidget::photoAdjContrastChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjHighlightsChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(highlightsSlider, value);
   syncSliderValue(highlightsSlider, value);
   highlightsValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -586,13 +566,11 @@ void OptionsWidget::photoAdjHighlightsChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjShadowsChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(shadowsSlider, value);
   syncSliderValue(shadowsSlider, value);
   shadowsValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -600,13 +578,11 @@ void OptionsWidget::photoAdjShadowsChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjWhitesChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(whitesSlider, value);
   syncSliderValue(whitesSlider, value);
   whitesValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -614,13 +590,11 @@ void OptionsWidget::photoAdjWhitesChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjBlacksChanged(int value) {
   m_colorParams.setColorMode(effectiveColorMode());
-  snapSliderToZero(blacksSlider, value);
   syncSliderValue(blacksSlider, value);
   blacksValue->setText(QString::number(value));
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
@@ -628,8 +602,7 @@ void OptionsWidget::photoAdjBlacksChanged(int value) {
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
   applyColorParamsToSelectedPages(false);
-  emit reloadRequested();
-  emit invalidateAllThumbnails();
+  m_delayedReloadRequest.start(300);
 }
 
 void OptionsWidget::photoAdjAutoClicked() {
@@ -1569,6 +1542,7 @@ void OptionsWidget::addBinarizationOptionsWidget(BinarizationOptionsWidget* widg
 
 void OptionsWidget::sendReloadRequested() {
   emit reloadRequested();
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::sendSelectedPagesBatchProcessingRequested() {
