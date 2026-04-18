@@ -23,7 +23,10 @@ class JumpClickStyle : public QProxyStyle {
 
 CenteredTickSlider::CenteredTickSlider(QWidget* parent) : QSlider(Qt::Horizontal, parent) {
   setTickPosition(QSlider::NoTicks);
-  auto* jumpStyle = new JumpClickStyle(style());
+  // Construct from style key — QProxyStyle creates its own owned instance.
+  // Passing style() would reparent the shared app QStyle into this proxy,
+  // leaving every other widget with a dangling pointer when the first slider dies.
+  auto* jumpStyle = new JumpClickStyle(QStringLiteral("fusion"));
   jumpStyle->setParent(this);
   setStyle(jumpStyle);
 }

@@ -44,6 +44,12 @@ class WebOptionsPanelBase : public QWidget {
  signals:
   void loadFinished(bool ok);
 
+ public slots:
+  // Called from panel.js when a DOM resize is observed (section hidden/shown,
+  // font reflow, etc). Re-runs the height query so the panel shrinks or grows
+  // to match its current content.
+  void remeasure();
+
  protected:
   QWebEngineView* webView() const { return m_view; }
   QWebChannel* channel() const { return m_channel; }

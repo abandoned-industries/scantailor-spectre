@@ -85,8 +85,10 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
     m_webPanel = new weasel::WebOptionsPanelBase(QStringLiteral("photo_adjustments.html"), this);
     m_webBridge = new weasel::GenericPanelBridge(this);
     m_webPanel->registerBridge(m_webBridge);
-    m_webPanel->setMinimumHeight(380);
-    m_webPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+    // Fixed vertical policy: WebOptionsPanelBase::updateHeightFromContent() locks
+    // the widget to the current content height. Expanding vertically would leave
+    // a large gap when sections hide (e.g., Temp/Tint in Grayscale mode).
+    m_webPanel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_webPanel->hide();
     m_webPanel->setObjectName(QStringLiteral("webOptionsPanel"));
 
@@ -123,8 +125,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
               else if (id == "posterizeLevel") { posterizeLevelChanged(static_cast<int>(value)); return; }
               else return;
               m_colorParams.setPhotoAdjustments(adj);
-              m_settings->setColorParams(m_pageId, m_colorParams);
-              applyColorParamsToSelectedPages(false);
+              m_delayedPhotoAdjustCommit.start(100);
               m_delayedReloadRequest.start(300);
             });
 
@@ -180,6 +181,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
 
   m_delayedReloadRequest.setSingleShot(true);
   m_delayedSelectedPagesBatchProcessing.setSingleShot(true);
+  m_delayedPhotoAdjustCommit.setSingleShot(true);
 
   depthPerceptionSlider->setMinimum(qRound(DepthPerception::minValue() * 10));
   depthPerceptionSlider->setMaximum(qRound(DepthPerception::maxValue() * 10));
@@ -300,7 +302,12 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   setupUiConnections();
 }
 
-OptionsWidget::~OptionsWidget() = default;
+OptionsWidget::~OptionsWidget() {
+  if (m_delayedPhotoAdjustCommit.isActive()) {
+    m_delayedPhotoAdjustCommit.stop();
+    commitPhotoAdjustments();
+  }
+}
 
 void OptionsWidget::setFinalizeSettings(std::shared_ptr<finalize::Settings> finalizeSettings) {
   m_finalizeSettings = std::move(finalizeSettings);
@@ -308,6 +315,13 @@ void OptionsWidget::setFinalizeSettings(std::shared_ptr<finalize::Settings> fina
 
 void OptionsWidget::preUpdateUI(const PageId& pageId) {
   auto block = m_connectionManager.getScopedBlock();
+
+  // Page change: flush any pending photo-adjust debounce against the OLD m_pageId
+  // before overwriting m_colorParams with the new page's data.
+  if (m_delayedPhotoAdjustCommit.isActive()) {
+    m_delayedPhotoAdjustCommit.stop();
+    commitPhotoAdjustments();
+  }
 
   // Just get existing params - don't trigger Vision detection on page click
   // Detection happens during batch processing or Task execution
@@ -368,12 +382,14 @@ void OptionsWidget::updateWebPanelState() {
   const bool isBW = (colorMode == BLACK_AND_WHITE);
   const bool isGray = (colorMode == GRAYSCALE);
   const bool isColorOrGrayscale = (colorMode == COLOR_GRAYSCALE || colorMode == COLOR || colorMode == GRAYSCALE);
-  state[QStringLiteral("showFillColor")] = !isBW;
-  state[QStringLiteral("showReduceNoise")] = isColorOrGrayscale && m_lastTab != TAB_DEWARPING;
-  state[QStringLiteral("showPhotoAdjustments")] = !isBW;
-  state[QStringLiteral("showWhiteBalance")] = !isBW && !isGray;
-  state[QStringLiteral("showTemp")] = !isBW && !isGray;
-  state[QStringLiteral("showTint")] = !isBW && !isGray;
+  // Keys must match DOM IDs registered via Panel.setupVisibility() in
+  // src/core/weasel/webui/photo_adjustments.html — panel.js looks up setters by id.
+  state[QStringLiteral("fill-color-row")] = !isBW;
+  state[QStringLiteral("reduce-noise-section")] = isColorOrGrayscale && m_lastTab != TAB_DEWARPING;
+  state[QStringLiteral("photo-adjustments-section")] = !isBW;
+  state[QStringLiteral("white-balance-section")] = !isBW && !isGray;
+  state[QStringLiteral("temp-row")] = !isBW && !isGray;
+  state[QStringLiteral("tint-row")] = !isBW && !isGray;
 
   m_webBridge->setState(state);
 }
@@ -516,8 +532,7 @@ void OptionsWidget::photoAdjTempChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setTemp(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -528,8 +543,7 @@ void OptionsWidget::photoAdjTintChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setTint(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -540,8 +554,7 @@ void OptionsWidget::photoAdjExposureChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setExposure(value / 100.0);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -552,8 +565,7 @@ void OptionsWidget::photoAdjContrastChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setContrast(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -564,8 +576,7 @@ void OptionsWidget::photoAdjHighlightsChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setHighlights(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -576,8 +587,7 @@ void OptionsWidget::photoAdjShadowsChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setShadows(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -588,8 +598,7 @@ void OptionsWidget::photoAdjWhitesChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setWhites(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -600,8 +609,7 @@ void OptionsWidget::photoAdjBlacksChanged(int value) {
   weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
   adj.setBlacks(value);
   m_colorParams.setPhotoAdjustments(adj);
-  m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  m_delayedPhotoAdjustCommit.start(100);
   m_delayedReloadRequest.start(300);
 }
 
@@ -624,7 +632,7 @@ void OptionsWidget::photoAdjAutoClicked() {
   adj.setBlacks(ar.blacks);
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  applyPhotoAdjustmentsToSelectedPages(false);
 
   // Update all sliders and value labels
   tempSlider->setValue(static_cast<int>(adj.temp()));
@@ -647,7 +655,7 @@ void OptionsWidget::photoAdjResetClicked() {
   weasel::PhotoAdjustments adj;  // all defaults = 0
   m_colorParams.setPhotoAdjustments(adj);
   m_settings->setColorParams(m_pageId, m_colorParams);
-  applyColorParamsToSelectedPages(false);
+  applyPhotoAdjustmentsToSelectedPages(false);
 
   // Update slider positions
   tempSlider->setValue(0);
@@ -1111,11 +1119,13 @@ void OptionsWidget::updateColorsDisplay() {
       break;
   }
 
-  const bool useWebPanel = m_webPanelActive && (colorMode == COLOR || colorMode == COLOR_GRAYSCALE);
+  const bool useWebPanel = m_webPanelActive
+      && (colorMode == COLOR || colorMode == COLOR_GRAYSCALE || colorMode == GRAYSCALE);
 
-  if (!useWebPanel) {
-    commonOptions->setVisible(true);
-  }
+  // The web panel mirrors everything in commonOptions / colorOperationsOptions /
+  // adjustmentsPanel (pass-through, fill, reduce-noise, photo adjustments). Hide
+  // the native group boxes when it is active so we don't render duplicates.
+  commonOptions->setVisible(!useWebPanel);
   ColorCommonOptions colorCommonOptions(m_colorParams.colorCommonOptions());
   BlackWhiteOptions blackWhiteOptions(m_colorParams.blackWhiteOptions());
 
@@ -1173,9 +1183,7 @@ void OptionsWidget::updateColorsDisplay() {
   wbSectionLabel->setVisible(!isBW && !isGray);
 
   // All photo adjustments disabled for B&W (binarization makes them meaningless)
-  if (!useWebPanel) {
-    adjustmentsPanel->setVisible(!isBW);
-  }
+  adjustmentsPanel->setVisible(!isBW && !useWebPanel);
 
   savitzkyGolaySmoothingCB->setChecked(blackWhiteOptions.isSavitzkyGolaySmoothingEnabled());
   savitzkyGolaySmoothingCB->setVisible(thresholdOptionsVisible);
@@ -1187,9 +1195,7 @@ void OptionsWidget::updateColorsDisplay() {
   thresholdOptions->setVisible(thresholdOptionsVisible);
   despecklePanel->setVisible(thresholdOptionsVisible && m_lastTab != TAB_DEWARPING);
   // Color/grayscale operations only visible for those modes
-  if (!useWebPanel) {
-    colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING);
-  }
+  colorOperationsOptions->setVisible(isColorOrGrayscale && m_lastTab != TAB_DEWARPING && !useWebPanel);
 
   if (m_webPanel) {
     m_webPanel->setVisible(useWebPanel);
@@ -1291,7 +1297,8 @@ void OptionsWidget::updateColorsDisplay() {
   colorOperationsOptions->setEnabled(!pt);
   fillWhiteRB->setEnabled(!pt);
   fillBackgroundRB->setEnabled(!pt);
-  adjustmentsPanel->setEnabled(!pt);
+  // Photo adjustments stay enabled under pass-through: Task.cpp applies them to
+  // the pass-through output, so sliders remain meaningful even with processing off.
 
   updateWebPanelState();
 }  // OptionsWidget::updateColorsDisplay
@@ -1662,6 +1669,8 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(&m_delayedReloadRequest, SIGNAL(timeout()), this, SLOT(sendReloadRequested()));
   CONNECT(&m_delayedSelectedPagesBatchProcessing, SIGNAL(timeout()), this,
           SLOT(sendSelectedPagesBatchProcessingRequested()));
+  connect(&m_delayedPhotoAdjustCommit, &QTimer::timeout,
+          this, &OptionsWidget::commitPhotoAdjustments);
 
 }
 
@@ -1704,6 +1713,40 @@ void OptionsWidget::applyColorParamsToSelectedPages(bool triggerBatchProcessing)
     if (triggerBatchProcessing && !pagesToReprocess.empty()) {
       emit batchProcessingRequested(pagesToReprocess);
     } else if (!pagesToReprocess.empty()) {
+      m_pendingSelectedPagesBatchProcessing.insert(pagesToReprocess.begin(), pagesToReprocess.end());
+      m_delayedSelectedPagesBatchProcessing.start(250);
+    }
+  }
+}
+
+void OptionsWidget::commitPhotoAdjustments() {
+  m_settings->setColorParams(m_pageId, m_colorParams);
+  applyPhotoAdjustmentsToSelectedPages(false);
+}
+
+void OptionsWidget::applyPhotoAdjustmentsToSelectedPages(bool triggerBatchProcessing) {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    const weasel::PhotoAdjustments adj = m_colorParams.photoAdjustments();
+    std::set<PageId> pagesToReprocess;
+    pagesToReprocess.insert(m_pageId);  // current page already saved by caller
+
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        continue;
+      }
+      // Read-modify-write each target's ColorParams so we don't stomp
+      // its colorMode, BW options, or ColorCommonOptions.
+      ColorParams pageParams = m_settings->getParams(pageId).colorParams();
+      pageParams.setPhotoAdjustments(adj);
+      m_settings->setColorParams(pageId, pageParams);
+      pagesToReprocess.insert(pageId);
+    }
+
+    if (triggerBatchProcessing) {
+      emit batchProcessingRequested(pagesToReprocess);
+    } else {
       m_pendingSelectedPagesBatchProcessing.insert(pagesToReprocess.begin(), pagesToReprocess.end());
       m_delayedSelectedPagesBatchProcessing.start(250);
     }

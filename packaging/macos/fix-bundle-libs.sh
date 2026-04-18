@@ -1,8 +1,9 @@
 #!/bin/bash
 # Fix missing transitive dependencies in macOS app bundle
 # Usage: fix-bundle-libs.sh <path-to-app-bundle>
+set -euo pipefail
 
-APP_BUNDLE="$1"
+APP_BUNDLE="${1:-}"
 if [ -z "$APP_BUNDLE" ]; then
     echo "Usage: $0 <path-to-app-bundle>"
     exit 1
@@ -76,6 +77,128 @@ retarget_newer_dylibs() {
             chmod 755 "$dylib"
         fi
     done < <(find "$FRAMEWORKS_DIR" -maxdepth 1 -type f -name '*.dylib' -print)
+}
+
+bundle_qtdbus() {
+    # QtGui transitively loads QtDBus on macOS, but macdeployqt doesn't copy it.
+    # Without this, the app either loads Homebrew's QtDBus (pulling in Homebrew's
+    # QtCore as a second set of Qt binaries -> "objc duplicate class" warnings
+    # and crashes) or fails outright with "Library not loaded: @rpath/QtDBus".
+    local qtdbus_target="$FRAMEWORKS_DIR/QtDBus.framework"
+    if [ -d "$qtdbus_target" ]; then
+        echo "QtDBus.framework already bundled."
+        return
+    fi
+
+    local qtdbus_src=""
+    local candidate
+    for candidate in \
+        "/opt/homebrew/opt/qt/lib/QtDBus.framework" \
+        "/opt/homebrew/lib/QtDBus.framework" \
+        "/usr/local/opt/qt/lib/QtDBus.framework" \
+        "/usr/local/lib/QtDBus.framework"; do
+        if [ -d "$candidate" ]; then
+            qtdbus_src="$candidate"
+            break
+        fi
+    done
+
+    if [ -z "$qtdbus_src" ]; then
+        echo "Warning: QtDBus.framework not found; app may fail to launch on clean machines."
+        return
+    fi
+
+    echo "Bundling QtDBus.framework from $qtdbus_src..."
+    ditto "$qtdbus_src" "$qtdbus_target"
+
+    local qtdbus_bin="$qtdbus_target/Versions/A/QtDBus"
+    chmod 755 "$qtdbus_bin"
+    install_name_tool -id "@rpath/QtDBus.framework/Versions/A/QtDBus" "$qtdbus_bin"
+
+    local libdbus_dep
+    libdbus_dep=$(otool -L "$qtdbus_bin" | awk '/libdbus-1\.[0-9]+\.dylib/ { print $1; exit }') || true
+    if [ -n "$libdbus_dep" ] && [[ "$libdbus_dep" != @rpath/* ]]; then
+        install_name_tool -change "$libdbus_dep" "@rpath/libdbus-1.3.dylib" "$qtdbus_bin"
+    fi
+}
+
+bundle_libdbus() {
+    local libdbus_target="$FRAMEWORKS_DIR/libdbus-1.3.dylib"
+    if [ -f "$libdbus_target" ]; then
+        echo "libdbus-1.3.dylib already bundled."
+        return
+    fi
+
+    local libdbus_src=""
+    local candidate
+    for candidate in \
+        "/opt/homebrew/opt/dbus/lib/libdbus-1.3.dylib" \
+        "/opt/homebrew/lib/libdbus-1.3.dylib" \
+        "/usr/local/opt/dbus/lib/libdbus-1.3.dylib" \
+        "/usr/local/lib/libdbus-1.3.dylib"; do
+        if [ -f "$candidate" ]; then
+            libdbus_src="$candidate"
+            break
+        fi
+    done
+
+    if [ -z "$libdbus_src" ]; then
+        echo "Warning: libdbus-1.3.dylib not found on system."
+        return
+    fi
+
+    echo "Bundling libdbus-1.3.dylib from $libdbus_src..."
+    cp -L "$libdbus_src" "$libdbus_target"
+    chmod 755 "$libdbus_target"
+    install_name_tool -id "@rpath/libdbus-1.3.dylib" "$libdbus_target"
+}
+
+strip_homebrew_rpaths() {
+    # Remove LC_RPATH entries pointing at Homebrew/Macports. If any leak through,
+    # the dynamic linker will find Homebrew's Qt before the bundled copy, causing
+    # "two sets of Qt binaries" warnings + QObject thread-affinity errors.
+    local binary="$1"
+    [ -f "$binary" ] || return 0
+
+    local rpaths
+    rpaths=$(otool -l "$binary" 2>/dev/null | awk '
+        /LC_RPATH/ { want=1; next }
+        want && $1=="path" { print $2; want=0 }
+    ') || true
+
+    local rp
+    while IFS= read -r rp; do
+        [ -z "$rp" ] && continue
+        case "$rp" in
+            /opt/homebrew/*|/opt/local/*|/usr/local/Cellar/*|/usr/local/opt/*)
+                echo "  Stripping $rp from $(basename "$binary")"
+                install_name_tool -delete_rpath "$rp" "$binary" 2>/dev/null || true
+                ;;
+        esac
+    done <<< "$rpaths"
+}
+
+strip_homebrew_rpaths_from_bundle() {
+    local exec_name
+    exec_name=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$INFO_PLIST" 2>/dev/null || echo "")
+    if [ -n "$exec_name" ]; then
+        strip_homebrew_rpaths "$APP_BUNDLE/Contents/MacOS/$exec_name"
+    fi
+
+    local fw
+    while IFS= read -r fw; do
+        [ -z "$fw" ] && continue
+        local fw_name fw_binary
+        fw_name=$(basename "$fw" .framework)
+        fw_binary="$fw/Versions/A/$fw_name"
+        strip_homebrew_rpaths "$fw_binary"
+    done < <(find "$FRAMEWORKS_DIR" -maxdepth 1 -type d -name '*.framework')
+
+    local dylib
+    while IFS= read -r dylib; do
+        [ -z "$dylib" ] && continue
+        strip_homebrew_rpaths "$dylib"
+    done < <(find "$FRAMEWORKS_DIR" -maxdepth 1 -type f -name '*.dylib')
 }
 
 fix_webengine_helper_frameworks() {
@@ -230,7 +353,12 @@ if [ -f "$FRAMEWORKS_DIR/libwebp.7.dylib" ]; then
     fi
 fi
 
+bundle_qtdbus
+bundle_libdbus
+
 fix_webengine_helper_frameworks
+
+strip_homebrew_rpaths_from_bundle
 
 retarget_newer_dylibs
 

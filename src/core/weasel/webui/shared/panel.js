@@ -6,8 +6,17 @@
 
 const Panel = (function() {
   let bridge = null;
+  let panelBase = null;
   let syncing = false;
+  let remeasureTimer = null;
   const setters = {};
+
+  function scheduleRemeasure() {
+    if (!panelBase || !panelBase.remeasure) return;
+    if (remeasureTimer) clearTimeout(remeasureTimer);
+    // Defer past the current tick so the DOM has reflowed before we measure.
+    remeasureTimer = setTimeout(function() { panelBase.remeasure(); }, 30);
+  }
 
   /**
    * Register a slider. Options:
@@ -133,7 +142,11 @@ const Panel = (function() {
     const visibleDisplay = displayValue || '';
     setters[id] = function(visible) {
       syncing = true;
-      el.style.display = visible ? visibleDisplay : 'none';
+      const next = visible ? visibleDisplay : 'none';
+      if (el.style.display !== next) {
+        el.style.display = next;
+        scheduleRemeasure();
+      }
       syncing = false;
     };
   }
@@ -152,8 +165,17 @@ const Panel = (function() {
           });
         });
       }
+      panelBase = channel.objects.panelBase || null;
       if (onReady) onReady(bridge);
       if (bridge.requestValues) bridge.requestValues();
+
+      // Belt-and-suspenders: ResizeObserver catches anything that changes
+      // document height outside of a visibility setter (font reflow, etc.).
+      if (panelBase && panelBase.remeasure && typeof ResizeObserver === 'function') {
+        var observer = new ResizeObserver(scheduleRemeasure);
+        observer.observe(document.documentElement);
+        observer.observe(document.body);
+      }
     });
   }
 

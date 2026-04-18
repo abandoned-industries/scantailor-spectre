@@ -2,11 +2,22 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a29** | macOS (Apple Silicon) | Requires macOS 15 or later
+**Version 2.0a30** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
+
+## Version 2.0a30
+
+- Output photo adjustments now show a single, unified panel for Color and Grayscale pages. No more duplicated panels, and no empty gap between the sliders and Dewarping.
+- Sliders feel smoother during drag: the app no longer stutters while you fine-tune adjustments.
+- Exposure, Contrast, Highlights/Shadows, and Whites/Blacks now apply in the same order Lightroom uses, so results match what you'd expect from other photo tools.
+- Stage 2 (Split Pages): opening older projects no longer re-runs detection on every page.
+- Stage 2 (Split Pages): art books with broad, dark binding gutters are detected more reliably.
+- Stage 4 (Page Box): applying a page box across pages of different sizes or rotations now stays centered instead of drifting off the page.
+- Dark-theme slider handles now render cleanly (previously slightly clipped).
+- Stability and packaging improvements: the app bundle is more self-contained and safer to close during the Output stage.
 
 ## Version 2.0a29
 

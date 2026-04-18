@@ -32,6 +32,15 @@ const ColorScheme::ColorParams* NativeColorScheme::getColorParams() const {
 }
 
 void NativeColorScheme::loadStyleSheet() {
+  // The bundled light stylesheet hardcodes light colors (#fff, #e8e8e8, etc.)
+  // and is unreadable on a dark system palette. In the "native" scheme we only
+  // apply it when the OS appearance is light; dark-mode users either stay on
+  // native chrome (here) or can explicitly choose the Dark scheme.
+  const QPalette palette = QPalette();
+  if (palette.window().color().lightnessF() < 0.5) {
+    return;
+  }
+
   QFile styleSheetFile(QString::fromUtf8(":/light_scheme/stylesheet/stylesheet.qss"));
   if (styleSheetFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
     m_styleSheet = styleSheetFile.readAll();

@@ -555,6 +555,9 @@ QLineF SpineDarknessFinder::findSpine(const GrayImage& grayDownscaled,
                << "darkRowFrac=" << broadDrf
                << "leftNbr=" << broadLeft
                << "rightNbr=" << broadRight;
+      if (broadGutterRescue) {
+        *broadGutterRescue = true;
+      }
       return spineVirt;
     }
   }

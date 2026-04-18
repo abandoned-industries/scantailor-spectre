@@ -43,6 +43,7 @@
 #include "TaskStatus.h"
 #include "ThumbnailPixmapCache.h"
 #include "Utils.h"
+#include "weasel/TonalCurve.h"
 #include <Transform.h>
 
 using namespace imageproc;
@@ -330,7 +331,17 @@ FilterResultPtr Task::process(const TaskStatus& status, const FilterData& data, 
 
     if (isPassThrough) {
       // Pass-through mode: apply geometric transforms (page split, deskew) but skip heavy processing
-      const QImage& origImage = data.origImage();
+      QImage origImage = data.origImage();
+
+      // Apply photo adjustments (temp/tint + tonal curve) before the geometric transform,
+      // matching the order OutputGenerator uses for the normal path.
+      const weasel::PhotoAdjustments& adj = params.colorParams().photoAdjustments();
+      if (!adj.isDefault()) {
+        origImage = weasel::TonalCurve::apply(origImage, adj.temp(), adj.tint(), adj.exposure(),
+                                              adj.contrast(), adj.highlights(), adj.shadows(),
+                                              adj.whites(), adj.blacks());
+      }
+
       const QRect outputRect = newXform.resultingRect().toRect();
 
       // Clip the output rect to the pre-crop area (page split boundary) so pixels

@@ -18,7 +18,11 @@ Dependencies::Dependencies(const QDomElement& el)
     : m_imageSize(XmlUnmarshaller::size(el.namedItem("size").toElement())),
       m_rotation(el.namedItem("rotation").toElement()),
       m_layoutType(layoutTypeFromString(XmlUnmarshaller::string(el.namedItem("layoutType").toElement()))),
-      m_detectorVersion(el.attribute("detectorVersion").toInt()) {}
+      // Pre-versioning projects omit the attribute; treat them as current so
+      // every page in an old project doesn't retrigger auto-detection on load.
+      m_detectorVersion(el.hasAttribute("detectorVersion")
+                            ? el.attribute("detectorVersion").toInt()
+                            : kPageSplitDetectorVersion) {}
 
 Dependencies::Dependencies(const QSize& imageSize, const OrthogonalRotation rotation, const LayoutType layoutType)
     : m_imageSize(imageSize),

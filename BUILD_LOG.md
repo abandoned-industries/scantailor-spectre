@@ -1859,3 +1859,59 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 2026-04-16 16:50 - Release build v2.0a29 (cmake --build build --target scantailor_bundle -j8)
 - version.h.in: 2.0a28 → 2.0a29
 - README.md: add v2.0a29 changelog (slider responsiveness, click-to-position, compact value boxes, snap-to-zero removal)
+
+---
+2026-04-17 — ultrareview critical fixes (cmake --build build --target scantailor -j$(sysctl -n hw.ncpu))
+- src/core/CenteredTickSlider.cpp: QProxyStyle(style()) reparents the shared app QStyle into the proxy; 8 CenteredTickSliders created meant every non-first proxy held a dangling baseStyle after its sibling was destroyed, and qApp->style() itself could be deleted. Switched to JumpClickStyle(QStringLiteral("fusion")) so the proxy owns its own Fusion instance.
+- src/core/NativeColorScheme.cpp: loadStyleSheet() unconditionally loaded the light QSS — unreadable on a dark system palette ("native" is default). Gated QSS load on palette.window().color().lightnessF() >= 0.5; dark-mode users now stay on native chrome, matching pre-2.0a26 behaviour. Users wanting styled dark can choose the Dark scheme explicitly.
+- src/core/filters/output/OptionsWidget.cpp: web-panel visibility state keys (showFillColor/showReduceNoise/showPhotoAdjustments/showWhiteBalance/showTemp/showTint) never matched the DOM IDs registered via Panel.setupVisibility() in photo_adjustments.html (fill-color-row, reduce-noise-section, photo-adjustments-section, white-balance-section, temp-row, tint-row). panel.js silently no-ops on unknown keys, so mode-aware section hiding was entirely broken. Renamed keys to match DOM IDs.
+- src/core/filters/output/OptionsWidget.{cpp,h}: added applyPhotoAdjustmentsToSelectedPages() that read-modify-writes each selected page's ColorParams to overlay only PhotoAdjustments — preserving per-page colorMode/BW options/ColorCommonOptions. Switched all 10 photo-slider call sites (web bridge + 8 native slots + auto + reset) to the new method. colorModeChanged (line 423) keeps the full-copy path since that's the intended "apply mode to selection" behaviour.
+
+2026-04-17 — scantailor_bundle to fix install_names for test launch (cmake --build build-clean-package --target scantailor_bundle -j$(sysctl -n hw.ncpu))
+
+---
+2026-04-17 17:05 - Photo adjustments usable in pass-through (make -j)
+- src/core/filters/output/OptionsWidget.cpp: dropped adjustmentsPanel->setEnabled(!pt) so the PhotoAdjustments panel stays enabled under pass-through.
+- src/core/filters/output/Task.cpp: added #include "weasel/TonalCurve.h"; apply PhotoAdjustments to origImage in the pass-through branch, matching OutputGenerator ordering.
+
+---
+2026-04-17 18:05 - Re-run scantailor_bundle after Homebrew path rewrite fail (cmake --build build-clean-package --target scantailor_bundle)
+- Root cause: prior incremental rebuilds replaced main exec without re-running macdeployqt, so install_names still point to /opt/homebrew/opt/qt*/lib/... pulling in Homebrew Qt alongside bundled Qt (dual-Qt warnings + immediate quit)
+- Fix: run scantailor_bundle target which rm -rf's Frameworks/PlugIns, re-runs macdeployqt (rewrites install_names to @rpath), runs fix-bundle-libs.sh, ad-hoc signs
+
+---
+2026-04-17 18:35 - M5 debounce photo-adjust slider Settings writes (100ms) (make -j8)
+- OptionsWidget.h: add QTimer m_delayedPhotoAdjustCommit + commitPhotoAdjustments() method
+- OptionsWidget.cpp: 8 slider handlers + web-bridge handler now call m_delayedPhotoAdjustCommit.start(100) instead of immediate Settings write + applyPhotoAdjustmentsToSelectedPages. Flush pending commit in preUpdateUI (page change) and ~OptionsWidget (teardown). Auto/Reset buttons unchanged — single click, not drag.
+
+---
+2026-04-17 18:55 - Ultrareview batch: M2/M3/M4 + page_split/page_box/dark_scheme fixes (make -j8)
+- TonalCurve.cpp: reorder ops to exposure → contrast → highlights/shadows → whites/blacks (Lightroom-like pipeline)
+- SpineDarknessFinder.cpp: set *broadGutterRescue=true before early-return on broad-gutter path (was never surfacing to caller leash logic)
+- page_split/Dependencies.cpp: treat missing detectorVersion attribute as current version, not 0 — stops per-page re-detect spam on pre-versioning project files
+- page_box/OptionsWidget.cpp applySelection: use centerDelta for manual-rect propagation, clamp to target outline — handles heterogeneous page sizes/rotations
+- WebOptionsPanelBase: QPointer guard on runJavaScript callback; add public remeasure() slot; register self as "panelBase" on channel
+- panel.js: ResizeObserver on body/html pings panelBase.remeasure() (30ms debounce) — DOM hide/show now re-fits panel height
+- dark_scheme slider_handle.svg: viewBox widened 3→12 to match QSS handle width; centers stroke so handle line stays crisp
+
+---
+2026-04-17 19:15 - Fix duplicate photo adjustment panels (make -j8)
+- src/core/filters/output/OptionsWidget.cpp: hide commonOptions/adjustmentsPanel/colorOperationsOptions when web panel active; the `if (!useWebPanel)` guards only skipped forced-visible calls, never flipped them off, so both native QSliders and web panel rendered simultaneously.
+
+---
+2026-04-17 19:25 - scantailor_bundle re-deploy after Homebrew path regression
+- Incremental scantailor build reintroduced /opt/homebrew/... install names; running bundle target to re-run macdeployqt + fix-bundle-libs.sh + ad-hoc sign.
+
+---
+2026-04-17 19:40 - Use web panel for GRAYSCALE mode too (make -j8 + bundle)
+- src/core/filters/output/OptionsWidget.cpp: extend useWebPanel to include GRAYSCALE; web panel already hides white-balance section via panel-state visibility setter.
+
+---
+2026-04-17 19:55 - Fix web-panel gap on Grayscale (make -j8 + bundle)
+- src/core/weasel/webui/shared/panel.js: trigger remeasure directly from visibility setters (don't rely solely on ResizeObserver, which seems unreliable in QtWebEngine for display:none transitions).
+- src/core/filters/output/OptionsWidget.cpp: remove hardcoded setMinimumHeight(380), switch size policy from Expanding/MinimumExpanding to Preferred/Fixed so widget respects the exact height locked by updateHeightFromContent.
+
+---
+2026-04-17 20:10 - Release 2.0a30 (bump, build, bundle, sign, notarize, DMG)
+- version.h.in: 2.0a29 → 2.0a30
+- README.md: add 2.0a30 user-facing changelog (unified photo adjust panel; smoother sliders; Lightroom tone order; page-split/page-box fixes; packaging hardening).

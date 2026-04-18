@@ -35,22 +35,38 @@ void TonalCurve::buildToneLUT(uint8_t lut[256],
                                double shadows,
                                double whites,
                                double blacks) {
+  // Order mirrors Lightroom's Basic panel: exposure sets overall brightness,
+  // contrast shapes midtones, highlights/shadows recover local detail, then
+  // whites/blacks define the final clipping points.
   for (int i = 0; i < 256; ++i) {
     double val = i / 255.0;
 
-    // 1. Blacks: raise the black point (positive = lighter darks)
-    if (blacks != 0.0) {
-      double bp = blacks / 100.0 * 0.25;  // max shift of 25% of range
-      if (bp > 0.0) {
-        // Positive: lift blacks
-        val = bp + val * (1.0 - bp);
-      } else {
-        // Negative: crush blacks
-        val = std::max(0.0, val + bp) / (1.0 + bp);
-      }
+    // 1. Exposure: f-stop model
+    if (exposure != 0.0) {
+      val = val * std::pow(2.0, exposure);
     }
 
-    // 2. Whites: lower the white point (negative = darker whites)
+    // 2. Contrast: S-curve around midpoint
+    if (contrast != 0.0) {
+      double factor = std::pow(2.0, contrast / 100.0 * 1.3);
+      val = 0.5 + (val - 0.5) * factor;
+    }
+
+    // 3. Highlights: affect bright areas
+    if (highlights != 0.0) {
+      double weight = smoothstep(0.25, 1.0, val);
+      double shift = -highlights / 100.0 * 0.40 * weight;
+      val += shift;
+    }
+
+    // 4. Shadows: affect dark areas
+    if (shadows != 0.0) {
+      double weight = 1.0 - smoothstep(0.0, 0.75, val);
+      double shift = shadows / 100.0 * 0.40 * weight;
+      val += shift;
+    }
+
+    // 5. Whites: lower the white point (negative = darker whites)
     if (whites != 0.0) {
       double wp = whites / 100.0 * 0.25;
       if (wp > 0.0) {
@@ -62,29 +78,16 @@ void TonalCurve::buildToneLUT(uint8_t lut[256],
       }
     }
 
-    // 3. Exposure: f-stop model
-    if (exposure != 0.0) {
-      val = val * std::pow(2.0, exposure);
-    }
-
-    // 4. Contrast: S-curve around midpoint
-    if (contrast != 0.0) {
-      double factor = std::pow(2.0, contrast / 100.0 * 1.3);
-      val = 0.5 + (val - 0.5) * factor;
-    }
-
-    // 5. Highlights: affect bright areas
-    if (highlights != 0.0) {
-      double weight = smoothstep(0.25, 1.0, val);
-      double shift = -highlights / 100.0 * 0.40 * weight;
-      val += shift;
-    }
-
-    // 6. Shadows: affect dark areas
-    if (shadows != 0.0) {
-      double weight = 1.0 - smoothstep(0.0, 0.75, val);
-      double shift = shadows / 100.0 * 0.40 * weight;
-      val += shift;
+    // 6. Blacks: raise the black point (positive = lighter darks)
+    if (blacks != 0.0) {
+      double bp = blacks / 100.0 * 0.25;  // max shift of 25% of range
+      if (bp > 0.0) {
+        // Positive: lift blacks
+        val = bp + val * (1.0 - bp);
+      } else {
+        // Negative: crush blacks
+        val = std::max(0.0, val + bp) / (1.0 + bp);
+      }
     }
 
     lut[i] = static_cast<uint8_t>(std::clamp(val * 255.0, 0.0, 255.0));

@@ -127,15 +127,23 @@ void OptionsWidget::applySelection(const std::set<PageId>& pages) {
       targetParams->setPageDetectionMode(m_pageDetectionMode);
       targetParams->setFineTuneCornersEnabled(m_fineTuneCorners);
       if (m_pageDetectionMode == MODE_MANUAL && m_pageRect.isValid()) {
-        // Adjust manual page rect for target page's image size
+        // Recenter the manual page rect relative to the target page's outline.
+        // Using the center delta handles bounding boxes whose origins aren't
+        // at (0, 0) and pages with different orthogonal rotations — cases
+        // where the prior (W/2, H/2) size-delta formula would drift.
         const QRectF sourceImageRect = currentParams->dependencies().rotatedPageOutline().boundingRect();
         const QRectF targetImageRect = targetParams->dependencies().rotatedPageOutline().boundingRect();
         QRectF adjustedRect = m_pageRect;
         if (sourceImageRect.isValid() && targetImageRect.isValid()) {
-          adjustedRect.translate((targetImageRect.width() - sourceImageRect.width()) / 2,
-                                (targetImageRect.height() - sourceImageRect.height()) / 2);
+          const QPointF centerDelta = targetImageRect.center() - sourceImageRect.center();
+          adjustedRect.translate(centerDelta);
+          // Keep the rect within the target outline; otherwise a size mismatch
+          // or rotation change can push it partially off-page.
+          adjustedRect = adjustedRect.intersected(targetImageRect);
         }
-        targetParams->setPageRect(adjustedRect);
+        if (adjustedRect.isValid()) {
+          targetParams->setPageRect(adjustedRect);
+        }
       }
       m_settings->setPageParams(pageId, *targetParams);
     }

@@ -198,6 +198,17 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void applyColorParamsToSelectedPages(bool triggerBatchProcessing = false);
 
+  // Overlays only the current page's PhotoAdjustments onto each selected page,
+  // preserving each target's colorMode / BW options / common color options.
+  // Use this for per-slider propagation; use applyColorParamsToSelectedPages
+  // only when the caller genuinely wants to copy the full ColorParams.
+  void applyPhotoAdjustmentsToSelectedPages(bool triggerBatchProcessing = false);
+
+  // Debounced commit: slider drags stage PhotoAdjustments in m_colorParams and
+  // restart m_delayedPhotoAdjustCommit; the actual Settings write runs once
+  // when the user pauses (~100ms), preventing N-writes-per-pixel during a drag.
+  void commitPhotoAdjustments();
+
   void updateSelectionIndicator();
 
   void updateWebPanelState();
@@ -216,6 +227,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   ImageViewTab m_lastTab;
   QTimer m_delayedReloadRequest;
   QTimer m_delayedSelectedPagesBatchProcessing;
+  QTimer m_delayedPhotoAdjustCommit;
   std::set<PageId> m_pendingSelectedPagesBatchProcessing;
 
   weasel::PhotoAdjustmentsPanel* m_photoAdjPanel = nullptr;
