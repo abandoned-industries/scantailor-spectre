@@ -134,6 +134,7 @@ QImage loadImage(const QString& imagePath) {
 bool exportWithCoreGraphics(const QStringList& imagePaths,
                             const QString& outputPdfPath,
                             const QString& title,
+                            const QString& author,
                             int jpegQuality,
                             bool compressGrayscale,
                             int maxDpi,
@@ -148,6 +149,10 @@ bool exportWithCoreGraphics(const QStringList& imagePaths,
     if (!title.isEmpty()) {
       auxInfo[(NSString*)kCGPDFContextTitle] =
           [NSString stringWithUTF8String:title.toUtf8().constData()];
+    }
+    if (!author.isEmpty()) {
+      auxInfo[(NSString*)kCGPDFContextAuthor] =
+          [NSString stringWithUTF8String:author.toUtf8().constData()];
     }
     auxInfo[(NSString*)kCGPDFContextCreator] = @"ScanTailor Spectre";
 
@@ -425,7 +430,10 @@ bool exportWithCoreGraphics(const QStringList& imagePaths,
 bool exportWithQt(const QStringList& imagePaths,
                   const QString& outputPdfPath,
                   const QString& title,
+                  const QString& author,
                   const PdfExporter::ProgressCallback& progressCallback) {
+  // QPdfWriter has no author metadata API; author is intentionally unused here.
+  Q_UNUSED(author);
   QFile file(outputPdfPath);
   if (!file.open(QIODevice::WriteOnly)) {
     qDebug() << "PdfExporter: Failed to open output file:" << outputPdfPath;
@@ -501,6 +509,7 @@ bool exportWithQt(const QStringList& imagePaths,
 bool PdfExporter::exportToPdf(const QStringList& imagePaths,
                               const QString& outputPdfPath,
                               const QString& title,
+                              const QString& author,
                               Quality quality,
                               bool compressGrayscale,
                               int maxDpi,
@@ -514,14 +523,14 @@ bool PdfExporter::exportToPdf(const QStringList& imagePaths,
   const int jpegQuality = qualityToJpegPercent(quality);
 
 #ifdef __APPLE__
-  return exportWithCoreGraphics(imagePaths, outputPdfPath, title, jpegQuality, compressGrayscale, maxDpi, ocrData,
-                                progressCallback);
+  return exportWithCoreGraphics(imagePaths, outputPdfPath, title, author, jpegQuality, compressGrayscale, maxDpi,
+                                ocrData, progressCallback);
 #else
   Q_UNUSED(jpegQuality);
   Q_UNUSED(compressGrayscale);
   Q_UNUSED(maxDpi);
   Q_UNUSED(ocrData);
   qDebug() << "PdfExporter: Using Qt fallback (CoreGraphics not available)";
-  return exportWithQt(imagePaths, outputPdfPath, title, progressCallback);
+  return exportWithQt(imagePaths, outputPdfPath, title, author, progressCallback);
 #endif
 }

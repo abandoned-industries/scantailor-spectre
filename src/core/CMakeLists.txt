@@ -52,6 +52,9 @@ set(common_sources
     TiffWriter.cpp TiffWriter.h
     PdfReader.mm PdfReader.h
     PdfExporter.mm PdfExporter.h
+    BookMetadata.cpp BookMetadata.h
+    BookLookup.cpp BookLookup.h
+    ZoteroClient.cpp ZoteroClient.h
     PngMetadataLoader.cpp PngMetadataLoader.h
     TiffMetadataLoader.cpp TiffMetadataLoader.h
     JpegMetadataLoader.cpp JpegMetadataLoader.h

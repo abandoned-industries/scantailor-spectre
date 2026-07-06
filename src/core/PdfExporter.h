@@ -48,6 +48,9 @@ class PdfExporter {
    * \param imagePaths List of paths to image files (in order).
    * \param outputPdfPath Path where the PDF will be saved.
    * \param title Optional PDF title metadata.
+   * \param author Optional PDF author metadata. Written only by the CoreGraphics
+   *        (macOS) path; the Qt fallback path (QPdfWriter) has no author API and
+   *        writes title only.
    * \param quality Compression quality preset.
    * \param compressGrayscale If true, use JPEG for grayscale images too (smaller but lossy).
    * \param maxDpi Maximum resolution (0 = keep original). Images higher than this will be downsampled.
@@ -58,6 +61,7 @@ class PdfExporter {
   static bool exportToPdf(const QStringList& imagePaths,
                           const QString& outputPdfPath,
                           const QString& title = QString(),
+                          const QString& author = QString(),
                           Quality quality = Quality::High,
                           bool compressGrayscale = false,
                           int maxDpi = 0,

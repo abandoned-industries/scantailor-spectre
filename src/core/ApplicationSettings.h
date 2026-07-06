@@ -116,6 +116,10 @@ class ApplicationSettings {
 
   void setTempCleanupWarningEnabled(bool enabled);
 
+  bool isPdfRecommendedNameEnabled() const;
+
+  void setPdfRecommendedNameEnabled(bool enabled);
+
  private:
   static inline QString getKey(const QString& keyName);
 
@@ -143,6 +147,7 @@ class ApplicationSettings {
   static const bool DEFAULT_JPEG_OUTPUT;
   static const int DEFAULT_JPEG_QUALITY;
   static const bool DEFAULT_TEMP_CLEANUP_WARNING;
+  static const bool DEFAULT_PDF_RECOMMENDED_NAME;
 
   static const QString ROOT_KEY;
   static const QString OPENGL_STATE_KEY;
@@ -169,6 +174,7 @@ class ApplicationSettings {
   static const QString JPEG_OUTPUT_KEY;
   static const QString JPEG_QUALITY_KEY;
   static const QString TEMP_CLEANUP_WARNING_KEY;
+  static const QString PDF_RECOMMENDED_NAME_KEY;
 
   QSettings m_settings;
 };

@@ -50,4 +50,24 @@ void Settings::setQuality(PdfExporter::Quality quality) {
   m_quality = quality;
 }
 
+BookMetadata Settings::bookMetadata() const {
+  QMutexLocker locker(&m_mutex);
+  return m_bookMetadata;
+}
+
+void Settings::setBookMetadata(const BookMetadata& metadata) {
+  QMutexLocker locker(&m_mutex);
+  m_bookMetadata = metadata;
+}
+
+bool Settings::sendToZotero() const {
+  QMutexLocker locker(&m_mutex);
+  return m_sendToZotero;
+}
+
+void Settings::setSendToZotero(bool value) {
+  QMutexLocker locker(&m_mutex);
+  m_sendToZotero = value;
+}
+
 }  // namespace export_

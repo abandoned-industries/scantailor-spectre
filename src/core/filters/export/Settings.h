@@ -6,6 +6,7 @@
 
 #include <QMutex>
 
+#include "BookMetadata.h"
 #include "NonCopyable.h"
 #include "PdfExporter.h"
 
@@ -35,12 +36,22 @@ class Settings {
   PdfExporter::Quality quality() const;
   void setQuality(PdfExporter::Quality quality);
 
+  // Book metadata (title, authors, etc.)
+  BookMetadata bookMetadata() const;
+  void setBookMetadata(const BookMetadata& metadata);
+
+  // Send the exported book to Zotero after export
+  bool sendToZotero() const;
+  void setSendToZotero(bool value);
+
  private:
   mutable QMutex m_mutex;
   bool m_noDpiLimit;
   int m_maxDpi;
   bool m_compressGrayscale;
   PdfExporter::Quality m_quality;
+  BookMetadata m_bookMetadata;
+  bool m_sendToZotero = false;
 };
 
 }  // namespace export_

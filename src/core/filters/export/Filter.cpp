@@ -71,6 +71,19 @@ QDomElement Filter::saveSettings(const ProjectWriter& writer, QDomDocument& doc)
   filterEl.setAttribute("maxDpi", m_settings->maxDpi());
   filterEl.setAttribute("compressGrayscale", m_settings->compressGrayscale() ? "1" : "0");
   filterEl.setAttribute("quality", static_cast<int>(m_settings->quality()));
+  filterEl.setAttribute("sendToZotero", m_settings->sendToZotero() ? "1" : "0");
+
+  const BookMetadata meta(m_settings->bookMetadata());
+  QDomElement metadataEl(doc.createElement("metadata"));
+  metadataEl.setAttribute("title", meta.title);
+  metadataEl.setAttribute("authors", meta.authors);
+  metadataEl.setAttribute("year", meta.year);
+  metadataEl.setAttribute("publisher", meta.publisher);
+  metadataEl.setAttribute("place", meta.place);
+  metadataEl.setAttribute("isbn", meta.isbn);
+  metadataEl.setAttribute("language", meta.language);
+  metadataEl.setAttribute("creatorRole", creatorRoleToString(meta.creatorRole));
+  filterEl.appendChild(metadataEl);
 
   return filterEl;
 }
@@ -85,6 +98,21 @@ void Filter::loadSettings(const ProjectReader& reader, const QDomElement& filter
   m_settings->setMaxDpi(filterEl.attribute("maxDpi", "400").toInt());
   m_settings->setCompressGrayscale(filterEl.attribute("compressGrayscale", "0") == "1");
   m_settings->setQuality(static_cast<PdfExporter::Quality>(filterEl.attribute("quality", "1").toInt()));
+  m_settings->setSendToZotero(filterEl.attribute("sendToZotero", "0") == "1");
+
+  const QDomElement metadataEl(filterEl.namedItem("metadata").toElement());
+  if (!metadataEl.isNull()) {
+    BookMetadata meta;
+    meta.title = metadataEl.attribute("title");
+    meta.authors = metadataEl.attribute("authors");
+    meta.year = metadataEl.attribute("year");
+    meta.publisher = metadataEl.attribute("publisher");
+    meta.place = metadataEl.attribute("place");
+    meta.isbn = metadataEl.attribute("isbn");
+    meta.language = metadataEl.attribute("language");
+    meta.creatorRole = creatorRoleFromString(metadataEl.attribute("creatorRole"));
+    m_settings->setBookMetadata(meta);
+  }
 }
 
 void Filter::loadDefaultSettings(const PageInfo& pageInfo) {
@@ -108,5 +136,9 @@ OptionsWidget* Filter::optionsWidget() {
 
 void Filter::setOutputSettings(std::shared_ptr<output::Settings> outputSettings) {
   m_optionsWidget->setOutputSettings(std::move(outputSettings));
+}
+
+void Filter::setOcrSettings(std::shared_ptr<ocr::Settings> ocrSettings) {
+  m_optionsWidget->setOcrSettings(std::move(ocrSettings));
 }
 }  // namespace export_

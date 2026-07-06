@@ -3,20 +3,36 @@
 
 #include "OptionsWidget.h"
 
+#include <QApplication>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QSignalBlocker>
+#include <QTimer>
 
+#include "ApplicationSettings.h"
+#include "BookLookup.h"
+#include "BookMetadata.h"
 #include "Dpi.h"
+#include "MetadataGuesser.h"
+#include "PageSequence.h"
+#include "PdfExporter.h"
+#include "ZoteroClient.h"
+#include "filters/ocr/Settings.h"
 #include "filters/output/ChangeDpiDialog.h"
 #include "filters/output/Settings.h"
-#include "PdfExporter.h"
 
 namespace export_ {
 
 OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelectionAccessor& pageSelectionAccessor)
-    : m_settings(std::move(settings)), m_pageSelectionAccessor(pageSelectionAccessor) {
+    : m_settings(std::move(settings)),
+      m_zoteroClient(std::make_unique<ZoteroClient>(this)),
+      m_bookLookup(std::make_unique<BookLookup>(this)),
+      m_zoteroPollTimer(new QTimer(this)),
+      m_pageSelectionAccessor(pageSelectionAccessor) {
   setupUi(this);
 
   populateQualityCombo();
+  populateRoleCombo();
 
   // Connect UI signals
   connect(noDpiLimitCB, &QCheckBox::toggled, this, &OptionsWidget::noDpiLimitChanged);
@@ -26,6 +42,22 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   connect(exportToPdfBtn, &QPushButton::clicked, this, &OptionsWidget::exportToPdfClicked);
   connect(changeOutputDpiBtn, &QPushButton::clicked, this, &OptionsWidget::changeOutputDpiClicked);
 
+  // Metadata field editing
+  for (QLineEdit* edit : {titleLineEdit, authorsLineEdit, yearLineEdit, publisherLineEdit, placeLineEdit, isbnLineEdit,
+                          languageLineEdit}) {
+    connect(edit, &QLineEdit::editingFinished, this, &OptionsWidget::metadataEditingFinished);
+  }
+  connect(roleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          &OptionsWidget::metadataEditingFinished);
+  connect(guessMetadataBtn, &QPushButton::clicked, this, &OptionsWidget::guessMetadataClicked);
+  connect(lookupIsbnBtn, &QPushButton::clicked, this, &OptionsWidget::lookupIsbnClicked);
+  connect(recommendedNameCB, &QCheckBox::toggled, this, &OptionsWidget::recommendedNameToggled);
+  connect(sendToZoteroCB, &QCheckBox::toggled, this, &OptionsWidget::sendToZoteroToggled);
+
+  // Zotero status polling
+  m_zoteroPollTimer->setInterval(5000);
+  connect(m_zoteroPollTimer, &QTimer::timeout, this, &OptionsWidget::refreshZoteroStatus);
+
   updateDisplay();
 }
 
@@ -33,6 +65,24 @@ OptionsWidget::~OptionsWidget() = default;
 
 void OptionsWidget::setOutputSettings(std::shared_ptr<output::Settings> outputSettings) {
   m_outputSettings = std::move(outputSettings);
+}
+
+void OptionsWidget::setOcrSettings(std::shared_ptr<ocr::Settings> ocrSettings) {
+  // Called during StageSequence construction, before MainWindow's thumbnail
+  // sequence exists — must not touch m_pageSelectionAccessor here. The guess
+  // button state is refreshed by updateDisplay() on preUpdateUI.
+  m_ocrSettings = std::move(ocrSettings);
+}
+
+void OptionsWidget::showEvent(QShowEvent* event) {
+  FilterOptionsWidget::showEvent(event);
+  refreshZoteroStatus();
+  m_zoteroPollTimer->start();
+}
+
+void OptionsWidget::hideEvent(QHideEvent* event) {
+  m_zoteroPollTimer->stop();
+  FilterOptionsWidget::hideEvent(event);
 }
 
 void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
@@ -50,6 +100,13 @@ void OptionsWidget::populateQualityCombo() {
   qualityCombo->addItem(tr("High (95%)"), static_cast<int>(PdfExporter::Quality::High));
   qualityCombo->addItem(tr("Medium (85%)"), static_cast<int>(PdfExporter::Quality::Medium));
   qualityCombo->addItem(tr("Low (70%)"), static_cast<int>(PdfExporter::Quality::Low));
+}
+
+void OptionsWidget::populateRoleCombo() {
+  roleCombo->clear();
+  roleCombo->addItem(tr("Author(s)"), static_cast<int>(CreatorRole::Author));
+  roleCombo->addItem(tr("Editor(s)"), static_cast<int>(CreatorRole::Editor));
+  roleCombo->addItem(tr("Translator(s)"), static_cast<int>(CreatorRole::Translator));
 }
 
 void OptionsWidget::updateDisplay() {
@@ -72,6 +129,180 @@ void OptionsWidget::updateDisplay() {
       break;
     }
   }
+
+  // Book metadata + Zotero + recommended-name (project-global / app-wide fields)
+  const BookMetadata meta = m_settings->bookMetadata();
+  {
+    const QSignalBlocker b1(titleLineEdit);
+    const QSignalBlocker b2(authorsLineEdit);
+    const QSignalBlocker b3(yearLineEdit);
+    const QSignalBlocker b4(publisherLineEdit);
+    const QSignalBlocker b5(placeLineEdit);
+    const QSignalBlocker b6(isbnLineEdit);
+    const QSignalBlocker b7(languageLineEdit);
+    const QSignalBlocker b8(sendToZoteroCB);
+    const QSignalBlocker b9(recommendedNameCB);
+    const QSignalBlocker b10(roleCombo);
+
+    titleLineEdit->setText(meta.title);
+    authorsLineEdit->setText(meta.authors);
+    yearLineEdit->setText(meta.year);
+    publisherLineEdit->setText(meta.publisher);
+    placeLineEdit->setText(meta.place);
+    isbnLineEdit->setText(meta.isbn);
+    languageLineEdit->setText(meta.language);
+    sendToZoteroCB->setChecked(m_settings->sendToZotero());
+    recommendedNameCB->setChecked(ApplicationSettings::getInstance().isPdfRecommendedNameEnabled());
+
+    const int roleValue = static_cast<int>(meta.creatorRole);
+    for (int i = 0; i < roleCombo->count(); ++i) {
+      if (roleCombo->itemData(i).toInt() == roleValue) {
+        roleCombo->setCurrentIndex(i);
+        break;
+      }
+    }
+  }
+
+  updateGuessButtonState();
+}
+
+void OptionsWidget::updateGuessButtonState() {
+  bool enabled = false;
+  if (m_ocrSettings) {
+    const PageSequence pages = m_pageSelectionAccessor.allPages();
+    const size_t limit = std::min<size_t>(3, pages.numPages());
+    for (size_t i = 0; i < limit; ++i) {
+      std::unique_ptr<ocr::OcrResult> result = m_ocrSettings->getOcrResult(pages.pageAt(i).id());
+      if (result && !result->isEmpty()) {
+        enabled = true;
+        break;
+      }
+    }
+  }
+  guessMetadataBtn->setEnabled(enabled);
+  guessMetadataBtn->setToolTip(enabled ? tr("Pre-fill empty fields from OCR of the first pages")
+                                       : tr("Run OCR (stage 9) on the first pages first"));
+}
+
+void OptionsWidget::metadataEditingFinished() {
+  BookMetadata meta;
+  meta.title = titleLineEdit->text().trimmed();
+  meta.authors = authorsLineEdit->text().trimmed();
+  meta.year = yearLineEdit->text().trimmed();
+  meta.publisher = publisherLineEdit->text().trimmed();
+  meta.place = placeLineEdit->text().trimmed();
+  meta.isbn = isbnLineEdit->text().trimmed();
+  meta.language = languageLineEdit->text().trimmed();
+  meta.creatorRole = static_cast<CreatorRole>(roleCombo->currentData().toInt());
+  m_settings->setBookMetadata(meta);
+}
+
+void OptionsWidget::sendToZoteroToggled(bool checked) {
+  m_settings->setSendToZotero(checked);
+}
+
+void OptionsWidget::recommendedNameToggled(bool checked) {
+  ApplicationSettings::getInstance().setPdfRecommendedNameEnabled(checked);
+}
+
+void OptionsWidget::guessMetadataClicked() {
+  if (!m_ocrSettings) {
+    return;
+  }
+  const PageSequence pages = m_pageSelectionAccessor.allPages();
+  const MetadataGuess guess = guessBookMetadata(*m_ocrSettings, pages);
+
+  // "Guess from scan" is a deliberate (re)guess: overwrite each field the scan
+  // could determine, but leave fields it couldn't guess untouched so a partial
+  // guess never wipes existing values.
+  BookMetadata meta = m_settings->bookMetadata();
+  bool filledAny = false;
+  if (!guess.title.isEmpty()) {
+    meta.title = guess.title;
+    filledAny = true;
+  }
+  if (!guess.author.isEmpty()) {
+    meta.authors = guess.author;
+    // The role travels with the author guess: an "Edited by" byline flips it to
+    // Editor. Applied before the ISBN lookup, which must not touch the role.
+    meta.creatorRole = guess.creatorRole;
+    filledAny = true;
+  }
+  if (!guess.year.isEmpty()) {
+    meta.year = guess.year;
+    filledAny = true;
+  }
+  if (!guess.isbn.isEmpty()) {
+    meta.isbn = guess.isbn;
+    filledAny = true;
+  }
+
+  if (filledAny) {
+    m_settings->setBookMetadata(meta);
+    updateDisplay();
+  }
+
+  // If the guess produced an ISBN, enrich/override with canonical data. This is
+  // non-fatal: on failure the OCR-guessed values remain and no error is shown.
+  if (!guess.isbn.isEmpty()) {
+    applyIsbnLookup(guess.isbn);
+    return;
+  }
+
+  if (!filledAny) {
+    QMessageBox::information(this, tr("Guess from scan"),
+                             tr("Could not guess any metadata from the scanned pages."));
+  }
+}
+
+bool OptionsWidget::applyIsbnLookup(const QString& isbn) {
+  if (isbn.trimmed().isEmpty()) {
+    return false;
+  }
+
+  BookMetadata looked;
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+  const BookLookup::Result result = m_bookLookup->lookupByIsbn(isbn, looked);
+  QApplication::restoreOverrideCursor();
+
+  if (!result.ok()) {
+    m_lastLookupMessage = result.message;
+    return false;
+  }
+
+  // Overwrite fields with any non-empty canonical values; keep the ISBN.
+  BookMetadata meta = m_settings->bookMetadata();
+  if (!looked.title.isEmpty()) meta.title = looked.title;
+  if (!looked.authors.isEmpty()) meta.authors = looked.authors;
+  if (!looked.year.isEmpty()) meta.year = looked.year;
+  if (!looked.publisher.isEmpty()) meta.publisher = looked.publisher;
+  if (!looked.place.isEmpty()) meta.place = looked.place;
+  if (!looked.language.isEmpty()) meta.language = looked.language;
+
+  m_settings->setBookMetadata(meta);
+  updateDisplay();
+  return true;
+}
+
+void OptionsWidget::lookupIsbnClicked() {
+  const QString isbn = isbnLineEdit->text().trimmed();
+  if (isbn.isEmpty()) {
+    QMessageBox::information(this, tr("Look up ISBN"), tr("Enter or guess an ISBN first."));
+    return;
+  }
+  m_lastLookupMessage.clear();
+  if (!applyIsbnLookup(isbn)) {
+    const QString message =
+        m_lastLookupMessage.isEmpty() ? tr("No record found for ISBN %1.").arg(isbn) : m_lastLookupMessage;
+    QMessageBox::warning(this, tr("Look up ISBN"), message);
+  }
+}
+
+void OptionsWidget::refreshZoteroStatus() {
+  zoteroStatusLabel->setText(tr("Zotero: checking…"));
+  m_zoteroClient->pingAsync([this](bool running) {
+    zoteroStatusLabel->setText(running ? tr("Zotero: running") : tr("Zotero: not running"));
+  });
 }
 
 void OptionsWidget::noDpiLimitChanged(bool checked) {

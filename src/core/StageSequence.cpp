@@ -23,6 +23,8 @@ StageSequence::StageSequence(const std::shared_ptr<ProjectPages>& pages,
   m_outputFilter->setFinalizeSettings(m_finalizeFilter->settings());
   // Connect export filter to output settings for PDF export
   m_exportFilter->setOutputSettings(m_outputFilter->settings());
+  // Connect export filter to OCR settings for the "Guess from scan" metadata feature
+  m_exportFilter->setOcrSettings(m_ocrFilter->settings());
   // Connect select_content filter to page_box settings so it can read the page rect
   m_selectContentFilter->setPageBoxSettings(m_pageBoxFilter->settings());
 

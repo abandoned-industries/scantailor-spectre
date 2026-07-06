@@ -2,6 +2,8 @@
 
 **macOS only** - This application requires macOS 11+ and uses Apple-specific frameworks (CoreGraphics, Vision, Metal).
 
+> **⚠️ ALWAYS read `~/Developer/CLAUDE.md` FIRST** (cross-project conventions for all repos under `~/Developer` — canonical build location, the required repo-root app symlink, stray-build-dir rules). Those rules apply here and override nothing in this file; this file only adds project specifics.
+
 ---
 
 ## ⚠️ SESSION STARTUP — READ THIS FIRST
@@ -9,6 +11,7 @@
 **EVERY session start AND after EVERY compaction, do these IMMEDIATELY:**
 
 ```bash
+cat ~/Developer/CLAUDE.md   # Cross-project conventions (build location, repo-root app symlink, strays)
 cat TODO.md           # Current task and acceptance criteria
 tail -100 BUILD_LOG.md # Recent builds, errors, and known issues
 ```

@@ -1915,3 +1915,64 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 2026-04-17 20:10 - Release 2.0a30 (bump, build, bundle, sign, notarize, DMG)
 - version.h.in: 2.0a29 → 2.0a30
 - README.md: add 2.0a30 user-facing changelog (unified photo adjust panel; smoother sliders; Lightroom tone order; page-split/page-box fixes; packaging hardening).
+
+---
+2026-07-03 19:14 - Build current GitHub main for local /Applications install (cmake --build build --target scantailor_bundle -j8)
+- GitHub sync: `git pull --ff-only origin main` reported already up to date at v2.0a30 / d015c918.
+- Build/install intent: rebuild existing bundle and copy `build/ScanTailor Spectre.app` into `/Applications`.
+
+---
+2026-07-03 19:17 - Reconfigure fresh build-github and build bundle for /Applications install (cmake --build build-github --target scantailor_bundle -j8)
+- build/: existing cache referenced removed MacOSX26.4.sdk and lacked the newer scantailor_bundle target.
+- build-github/: configured against MacOSX26.5.sdk with PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig so Leptonica is found.
+
+---
+2026-07-06 13:13 - Zotero export + recommended PDF name integration (cmake --build build --target scantailor)
+- src/core/CMakeLists.txt: registered BookMetadata.cpp/.h and ZoteroClient.cpp/.h
+- src/core/filters/export/CMakeLists.txt: registered MetadataGuesser.cpp/.h; added ocr to export_ PRIVATE deps
+- src/core/filters/export/OptionsWidget.ui/.h/.cpp: Book Metadata + Zotero group boxes, guess/recommended-name/send-to-zotero wiring, live Zotero status poll
+- src/core/filters/export/Filter.h/.cpp: setOcrSettings forwarding to options widget
+- src/core/StageSequence.cpp: wire m_exportFilter->setOcrSettings(m_ocrFilter->settings())
+- src/core/PdfExporter.h/.mm: added author param (kCGPDFContextAuthor on CG path; Qt fallback title-only)
+- src/app/MainWindow.cpp: recommended filename at both save-dialog sites, PDF author metadata, send-to-Zotero success hook
+- NOTE: existing build/ CMakeCache references deleted MacOSX26.4.sdk (SDK updated to 26.5 on disk) -> reconfigure fails on stale PNG::PNG/ZLIB paths. This is pre-existing environment drift, unrelated to these changes. Validated the code with a clean throwaway configure+build (fresh dir, PKG_CONFIG_PATH=/opt/homebrew/opt/leptonica/lib/pkgconfig): "[100%] Built target scantailor" with no errors. To rebuild in build/: delete build/ and reconfigure per CLAUDE.md.
+
+---
+2026-07-06 14:02 - Rebuild build/ from scratch after macOS SDK 26.4→26.5 drift (cmake configure + build scantailor)
+- build/: deleted stale cache referencing MacOSX26.4.sdk, reconfigured against 26.5
+- Preserved to build-backup-20260706/: ScanTailor-Spectre-2.0a24-20260408-2318.dmg, "ScanTailor Spectre.app" (signed bundle)
+
+---
+2026-07-06 14:26 - Fix startup crash when opening a project (cmake --build build --target scantailor -j8)
+- src/core/filters/export/OptionsWidget.cpp: setOcrSettings no longer calls updateGuessButtonState(); it ran during StageSequence construction and dereferenced MainWindow's not-yet-built ThumbnailSequence via PageSelectionAccessor::allPages() (SIGSEGV in ThumbnailSequence::toPageSequence). Button state now refreshes only via updateDisplay()/preUpdateUI after the window exists.
+
+---
+2026-07-06 14:51 - Export thumbnail navigation fix + ISBN guess (first & last pages) (cmake --build build --target scantailor -j8)
+- src/app/MainWindow.cpp: loadPageInteractive no longer special-cases the Export stage; it now runs the normal per-page composite Task pipeline so clicking a thumbnail navigates/renders each page (pre-existing bug from the original export-stage commit, not the metadata work).
+- src/core/filters/export/MetadataGuesser.cpp: ISBN scan now also covers the last ~5 pages (European books print ISBN on final pages/back cover), in addition to the front matter; prefers a valid ISBN-13 anywhere.
+- (also includes earlier uncommitted: multiline-title merge, byline author, ISBN extraction+validation)
+
+---
+2026-07-06 14:54 - Guess: scan first 8 + last 8 pages; Guess button now overwrites (cmake --build build --target scantailor -j8)
+- src/core/filters/export/MetadataGuesser.cpp: title/author/year/ISBN scan window 5->8 pages (front), ISBN tail scan 5->8 pages (back).
+- src/core/filters/export/OptionsWidget.cpp: guessMetadataClicked() now overwrites the fields it can determine (deliberate re-guess) instead of filling only empty fields; leaves un-guessable fields untouched.
+
+---
+2026-07-06 15:12 - ISBN metadata lookup (OpenLibrary/Google Books) + looser title merge (cmake --build build --target scantailor -j8)
+- src/core/BookLookup.{h,cpp}: NEW class; lookupByIsbn queries OpenLibrary (primary) + Google Books (fallback/language), fills BookMetadata. Registered in src/core/CMakeLists.txt.
+- src/core/filters/export/OptionsWidget.{ui,h,cpp}: "Look up ISBN" button; applyIsbnLookup() overwrites fields from canonical record; guess->lookup auto-chain when an ISBN is found.
+- src/core/filters/export/MetadataGuesser.cpp: title-merge thresholds loosened (kTitleHeightTol 0.25->0.35, kMaxGapFactor 1.2->2.5) for loose display leading.
+
+---
+2026-07-06 15:20 - Creator role (author/editor/translator) -> Zotero (cmake --build build --target scantailor -j8)
+- src/core/BookMetadata.{h,cpp}: CreatorRole enum + creatorRole field + zoteroCreatorType()/to/from string helpers.
+- src/core/ZoteroClient.cpp: creatorType now from meta.zoteroCreatorType() instead of hardcoded "author".
+- src/core/filters/export/MetadataGuesser.{h,cpp}: byline keyword -> role (edited by->Editor, translated by->Translator); surfaced in MetadataGuess.
+- src/core/filters/export/Filter.cpp: persist creatorRole attribute on <metadata>.
+- src/core/filters/export/OptionsWidget.{ui,h,cpp}: Role combo (Author/Editor/Translator), auto-set from guess, preserved through ISBN lookup.
+
+---
+2026-07-06 15:34 - Release build 2.0a31: deploy + sign + install to /Applications (cmake --build build --target scantailor -j8)
+- version.h.in: 2.0a30 -> 2.0a31
+- macdeployqt bundled Qt frameworks/plugins into build/ScanTailor Spectre.app
+- signed all components with Developer ID; installed to /Applications (old Jul-3 build backed up)

@@ -24,6 +24,10 @@ class Task;
 class CacheDrivenTask;
 }  // namespace ocr
 
+namespace ocr {
+class Settings;
+}  // namespace ocr
+
 namespace output {
 class Settings;
 }  // namespace output
@@ -76,6 +80,8 @@ class Filter : public AbstractFilter {
   std::shared_ptr<Settings> settings() const { return m_settings; }
 
   void setOutputSettings(std::shared_ptr<output::Settings> outputSettings);
+
+  void setOcrSettings(std::shared_ptr<ocr::Settings> ocrSettings);
 
  private:
   std::shared_ptr<ProjectPages> m_pages;

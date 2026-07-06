@@ -32,6 +32,7 @@ const bool ApplicationSettings::DEFAULT_SHOW_CANCELING_SELECTION_QUESTION = true
 const bool ApplicationSettings::DEFAULT_JPEG_OUTPUT = false;
 const int ApplicationSettings::DEFAULT_JPEG_QUALITY = 90;
 const bool ApplicationSettings::DEFAULT_TEMP_CLEANUP_WARNING = true;
+const bool ApplicationSettings::DEFAULT_PDF_RECOMMENDED_NAME = false;
 
 const QString ApplicationSettings::ROOT_KEY = "settings";
 const QString ApplicationSettings::OPENGL_STATE_KEY = "enable_opengl";
@@ -58,6 +59,7 @@ const QString ApplicationSettings::SHOW_CANCELING_SELECTION_QUESTION_KEY = "sele
 const QString ApplicationSettings::JPEG_OUTPUT_KEY = "jpeg_output";
 const QString ApplicationSettings::JPEG_QUALITY_KEY = "jpeg_quality";
 const QString ApplicationSettings::TEMP_CLEANUP_WARNING_KEY = "temp_cleanup_warning";
+const QString ApplicationSettings::PDF_RECOMMENDED_NAME_KEY = "pdf_recommended_name";
 
 QString ApplicationSettings::getKey(const QString& keyName) {
   return ApplicationSettings::ROOT_KEY + '/' + keyName;
@@ -264,4 +266,12 @@ bool ApplicationSettings::isTempCleanupWarningEnabled() const {
 
 void ApplicationSettings::setTempCleanupWarningEnabled(bool enabled) {
   m_settings.setValue(getKey(TEMP_CLEANUP_WARNING_KEY), enabled);
+}
+
+bool ApplicationSettings::isPdfRecommendedNameEnabled() const {
+  return m_settings.value(getKey(PDF_RECOMMENDED_NAME_KEY), DEFAULT_PDF_RECOMMENDED_NAME).toBool();
+}
+
+void ApplicationSettings::setPdfRecommendedNameEnabled(bool enabled) {
+  m_settings.setValue(getKey(PDF_RECOMMENDED_NAME_KEY), enabled);
 }

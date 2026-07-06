@@ -1,0 +1,1 @@
+build/ScanTailor Spectre.app

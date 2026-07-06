@@ -65,7 +65,10 @@
 #include "ProjectCreationContext.h"
 #include "ProjectOpeningContext.h"
 #include "ProjectPages.h"
+#include "ApplicationSettings.h"
+#include "BookMetadata.h"
 #include "PdfExporter.h"
+#include "ZoteroClient.h"
 #include "ProjectReader.h"
 #include "ProjectWriter.h"
 #include "RecentProjects.h"
@@ -2183,8 +2186,15 @@ void MainWindow::exportToPdf() {
   const int maxDpi = maxDpiCombo->currentData().toInt();
 
   // Ask user where to save
+  const BookMetadata legacyMeta = m_stages->exportFilter()->settings()->bookMetadata();
+  QString legacyDefaultName = "output.pdf";
+  if (ApplicationSettings::getInstance().isPdfRecommendedNameEnabled()) {
+    const QString fallbackBase =
+        m_projectFile.isEmpty() ? QString() : QFileInfo(m_projectFile).completeBaseName();
+    legacyDefaultName = buildRecommendedPdfFileName(legacyMeta, fallbackBase);
+  }
   QString pdfPath = QFileDialog::getSaveFileName(
-      this, tr("Export to PDF"), m_outFileNameGen.outDir() + "/output.pdf", tr("PDF Files (*.pdf)"));
+      this, tr("Export to PDF"), m_outFileNameGen.outDir() + "/" + legacyDefaultName, tr("PDF Files (*.pdf)"));
 
   if (pdfPath.isEmpty()) {
     return;
@@ -2227,7 +2237,8 @@ void MainWindow::exportToPdf() {
   };
 
   // Export (no OCR data for this legacy export dialog)
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, {}, progressCallback);
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, legacyMeta.title, legacyMeta.authors, quality,
+                                                compressGrayscale, maxDpi, {}, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
@@ -2322,7 +2333,19 @@ void MainWindow::exportToPdfFromFilter() {
     projectDir = settings.value("project/lastDir").toString();
   }
 
-  QString pdfPath = QFileDialog::getSaveFileName(this, tr("Export to PDF"), projectDir, tr("PDF Files (*.pdf)"));
+  const BookMetadata meta = exportSettings->bookMetadata();
+  QString saveDir = projectDir;
+  if (ApplicationSettings::getInstance().isPdfRecommendedNameEnabled()) {
+    const QString fallbackBase =
+        m_projectFile.isEmpty() ? QString() : QFileInfo(m_projectFile).completeBaseName();
+    const QString recommendedName = buildRecommendedPdfFileName(meta, fallbackBase);
+    if (!saveDir.isEmpty() && !saveDir.endsWith('/')) {
+      saveDir += '/';
+    }
+    saveDir += recommendedName;
+  }
+
+  QString pdfPath = QFileDialog::getSaveFileName(this, tr("Export to PDF"), saveDir, tr("PDF Files (*.pdf)"));
   if (pdfPath.isEmpty()) {
     return;
   }
@@ -2393,7 +2416,8 @@ void MainWindow::exportToPdfFromFilter() {
   }
 
   // Export
-  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, QString(), quality, compressGrayscale, maxDpi, ocrData, progressCallback);
+  const bool success = PdfExporter::exportToPdf(outputFiles, pdfPath, meta.title, meta.authors, quality,
+                                                compressGrayscale, maxDpi, ocrData, progressCallback);
   progressDialog.close();
 
   if (wasCancelled) {
@@ -2409,8 +2433,23 @@ void MainWindow::exportToPdfFromFilter() {
     } else {
       sizeStr = QString::number(sizeBytes / 1024.0, 'f', 1) + " KB";
     }
-    QMessageBox::information(this, tr("Export to PDF"),
-                             tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(outputFiles.size()).arg(sizeStr));
+    QString message =
+        tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(outputFiles.size()).arg(sizeStr);
+
+    // Optionally push the book + PDF into the locally running Zotero app.
+    // Export success is never gated on Zotero; failures are soft and informational.
+    if (exportSettings->sendToZotero()) {
+      ZoteroClient zotero;
+      const ZoteroClient::Result result =
+          zotero.sendBookWithAttachment(meta, static_cast<int>(outputFiles.size()), pdfPath);
+      if (result.ok()) {
+        message += tr("\n\nSent to Zotero.");
+      } else {
+        message += tr("\n\nZotero: %1 (the PDF was exported normally).").arg(result.message);
+      }
+    }
+
+    QMessageBox::information(this, tr("Export to PDF"), message);
   } else {
     QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
   }
@@ -2861,38 +2900,24 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
     m_stages->filterAt(i)->loadDefaultSettings(page);
   }
 
-  // Export filter is control panel only - no per-page processing needed
-  const bool isExportFilter = (m_curFilter == m_stages->exportFilterIdx());
-
   if (!isBatchProcessingInProgress()) {
-    if (isExportFilter) {
-      // For Export filter, try to show the cached output image if it exists
-      const QString outputPath = m_outFileNameGen.filePathFor(page.id());
-      if (QFile::exists(outputPath)) {
-        QImage outputImage(outputPath);
-        if (!outputImage.isNull()) {
-          auto* view = new BasicImageView(outputImage);
-          setImageWidget(view, TRANSFER_OWNERSHIP);
-        }
-      }
-    } else {
-      // Show processing spinner for filters that do actual processing
-      if (m_imageFrameLayout->indexOf(m_processingIndicationWidget.get()) != -1) {
-        m_processingIndicationWidget->processingRestartedEffect();
-      }
-      bool currentWidgetIsImage = (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(0)) != nullptr);
-      setImageWidget(m_processingIndicationWidget.get(), KEEP_OWNERSHIP, nullptr, currentWidgetIsImage);
+    // Show processing spinner while the page's view is built. The Export stage
+    // uses the same per-page pipeline as every other stage so that clicking a
+    // thumbnail navigates and renders that page (its Task delegates to the
+    // cached OCR/Output result).
+    if (m_imageFrameLayout->indexOf(m_processingIndicationWidget.get()) != -1) {
+      m_processingIndicationWidget->processingRestartedEffect();
     }
+    bool currentWidgetIsImage = (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(0)) != nullptr);
+    setImageWidget(m_processingIndicationWidget.get(), KEEP_OWNERSHIP, nullptr, currentWidgetIsImage);
     m_stages->filterAt(m_curFilter)->preUpdateUI(this, page);
   }
 
   assert(m_thumbnailCache);
 
-  if (!isExportFilter) {
-    m_interactiveQueue->cancelAndClear();
-    m_interactiveQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, false, m_debug));
-    m_workerThreadPool->submitTask(m_interactiveQueue->takeForProcessing());
-  }
+  m_interactiveQueue->cancelAndClear();
+  m_interactiveQueue->addProcessingTask(page, createCompositeTask(page, m_curFilter, false, m_debug));
+  m_workerThreadPool->submitTask(m_interactiveQueue->takeForProcessing());
 }  // MainWindow::loadPageInteractive
 
 void MainWindow::updateWindowTitle() {
