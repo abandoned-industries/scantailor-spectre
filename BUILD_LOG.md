@@ -1,4 +1,14 @@
 ---
+2026-07-11 23:38 - Verify GitHub sync with full-bleed/startup/output crash fixes (cmake --build build --target scantailor -- -j4)
+- Merged current GitHub main v2.0a31 with local full-bleed page-layout, single Apply To, macOS startup panel, Reveal in Finder, and Output WebEngine crash-avoidance fixes.
+- src/app/MainWindow.cpp: preserve Zotero export status text while keeping the Reveal in Finder export success dialog.
+- README.md: update v2.0a31 notes to describe the combined GitHub and local changes.
+
+---
+2026-06-28 09:42 - Disable Output WebEngine panel after macOS accessibility crash (cmake --build build --target scantailor -- -j4)
+- src/core/filters/output/OptionsWidget.cpp: gate WebOptionsPanelBase construction off so Output uses the native Qt controls and does not instantiate QWebEngineView while macOS accessibility clients inspect the UI.
+
+---
 2026-04-14 07:41 - Rebuild current v2.0a27 release tree for signing/notarization (cmake --build build --target scantailor -- -j4)
 - Rebuild the current local tree after additional Output/WebEngine fixes so the signed app and DMG match the files now in the worktree.
 - README.md / version.h.in / ScanTailor Spectre Readme.pdf remain on v2.0a27 for the release metadata and bundled readme.
@@ -1976,3 +1986,23 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 - version.h.in: 2.0a30 -> 2.0a31
 - macdeployqt bundled Qt frameworks/plugins into build/ScanTailor Spectre.app
 - signed all components with Developer ID; installed to /Applications (old Jul-3 build backed up)
+
+---
+2026-04-18 - Add "Reveal in Finder" button to PDF export success dialog (make -j8)
+- src/app/MainWindow.cpp: add QProcess include, anonymous-namespace helper showExportSuccessDialog(), replace both legacy + filter export-success QMessageBox calls with the helper
+
+---
+2026-04-18 - Version bump 2.0a30 → 2.0a31 (release build)
+- version.h.in: VERSION 2.0a30 → 2.0a31
+- README.md: version + new changelog entry for "Reveal in Finder" button
+- Build, bundle, sign, notarize, staple, DMG, GitHub Release
+
+---
+2026-06-27 12:07 - Remove embedded antique startup panel on macOS in canonical checkout (cmake --build build --target scantailor -- -j4)
+- src/app/MainWindow.cpp: suppress the legacy NewOpenProjectPanel inside imageViewFrame on macOS; empty visible main windows now close themselves back to the AppController startup flow instead of showing the gray oversized fallback panel.
+
+---
+2026-06-27 12:35 - Page layout full-bleed flag and single Apply To control (cmake --build build --target scantailor -- -j4)
+- src/core/filters/page_layout: add persisted fullBleed page-layout params/settings; full-bleed pages use page box geometry, ignore content box and aggregate match-size, and disable margin/content drag handles.
+- src/core/filters/page_layout/OptionsWidget.cpp: add Full bleed page checkbox, hide duplicate alignment Apply To button, and make the remaining Apply To dialog apply page layout state.
+- src/app/MainWindow.cpp: add F shortcut for toggling full bleed from Margins, Finalize, or Output stages.

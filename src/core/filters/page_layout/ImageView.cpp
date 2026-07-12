@@ -49,6 +49,7 @@ ImageView::ImageView(const std::shared_ptr<Settings>& settings,
       m_alignment(optWidget.alignment()),
       m_leftRightLinked(optWidget.leftRightLinked()),
       m_topBottomLinked(optWidget.topBottomLinked()),
+      m_fullBleed(settings->isPageFullBleed(pageId)),
       m_guidesFreeIndex(0),
       m_contextMenu(new QMenu(this)),
       m_guideUnderMouse(-1),
@@ -56,9 +57,14 @@ ImageView::ImageView(const std::shared_ptr<Settings>& settings,
       m_innerRectHorizontalDragModifier(Qt::ShiftModifier),
       m_nullContentRect((m_innerRect.width() < 1) && (m_innerRect.height() < 1)),
       m_contentMask(contentMask) {
+  if (m_fullBleed) {
+    m_alignment.setNull(true);
+  }
+
   setMouseTracking(true);
 
-  interactionState().setDefaultStatusTip(tr("Resize margins by dragging any of the solid lines."));
+  interactionState().setDefaultStatusTip(m_fullBleed ? tr("Full bleed page uses the page box as output.")
+                                                     : tr("Resize margins by dragging any of the solid lines."));
 
   // Setup interaction stuff.
   static const int masks_by_edge[] = {TOP, RIGHT, BOTTOM, LEFT};
@@ -117,11 +123,11 @@ ImageView::ImageView(const std::shared_ptr<Settings>& settings,
     m_middleEdgeHandlers[i].setProximityCursor(edgeCursor);
     m_middleEdgeHandlers[i].setInteractionCursor(edgeCursor);
 
-    if (isShowingMiddleRectEnabled()) {
+    if (!m_fullBleed && isShowingMiddleRectEnabled()) {
       makeLastFollower(m_middleCornerHandlers[i]);
       makeLastFollower(m_middleEdgeHandlers[i]);
     }
-    if (!m_nullContentRect) {
+    if (!m_fullBleed && !m_nullContentRect) {
       makeLastFollower(m_innerCornerHandlers[i]);
       makeLastFollower(m_innerEdgeHandlers[i]);
     }
@@ -142,7 +148,9 @@ ImageView::ImageView(const std::shared_ptr<Settings>& settings,
     Qt::CursorShape cursor = Qt::DragMoveCursor;
     m_innerRectAreaHandler.setProximityCursor(cursor);
     m_innerRectAreaHandler.setInteractionCursor(cursor);
-    makeLastFollower(m_innerRectAreaHandler);
+    if (!m_fullBleed) {
+      makeLastFollower(m_innerRectAreaHandler);
+    }
   }
 
   rootInteractionHandler().makeLastFollower(*this);
@@ -501,6 +509,16 @@ void ImageView::dragFinished() {
  * m_aggregateHardSizeMM and m_alignment, updates the displayed area.
  */
 void ImageView::recalcBoxesAndFit(const Margins& marginsMm) {
+  if (m_fullBleed) {
+    m_middleRect = m_innerRect;
+    m_outerRect = m_innerRect;
+    updateTransformAndFixFocalPoint(
+        ImagePresentation(imageToVirtual(), m_xform.resultingPreCropArea().intersected(m_outerRect), m_outerRect),
+        CENTER_IF_FITS);
+    updatePhysSize();
+    return;
+  }
+
   const QTransform virtToMm(virtualToImage() * m_pixelsToMmXform);
   const QTransform mmToVirt(m_mmToPixelsXform * imageToVirtual());
 
@@ -591,6 +609,12 @@ Margins ImageView::calcHardMarginsMM() const {
  *        and m_alignment.
  */
 void ImageView::recalcOuterRect() {
+  if (m_fullBleed) {
+    m_outerRect = m_middleRect;
+    updatePhysSize();
+    return;
+  }
+
   const QTransform virtToMm(virtualToImage() * m_pixelsToMmXform);
   const QTransform mmToVirt(m_mmToPixelsXform * imageToVirtual());
 

@@ -220,6 +220,10 @@ class Settings {
 
   void setPageAutoMarginsEnabled(const PageId& pageId, bool state);
 
+  bool isPageFullBleed(const PageId& pageId) const;
+
+  void setPageFullBleed(const PageId& pageId, bool state);
+
   const DeviationProvider<PageId>& deviationProvider() const;
 
   std::vector<Guide>& guides();
@@ -233,6 +237,7 @@ class Settings {
   class Item;
   class ModifyMargins;
   class ModifyAlignment;
+  class ModifyFullBleed;
 
   class ModifyContentSize;
 

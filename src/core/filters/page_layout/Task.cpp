@@ -70,19 +70,21 @@ FilterResultPtr Task::process(const TaskStatus& status,
                               const QRectF& contentRect) {
   status.throwIfCancelled();
 
-  const QSizeF contentSizeMm(Utils::calcRectSizeMM(data.xform(), contentRect));
+  const bool fullBleed = m_settings->isPageFullBleed(m_pageId);
+  const QRectF layoutContentRect(fullBleed ? pageRect : contentRect);
+  const QSizeF contentSizeMm(Utils::calcRectSizeMM(data.xform(), layoutContentRect));
 
-  if (m_settings->isPageAutoMarginsEnabled(m_pageId)) {
-    const Margins& marginsMm = Utils::calcMarginsMM(data.xform(), pageRect, contentRect);
+  if (!fullBleed && m_settings->isPageAutoMarginsEnabled(m_pageId)) {
+    const Margins& marginsMm = Utils::calcMarginsMM(data.xform(), pageRect, layoutContentRect);
     m_settings->setHardMarginsMM(m_pageId, marginsMm);
   }
 
   QSizeF aggHardSizeBefore;
   QSizeF aggHardSizeAfter;
-  const Params params(m_settings->updateContentSizeAndGetParams(m_pageId, pageRect, contentRect, contentSizeMm,
+  const Params params(m_settings->updateContentSizeAndGetParams(m_pageId, pageRect, layoutContentRect, contentSizeMm,
                                                                 &aggHardSizeBefore, &aggHardSizeAfter));
 
-  const QRectF adaptedContentRect(Utils::adaptContentRect(data.xform(), contentRect));
+  const QRectF adaptedContentRect(Utils::adaptContentRect(data.xform(), layoutContentRect));
 
   if (m_nextTask) {
     const QPolygonF contentRectPhys(data.xform().transformBack().map(adaptedContentRect));

@@ -29,7 +29,21 @@ void CacheDrivenTask::process(const PageInfo& pageInfo,
                               const QRectF& pageRect,
                               const QRectF& contentRect) {
   const std::unique_ptr<Params> params(m_settings->getPageParams(pageInfo.id()));
-  if (!params || (params->contentSizeMM().isEmpty() && !contentRect.isEmpty())) {
+  if (!params) {
+    if (auto* thumbCol = dynamic_cast<ThumbnailCollector*>(collector)) {
+      thumbCol->processThumbnail(std::unique_ptr<QGraphicsItem>(new IncompleteThumbnail(
+          thumbCol->thumbnailCache(), thumbCol->maxLogicalThumbSize(), pageInfo.imageId(), xform)));
+    }
+    return;
+  }
+
+  const QRectF layoutContentRect(params->isFullBleed() ? pageRect : contentRect);
+  QSizeF contentSizeMm(params->contentSizeMM());
+  if (params->isFullBleed() || contentSizeMm.isEmpty()) {
+    contentSizeMm = Utils::calcRectSizeMM(xform, layoutContentRect);
+  }
+
+  if (contentSizeMm.isEmpty() && !layoutContentRect.isEmpty()) {
     if (auto* thumbCol = dynamic_cast<ThumbnailCollector*>(collector)) {
       thumbCol->processThumbnail(std::unique_ptr<QGraphicsItem>(new IncompleteThumbnail(
           thumbCol->thumbnailCache(), thumbCol->maxLogicalThumbSize(), pageInfo.imageId(), xform)));
@@ -38,9 +52,9 @@ void CacheDrivenTask::process(const PageInfo& pageInfo,
   }
 
   Params newParams(
-      m_settings->updateContentSizeAndGetParams(pageInfo.id(), pageRect, contentRect, params->contentSizeMM()));
+      m_settings->updateContentSizeAndGetParams(pageInfo.id(), pageRect, layoutContentRect, contentSizeMm));
 
-  const QRectF adaptedContentRect(Utils::adaptContentRect(xform, contentRect));
+  const QRectF adaptedContentRect(Utils::adaptContentRect(xform, layoutContentRect));
   const QPolygonF contentRectPhys(xform.transformBack().map(adaptedContentRect));
   const QPolygonF pageRectPhys(
       Utils::calcPageRectPhys(xform, contentRectPhys, newParams, m_settings->getAggregateHardSizeMM()));

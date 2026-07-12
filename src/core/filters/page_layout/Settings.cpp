@@ -39,6 +39,7 @@ class Settings::Item {
   QSizeF contentSizeMM;
   Alignment alignment;
   bool autoMargins;
+  bool fullBleed;
 
   Item(const PageId& pageId,
        const Margins& hardMarginsMm,
@@ -46,7 +47,8 @@ class Settings::Item {
        const QRectF& contentRect,
        const QSizeF& contentSizeMm,
        const Alignment& alignment,
-       bool autoMargins);
+       bool autoMargins,
+       bool fullBleed);
 
   double hardWidthMM() const;
 
@@ -56,7 +58,7 @@ class Settings::Item {
 
   double influenceHardHeightMM() const;
 
-  bool alignedWithOthers() const { return !alignment.isNull(); }
+  bool alignedWithOthers() const { return !fullBleed && !alignment.isNull(); }
 };
 
 
@@ -84,6 +86,17 @@ class Settings::ModifyAlignment {
 
  private:
   Alignment m_alignment;
+};
+
+
+class Settings::ModifyFullBleed {
+ public:
+  explicit ModifyFullBleed(const bool fullBleed) : m_fullBleed(fullBleed) {}
+
+  void operator()(Item& item) { item.fullBleed = m_fullBleed; }
+
+ private:
+  bool m_fullBleed;
 };
 
 
@@ -161,6 +174,10 @@ class Settings::Impl {
   bool isPageAutoMarginsEnabled(const PageId& pageId);
 
   void setPageAutoMarginsEnabled(const PageId& pageId, bool state);
+
+  bool isPageFullBleed(const PageId& pageId) const;
+
+  void setPageFullBleed(const PageId& pageId, bool state);
 
   const DeviationProvider<PageId>& deviationProvider() const;
 
@@ -310,6 +327,14 @@ void Settings::setPageAutoMarginsEnabled(const PageId& pageId, const bool state)
   return m_impl->setPageAutoMarginsEnabled(pageId, state);
 }
 
+bool Settings::isPageFullBleed(const PageId& pageId) const {
+  return m_impl->isPageFullBleed(pageId);
+}
+
+void Settings::setPageFullBleed(const PageId& pageId, const bool state) {
+  return m_impl->setPageFullBleed(pageId, state);
+}
+
 bool Settings::isParamsNull(const PageId& pageId) const {
   return m_impl->isParamsNull(pageId);
 }
@@ -338,14 +363,16 @@ Settings::Item::Item(const PageId& pageId,
                      const QRectF& contentRect,
                      const QSizeF& contentSizeMm,
                      const Alignment& alignment,
-                     const bool autoMargins)
+                     const bool autoMargins,
+                     const bool fullBleed)
     : pageId(pageId),
       hardMarginsMM(hardMarginsMm),
       pageRect(pageRect),
       contentRect(contentRect),
       contentSizeMM(contentSizeMm),
       alignment(alignment),
-      autoMargins(autoMargins) {}
+      autoMargins(autoMargins),
+      fullBleed(fullBleed) {}
 
 double Settings::Item::hardWidthMM() const {
   return contentSizeMM.width() + hardMarginsMM.left() + hardMarginsMM.right();
@@ -356,11 +383,11 @@ double Settings::Item::hardHeightMM() const {
 }
 
 double Settings::Item::influenceHardWidthMM() const {
-  return alignment.isNull() ? 0.0 : hardWidthMM();
+  return alignedWithOthers() ? hardWidthMM() : 0.0;
 }
 
 double Settings::Item::influenceHardHeightMM() const {
-  return alignment.isNull() ? 0.0 : hardHeightMM();
+  return alignedWithOthers() ? hardHeightMM() : 0.0;
 }
 
 /*============================= Settings::Impl ==============================*/
@@ -461,14 +488,14 @@ std::unique_ptr<Params> Settings::Impl::getPageParams(const PageId& pageId) cons
     return nullptr;
   }
   return std::make_unique<Params>(it->hardMarginsMM, it->pageRect, it->contentRect, it->contentSizeMM, it->alignment,
-                                  it->autoMargins);
+                                  it->autoMargins, it->fullBleed);
 }
 
 void Settings::Impl::setPageParams(const PageId& pageId, const Params& params) {
   const QMutexLocker locker(&m_mutex);
 
   const Item newItem(pageId, params.hardMarginsMM(), params.pageRect(), params.contentRect(), params.contentSizeMM(),
-                     params.alignment(), params.isAutoMarginsEnabled());
+                     params.alignment(), params.isAutoMarginsEnabled(), params.isFullBleed());
 
   const Container::iterator it(m_items.find(pageId));
   if (it == m_items.end()) {
@@ -496,7 +523,7 @@ Params Settings::Impl::updateContentSizeAndGetParams(const PageId& pageId,
   Container::iterator itemIt(it);
   if (it == m_items.end()) {
     const Item item(pageId, m_defaultHardMarginsMM, pageRect, contentRect, contentSizeMm, m_defaultAlignment,
-                    m_autoMarginsDefault);
+                    m_autoMarginsDefault, false);
     itemIt = m_items.insert(it, item);
   } else {
     m_items.modify(it, ModifyContentSize(contentSizeMm, contentRect, pageRect));
@@ -508,7 +535,7 @@ Params Settings::Impl::updateContentSizeAndGetParams(const PageId& pageId,
 
   m_deviationProvider.addOrUpdate(pageId);
   return Params(itemIt->hardMarginsMM, itemIt->pageRect, itemIt->contentRect, itemIt->contentSizeMM, itemIt->alignment,
-                itemIt->autoMargins);
+                itemIt->autoMargins, itemIt->fullBleed);
 }  // Settings::Impl::updateContentSizeAndGetParams
 
 Margins Settings::Impl::getHardMarginsMM(const PageId& pageId) const {
@@ -528,7 +555,7 @@ void Settings::Impl::setHardMarginsMM(const PageId& pageId, const Margins& margi
   const Container::iterator it(m_items.find(pageId));
   if (it == m_items.end()) {
     const Item item(pageId, marginsMm, m_invalidRect, m_invalidRect, m_invalidSize, m_defaultAlignment,
-                    m_autoMarginsDefault);
+                    m_autoMarginsDefault, false);
     m_items.insert(it, item);
   } else {
     m_items.modify(it, ModifyMargins(marginsMm, it->autoMargins));
@@ -556,7 +583,7 @@ Settings::AggregateSizeChanged Settings::Impl::setPageAlignment(const PageId& pa
   const Container::iterator it(m_items.find(pageId));
   if (it == m_items.end()) {
     const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, m_invalidSize, alignment,
-                    m_autoMarginsDefault);
+                    m_autoMarginsDefault, false);
     m_items.insert(it, item);
   } else {
     m_items.modify(it, ModifyAlignment(alignment));
@@ -583,7 +610,7 @@ void Settings::Impl::disableAlignmentForPages(const std::vector<PageId>& pageIds
     const Container::iterator it(m_items.find(pageId));
     if (it == m_items.end()) {
       const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, m_invalidSize, nullAlignment,
-                      m_autoMarginsDefault);
+                      m_autoMarginsDefault, false);
       m_items.insert(it, item);
     } else {
       m_items.modify(it, ModifyAlignment(nullAlignment));
@@ -600,7 +627,7 @@ Settings::AggregateSizeChanged Settings::Impl::setContentSizeMM(const PageId& pa
   const Container::iterator it(m_items.find(pageId));
   if (it == m_items.end()) {
     const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, contentSizeMm, m_defaultAlignment,
-                    m_autoMarginsDefault);
+                    m_autoMarginsDefault, false);
     m_items.insert(it, item);
   } else {
     m_items.modify(it, ModifyContentSize(contentSizeMm, m_invalidRect, it->pageRect));
@@ -709,11 +736,39 @@ void Settings::Impl::setPageAutoMarginsEnabled(const PageId& pageId, const bool 
   const Container::iterator it(m_items.find(pageId));
   if (it == m_items.end()) {
     const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, m_invalidSize, m_defaultAlignment,
-                    state);
+                    state, false);
     m_items.insert(it, item);
   } else {
     m_items.modify(it, ModifyMargins(it->hardMarginsMM, state));
   }
+
+  m_deviationProvider.addOrUpdate(pageId);
+}
+
+bool Settings::Impl::isPageFullBleed(const PageId& pageId) const {
+  const QMutexLocker locker(&m_mutex);
+
+  const Container::iterator it(m_items.find(pageId));
+  if (it == m_items.end()) {
+    return false;
+  } else {
+    return it->fullBleed;
+  }
+}
+
+void Settings::Impl::setPageFullBleed(const PageId& pageId, const bool state) {
+  const QMutexLocker locker(&m_mutex);
+
+  const Container::iterator it(m_items.find(pageId));
+  if (it == m_items.end()) {
+    const Item item(pageId, m_defaultHardMarginsMM, m_invalidRect, m_invalidRect, m_invalidSize, m_defaultAlignment,
+                    m_autoMarginsDefault, state);
+    m_items.insert(it, item);
+  } else {
+    m_items.modify(it, ModifyFullBleed(state));
+  }
+
+  m_deviationProvider.addOrUpdate(pageId);
 }
 
 bool Settings::Impl::isParamsNull(const PageId& pageId) const {

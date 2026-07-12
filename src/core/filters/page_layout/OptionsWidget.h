@@ -20,6 +20,7 @@
 #include "PageSelectionAccessor.h"
 #include "ui_OptionsWidget.h"
 
+class QCheckBox;
 class QToolButton;
 class ProjectPages;
 
@@ -83,9 +84,11 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void alignmentButtonClicked();
 
-  void showApplyMarginsDialog();
+  void fullBleedToggled(bool checked);
 
-  void showApplyAlignmentDialog();
+  void showApplyPageLayoutDialog();
+
+  void applyPageLayout(const std::set<PageId>& pages);
 
   void applyMargins(const std::set<PageId>& pages);
 
@@ -106,6 +109,8 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void updateAlignmentModeEnabled();
 
+  void updateFullBleedControls();
+
   QToolButton* getCheckedAlignmentButton() const;
 
   void setupUiConnections();
@@ -115,6 +120,8 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
   void applyMarginsToSelectedPages();
 
   void applyAlignmentToSelectedPages();
+
+  void applyFullBleedToSelectedPages();
 
   void updateSelectionIndicator();
 
@@ -129,6 +136,8 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
   Alignment m_alignment;
   bool m_leftRightLinked;
   bool m_topBottomLinked;
+  bool m_fullBleed;
+  QCheckBox* m_fullBleedCB;
   QButtonGroup* m_alignmentButtonGroup;
 
   ConnectionManager m_connectionManager;

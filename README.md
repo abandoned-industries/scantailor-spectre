@@ -2,11 +2,20 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a30** | macOS (Apple Silicon) | Requires macOS 15 or later
+**Version 2.0a31** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
+
+## Version 2.0a31
+
+- Export now includes book metadata fields, recommended PDF filenames, ISBN lookup, and optional send-to-Zotero support for the locally running Zotero app.
+- After exporting a PDF, the success dialog now has a **Reveal in Finder** button so you can jump straight to the file you just saved.
+- Margins now supports full-bleed pages with the `F` shortcut; full-bleed pages ignore content boxes and match-size aggregation.
+- The Margins stage now has one **Apply To** flow for page layout instead of separate competing margin/alignment buttons.
+- The macOS startup view no longer falls back to the oversized legacy gray project panel.
+- Output uses the native controls again to avoid QtWebEngine/macOS accessibility crashes.
 
 ## Version 2.0a30
 

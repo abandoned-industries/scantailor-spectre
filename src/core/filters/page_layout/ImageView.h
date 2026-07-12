@@ -264,6 +264,7 @@ class ImageView : public ImageViewBase, private InteractionHandler {
 
   bool m_leftRightLinked;
   bool m_topBottomLinked;
+  bool m_fullBleed;
 
   /** Guides settings. */
   std::unordered_map<int, Guide> m_guides;

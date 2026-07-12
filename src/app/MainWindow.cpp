@@ -24,6 +24,7 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QProcess>
 #include <QProgressDialog>
 #include <QResource>
 #include <QScrollBar>
@@ -116,6 +117,7 @@
 #include "filters/finalize/Settings.h"
 #include "filters/finalize/Task.h"
 #include "filters/page_layout/CacheDrivenTask.h"
+#include "filters/page_layout/Settings.h"
 #include "filters/page_layout/Task.h"
 #include "filters/page_split/CacheDrivenTask.h"
 #include "filters/page_split/Filter.h"
@@ -142,6 +144,29 @@
 #include "version.h"
 
 using namespace core;
+
+namespace {
+void showExportSuccessDialog(QWidget* parent, const QString& pdfPath, const QString& message) {
+  QMessageBox msgBox(parent);
+  msgBox.setIcon(QMessageBox::Information);
+  msgBox.setWindowTitle(QObject::tr("Export to PDF"));
+  msgBox.setText(message);
+  QPushButton* revealButton = msgBox.addButton(QObject::tr("Reveal in Finder"), QMessageBox::ActionRole);
+  msgBox.addButton(QMessageBox::Ok);
+  msgBox.setDefaultButton(QMessageBox::Ok);
+  msgBox.exec();
+  if (msgBox.clickedButton() == revealButton) {
+    QProcess::startDetached("open", {"-R", pdfPath});
+  }
+}
+
+void showExportSuccessDialog(QWidget* parent, const QString& pdfPath, int pageCount, const QString& sizeStr) {
+  showExportSuccessDialog(
+      parent, pdfPath,
+      QObject::tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(pageCount).arg(sizeStr));
+}
+
+}  // namespace
 
 class MainWindow::PageSelectionProviderImpl : public PageSelectionProvider {
  public:
@@ -649,6 +674,26 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
 }  // MainWindow::switchToNewProject
 
 void MainWindow::showNewOpenProjectPanel() {
+#ifdef Q_OS_MAC
+  removeImageWidget();
+  if (isVisible() && !m_closing) {
+    QTimer::singleShot(0, this, [this]() {
+      if (m_closing || !m_pages || m_pages->numImages() != 0) {
+        return;
+      }
+
+      QSettings settings;
+      settings.setValue("mainWindow/maximized", isMaximized());
+      if (!isMaximized()) {
+        settings.setValue("mainWindow/nonMaximizedGeometry", saveGeometry());
+      }
+
+      m_closing = true;
+      close();
+    });
+  }
+  return;
+#else
   auto outerWidget = std::make_unique<QWidget>();
   auto* layout = new QGridLayout(outerWidget.get());
   outerWidget->setLayout(layout);
@@ -669,6 +714,7 @@ void MainWindow::showNewOpenProjectPanel() {
   setImageWidget(outerWidget.release(), TRANSFER_OWNERSHIP);
 
   filterList->setBatchProcessingPossible(false);
+#endif
 }  // MainWindow::showNewOpenProjectPanel
 
 void MainWindow::createBatchProcessingWidget() {
@@ -2254,8 +2300,7 @@ void MainWindow::exportToPdf() {
     } else {
       sizeStr = QString::number(sizeBytes / 1024.0, 'f', 1) + " KB";
     }
-    QMessageBox::information(this, tr("Export to PDF"),
-                             tr("Successfully exported %1 pages to PDF.\nFile size: %2").arg(outputFiles.size()).arg(sizeStr));
+    showExportSuccessDialog(this, pdfPath, outputFiles.size(), sizeStr);
   } else {
     QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
   }
@@ -2449,7 +2494,7 @@ void MainWindow::exportToPdfFromFilter() {
       }
     }
 
-    QMessageBox::information(this, tr("Export to PDF"), message);
+    showExportSuccessDialog(this, pdfPath, message);
   } else {
     QMessageBox::critical(this, tr("Export to PDF"), tr("Failed to export to PDF."));
   }
@@ -3592,7 +3637,38 @@ void MainWindow::changeEvent(QEvent* event) {
   }
 }
 
+void MainWindow::toggleFullBleedForSelectedPages() {
+  if (!m_stages) {
+    return;
+  }
+
+  const std::set<PageId> pages = selectedPages();
+  if (pages.empty()) {
+    return;
+  }
+
+  auto settings = m_stages->pageLayoutFilter()->settings();
+  const bool fullBleed = !settings->isPageFullBleed(*pages.begin());
+  for (const PageId& pageId : pages) {
+    settings->setPageFullBleed(pageId, fullBleed);
+  }
+
+  m_thumbSequence->invalidateAllThumbnails();
+  reloadRequested();
+}
+
 void MainWindow::keyPressEvent(QKeyEvent* event) {
+  const bool isPageLayoutFinalizeOrOutput = m_stages
+      && (m_curFilter == m_stages->pageLayoutFilterIdx() || m_curFilter == m_stages->finalizeFilterIdx()
+          || m_curFilter == m_stages->outputFilterIdx());
+  const bool commandModifierPressed
+      = event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+  if (isPageLayoutFinalizeOrOutput && !commandModifierPressed && event->text().toLower() == "f") {
+    toggleFullBleedForSelectedPages();
+    event->accept();
+    return;
+  }
+
   // Color mode shortcuts for Finalize (stage 6) and Output (stage 7) filters
   // Use text() for keyboard layout independence (Dvorak, etc.)
   const bool isFinalizeOrOutput = m_stages &&

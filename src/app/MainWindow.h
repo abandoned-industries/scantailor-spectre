@@ -290,6 +290,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   bool isOutputFilter(int filterIdx) const;
 
+  void toggleFullBleedForSelectedPages();
+
   PageView getCurrentView() const;
 
   void updateMainArea();

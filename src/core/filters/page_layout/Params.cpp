@@ -12,13 +12,15 @@ Params::Params(const Margins& hardMarginsMm,
                const QRectF& contentRect,
                const QSizeF& contentSizeMm,
                const Alignment& alignment,
-               const bool autoMargins)
+               const bool autoMargins,
+               const bool fullBleed)
     : m_hardMarginsMM(hardMarginsMm),
       m_contentRect(contentRect),
       m_pageRect(pageRect),
       m_contentSizeMM(contentSizeMm),
       m_alignment(alignment),
-      m_autoMargins(autoMargins) {}
+      m_autoMargins(autoMargins),
+      m_fullBleed(fullBleed) {}
 
 Params::Params(const QDomElement& el)
     : m_hardMarginsMM(el.namedItem("hardMarginsMM").toElement()),
@@ -26,7 +28,8 @@ Params::Params(const QDomElement& el)
       m_pageRect(XmlUnmarshaller::rectF(el.namedItem("pageRect").toElement())),
       m_contentSizeMM(XmlUnmarshaller::sizeF(el.namedItem("contentSizeMM").toElement())),
       m_alignment(el.namedItem("alignment").toElement()),
-      m_autoMargins(el.attribute("autoMargins") == "1") {}
+      m_autoMargins(el.attribute("autoMargins") == "1"),
+      m_fullBleed(el.attribute("fullBleed") == "1") {}
 
 QDomElement Params::toXml(QDomDocument& doc, const QString& name) const {
   XmlMarshaller marshaller(doc);
@@ -38,6 +41,7 @@ QDomElement Params::toXml(QDomDocument& doc, const QString& name) const {
   el.appendChild(marshaller.sizeF(m_contentSizeMM, "contentSizeMM"));
   el.appendChild(m_alignment.toXml(doc, "alignment"));
   el.setAttribute("autoMargins", m_autoMargins ? "1" : "0");
+  el.setAttribute("fullBleed", m_fullBleed ? "1" : "0");
   return el;
 }
 }  // namespace page_layout

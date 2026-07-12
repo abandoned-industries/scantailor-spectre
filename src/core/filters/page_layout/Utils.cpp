@@ -199,6 +199,10 @@ QPolygonF Utils::calcPageRectPhys(const ImageTransformation& xform,
                                   const QPolygonF& contentRectPhys,
                                   const Params& params,
                                   const QSizeF& aggregateHardSizeMm) {
+  if (params.isFullBleed()) {
+    return contentRectPhys;
+  }
+
   const QTransform pixelsToMmTransform(UnitsConverter(xform.origDpi()).transform(PIXELS, MILLIMETRES));
 
   QPolygonF polyMm(pixelsToMmTransform.map(contentRectPhys));
@@ -247,6 +251,6 @@ Params Utils::buildDefaultParams(const Dpi& dpi) {
   unitsConverter.convert(rightMargin, bottomMargin, defaultParams.getUnits(), MILLIMETRES);
 
   return Params(Margins(leftMargin, topMargin, rightMargin, bottomMargin), QRectF(), QRectF(), QSizeF(),
-                pageLayoutParams.getAlignment(), pageLayoutParams.isAutoMargins());
+                pageLayoutParams.getAlignment(), pageLayoutParams.isAutoMargins(), false);
 }
 }  // namespace page_layout

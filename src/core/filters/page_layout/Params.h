@@ -23,7 +23,8 @@ class Params {
          const QRectF& contentRect,
          const QSizeF& contentSizeMm,
          const Alignment& alignment,
-         bool autoMargins);
+         bool autoMargins,
+         bool fullBleed);
 
   explicit Params(const QDomElement& el);
 
@@ -39,6 +40,8 @@ class Params {
 
   bool isAutoMarginsEnabled() const;
 
+  bool isFullBleed() const;
+
   QDomElement toXml(QDomDocument& doc, const QString& name) const;
 
  private:
@@ -48,6 +51,7 @@ class Params {
   QSizeF m_contentSizeMM;
   Alignment m_alignment;
   bool m_autoMargins;
+  bool m_fullBleed;
 };
 
 
@@ -73,6 +77,10 @@ inline const Alignment& Params::alignment() const {
 
 inline bool Params::isAutoMarginsEnabled() const {
   return m_autoMargins;
+}
+
+inline bool Params::isFullBleed() const {
+  return m_fullBleed;
 }
 }  // namespace page_layout
 #endif  // ifndef SCANTAILOR_PAGE_LAYOUT_PARAMS_H_

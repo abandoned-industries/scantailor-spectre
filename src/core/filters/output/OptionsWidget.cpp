@@ -57,6 +57,11 @@ ColorMode fromFinalizeColorMode(finalize::ColorMode mode) {
       return COLOR;
   }
 }
+
+// QtWebEngine's Cocoa accessibility bridge can crash in libqcocoa when
+// external AX clients query the Output options hierarchy. Keep the native
+// controls active until the WebEngine path is safe again.
+constexpr bool kEnableWebOptionsPanel = false;
 }  // namespace
 
 OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelectionAccessor& pageSelectionAccessor)
@@ -81,7 +86,7 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
 
   // Try to replace the native sections with a unified web panel.
   // If the panel fails to load or can't be inserted, keep the native widgets.
-  {
+  if (kEnableWebOptionsPanel) {
     m_webPanel = new weasel::WebOptionsPanelBase(QStringLiteral("photo_adjustments.html"), this);
     m_webBridge = new weasel::GenericPanelBridge(this);
     m_webPanel->registerBridge(m_webBridge);

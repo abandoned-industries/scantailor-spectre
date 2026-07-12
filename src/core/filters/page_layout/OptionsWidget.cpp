@@ -6,6 +6,7 @@
 #include <UnitsProvider.h>
 #include <core/IconProvider.h>
 
+#include <QCheckBox>
 #include <QSettings>
 #include <utility>
 
@@ -21,6 +22,8 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
       m_pageSelectionAccessor(pageSelectionAccessor),
       m_leftRightLinked(true),
       m_topBottomLinked(true),
+      m_fullBleed(false),
+      m_fullBleedCB(nullptr),
       m_connectionManager(std::bind(&OptionsWidget::setupUiConnections, this)) {
   {
     QSettings appSettings;
@@ -29,6 +32,12 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   }
 
   setupUi(this);
+
+  m_fullBleedCB = new QCheckBox(tr("Full bleed page"), this);
+  m_fullBleedCB->setToolTip(tr("Use the page box as final output; ignores the content box and match-size. Shortcut: F"));
+  verticalLayout_2->insertWidget(0, m_fullBleedCB);
+  applyAlignmentBtn->hide();
+
   setupIcons();
 
   updateLinkDisplay(topBottomLink, m_topBottomLinked);
@@ -62,6 +71,7 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo, const Margins& margins
   m_dpi = pageInfo.metadata().dpi();
   m_marginsMM = marginsMm;
   m_alignment = alignment;
+  m_fullBleed = m_settings->isPageFullBleed(m_pageId);
 
   updateSelectionIndicator();
 
@@ -82,7 +92,7 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo, const Margins& margins
     }
   }
 
-  alignWithOthersCB->setChecked(!alignment.isNull());
+  alignWithOthersCB->setChecked(!m_fullBleed && !alignment.isNull());
 
   if (alignment.horizontal() == Alignment::HAUTO) {
     hAlignmentModeCB->setCurrentIndex(0);
@@ -102,8 +112,8 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo, const Margins& margins
   updateAlignmentModeEnabled();
   updateAutoModeButtons();
 
-  autoMargins->setChecked(m_settings->isPageAutoMarginsEnabled(m_pageId));
-  updateMarginsControlsEnabled();
+  autoMargins->setChecked(!m_fullBleed && m_settings->isPageAutoMarginsEnabled(m_pageId));
+  updateFullBleedControls();
 
   m_leftRightLinked = m_leftRightLinked && (marginsMm.left() == marginsMm.right());
   m_topBottomLinked = m_topBottomLinked && (marginsMm.top() == marginsMm.bottom());
@@ -226,6 +236,10 @@ void OptionsWidget::leftRightLinkClicked() {
 }
 
 void OptionsWidget::alignWithOthersToggled() {
+  if (m_fullBleed) {
+    return;
+  }
+
   m_alignment.setNull(!alignWithOthersCB->isChecked());
 
   updateAlignmentModeEnabled();
@@ -233,6 +247,10 @@ void OptionsWidget::alignWithOthersToggled() {
 }
 
 void OptionsWidget::autoMarginsToggled(bool checked) {
+  if (m_fullBleed) {
+    return;
+  }
+
   m_settings->setPageAutoMarginsEnabled(m_pageId, checked);
   updateMarginsControlsEnabled();
 
@@ -240,6 +258,10 @@ void OptionsWidget::autoMarginsToggled(bool checked) {
 }
 
 void OptionsWidget::horizontalAlignmentModeChanged(int idx) {
+  if (m_fullBleed) {
+    return;
+  }
+
   switch (idx) {
     case 0:
       m_alignment.setHorizontal(Alignment::HAUTO);
@@ -261,6 +283,10 @@ void OptionsWidget::horizontalAlignmentModeChanged(int idx) {
 }
 
 void OptionsWidget::verticalAlignmentModeChanged(int idx) {
+  if (m_fullBleed) {
+    return;
+  }
+
   switch (idx) {
     case 0:
       m_alignment.setVertical(Alignment::VAUTO);
@@ -282,6 +308,10 @@ void OptionsWidget::verticalAlignmentModeChanged(int idx) {
 }
 
 void OptionsWidget::alignmentButtonClicked() {
+  if (m_fullBleed) {
+    return;
+  }
+
   auto* const button = dynamic_cast<QToolButton*>(sender());
   assert(button);
 
@@ -301,20 +331,49 @@ void OptionsWidget::alignmentButtonClicked() {
   emit alignmentChanged(m_alignment);
 }
 
-void OptionsWidget::showApplyMarginsDialog() {
+void OptionsWidget::fullBleedToggled(bool checked) {
+  m_fullBleed = checked;
+  m_settings->setPageFullBleed(m_pageId, checked);
+
+  applyFullBleedToSelectedPages();
+  updateFullBleedControls();
+
+  emit aggregateHardSizeChanged();
+  emit invalidateAllThumbnails();
+  emit reloadRequested();
+}
+
+void OptionsWidget::showApplyPageLayoutDialog() {
   auto* dialog = new ApplyDialog(this, m_pageId, m_pageSelectionAccessor);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
-  dialog->setWindowTitle(tr("Apply Margins"));
-  connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this, SLOT(applyMargins(const std::set<PageId>&)));
+  dialog->setWindowTitle(tr("Apply Page Layout"));
+  connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this, SLOT(applyPageLayout(const std::set<PageId>&)));
   dialog->show();
 }
 
-void OptionsWidget::showApplyAlignmentDialog() {
-  auto* dialog = new ApplyDialog(this, m_pageId, m_pageSelectionAccessor);
-  dialog->setAttribute(Qt::WA_DeleteOnClose);
-  dialog->setWindowTitle(tr("Apply Alignment"));
-  connect(dialog, SIGNAL(accepted(const std::set<PageId>&)), this, SLOT(applyAlignment(const std::set<PageId>&)));
-  dialog->show();
+void OptionsWidget::applyPageLayout(const std::set<PageId>& pages) {
+  if (pages.empty()) {
+    return;
+  }
+
+  const bool autoMarginsEnabled = m_settings->isPageAutoMarginsEnabled(m_pageId);
+  for (const PageId& pageId : pages) {
+    if (pageId == m_pageId) {
+      continue;
+    }
+
+    m_settings->setPageFullBleed(pageId, m_fullBleed);
+    m_settings->setPageAutoMarginsEnabled(pageId, autoMarginsEnabled);
+    if (autoMarginsEnabled) {
+      m_settings->invalidateContentSize(pageId);
+    } else {
+      m_settings->setHardMarginsMM(pageId, m_marginsMM);
+    }
+    m_settings->setPageAlignment(pageId, m_alignment);
+  }
+
+  emit aggregateHardSizeChanged();
+  emit invalidateAllThumbnails();
 }
 
 void OptionsWidget::applyMargins(const std::set<PageId>& pages) {
@@ -382,8 +441,8 @@ void OptionsWidget::updateLinkDisplay(QToolButton* button, const bool linked) {
 }
 
 void OptionsWidget::updateAlignmentButtonsEnabled() {
-  bool enableHorizontalButtons = !m_alignment.isAutoHorizontal() ? alignWithOthersCB->isChecked() : false;
-  bool enableVerticalButtons = !m_alignment.isAutoVertical() ? alignWithOthersCB->isChecked() : false;
+  bool enableHorizontalButtons = (!m_fullBleed && !m_alignment.isAutoHorizontal()) ? alignWithOthersCB->isChecked() : false;
+  bool enableVerticalButtons = (!m_fullBleed && !m_alignment.isAutoVertical()) ? alignWithOthersCB->isChecked() : false;
 
   alignTopLeftBtn->setEnabled(enableHorizontalButtons && enableVerticalButtons);
   alignTopBtn->setEnabled(enableVerticalButtons);
@@ -397,8 +456,9 @@ void OptionsWidget::updateAlignmentButtonsEnabled() {
 }
 
 void OptionsWidget::updateMarginsControlsEnabled() {
-  const bool enabled = !m_settings->isPageAutoMarginsEnabled(m_pageId);
+  const bool enabled = !m_fullBleed && !m_settings->isPageAutoMarginsEnabled(m_pageId);
 
+  autoMargins->setEnabled(!m_fullBleed);
   topMarginSpinBox->setEnabled(enabled);
   bottomMarginSpinBox->setEnabled(enabled);
   leftMarginSpinBox->setEnabled(enabled);
@@ -415,13 +475,13 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(leftMarginSpinBox, SIGNAL(valueChanged(double)), this, SLOT(horMarginsChanged(double)));
   CONNECT(rightMarginSpinBox, SIGNAL(valueChanged(double)), this, SLOT(horMarginsChanged(double)));
   CONNECT(autoMargins, SIGNAL(toggled(bool)), this, SLOT(autoMarginsToggled(bool)));
+  CONNECT(m_fullBleedCB, SIGNAL(toggled(bool)), this, SLOT(fullBleedToggled(bool)));
   CONNECT(hAlignmentModeCB, SIGNAL(currentIndexChanged(int)), this, SLOT(horizontalAlignmentModeChanged(int)));
   CONNECT(vAlignmentModeCB, SIGNAL(currentIndexChanged(int)), this, SLOT(verticalAlignmentModeChanged(int)));
   CONNECT(topBottomLink, SIGNAL(clicked()), this, SLOT(topBottomLinkClicked()));
   CONNECT(leftRightLink, SIGNAL(clicked()), this, SLOT(leftRightLinkClicked()));
-  CONNECT(applyMarginsBtn, SIGNAL(clicked()), this, SLOT(showApplyMarginsDialog()));
+  CONNECT(applyMarginsBtn, SIGNAL(clicked()), this, SLOT(showApplyPageLayoutDialog()));
   CONNECT(alignWithOthersCB, SIGNAL(toggled(bool)), this, SLOT(alignWithOthersToggled()));
-  CONNECT(applyAlignmentBtn, SIGNAL(clicked()), this, SLOT(showApplyAlignmentDialog()));
   for (const auto& kv : m_alignmentByButton) {
     CONNECT(kv.first, SIGNAL(clicked()), this, SLOT(alignmentButtonClicked()));
   }
@@ -485,11 +545,29 @@ QToolButton* OptionsWidget::getCheckedAlignmentButton() const {
 
 void OptionsWidget::updateAlignmentModeEnabled() {
   const bool isAlignmentNull = m_alignment.isNull();
+  const bool enabled = !m_fullBleed && !isAlignmentNull;
 
-  vAlignmentModeCB->setEnabled(!isAlignmentNull);
-  hAlignmentModeCB->setEnabled(!isAlignmentNull);
+  alignWithOthersCB->setEnabled(!m_fullBleed);
+  vAlignmentModeCB->setEnabled(enabled);
+  hAlignmentModeCB->setEnabled(enabled);
 
   updateAlignmentButtonsEnabled();
+}
+
+void OptionsWidget::updateFullBleedControls() {
+  auto block = m_connectionManager.getScopedBlock();
+
+  m_fullBleedCB->setChecked(m_fullBleed);
+  if (m_fullBleed) {
+    autoMargins->setChecked(false);
+    alignWithOthersCB->setChecked(false);
+  } else {
+    autoMargins->setChecked(m_settings->isPageAutoMarginsEnabled(m_pageId));
+    alignWithOthersCB->setChecked(!m_alignment.isNull());
+  }
+
+  updateMarginsControlsEnabled();
+  updateAlignmentModeEnabled();
 }
 
 void OptionsWidget::setupIcons() {
@@ -510,6 +588,10 @@ void OptionsWidget::setupIcons() {
 }
 
 void OptionsWidget::applyMarginsToSelectedPages() {
+  if (m_fullBleed) {
+    return;
+  }
+
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
 
   // Only apply to multiple pages if current page is in selection and there are multiple selected
@@ -535,6 +617,10 @@ void OptionsWidget::applyMarginsToSelectedPages() {
 }
 
 void OptionsWidget::applyAlignmentToSelectedPages() {
+  if (m_fullBleed) {
+    return;
+  }
+
   const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
 
   // Only apply to multiple pages if current page is in selection and there are multiple selected
@@ -549,6 +635,20 @@ void OptionsWidget::applyAlignmentToSelectedPages() {
     emit invalidateAllThumbnails();
     // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
     emit invalidateThumbnail(m_pageId);
+  }
+}
+
+void OptionsWidget::applyFullBleedToSelectedPages() {
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      if (pageId == m_pageId) {
+        continue;
+      }
+
+      m_settings->setPageFullBleed(pageId, m_fullBleed);
+    }
   }
 }
 
