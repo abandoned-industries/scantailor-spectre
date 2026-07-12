@@ -11,13 +11,19 @@
 
 ```bash
 cd /Users/kazys/Developer/scantailor-weasel
-cmake -S . -B build-clean-package \
+cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
-export CLANG_MODULE_CACHE_PATH=$(pwd)/build-clean-package/.cache
-cmake --build build-clean-package --target scantailor_bundle
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+  -DPORTABLE_VERSION=OFF
+export CLANG_MODULE_CACHE_PATH=$(pwd)/build/.cache
+cmake --build build --target scantailor_bundle
 ```
+
+Distribution builds must set `PORTABLE_VERSION=OFF`. Portable mode places a
+settings file under `Contents/MacOS`, which hardened signing rejects as loose
+unsigned content. If this build tree previously used portable mode, remove the
+stale `ScanTailor Spectre.app/Contents/MacOS/config` directory before signing.
 
 The explicit `scantailor_bundle` target rebuilds the app, runs `macdeployqt`,
 applies `fix-bundle-libs.sh`, normalizes bundled dylib deployment targets to
@@ -30,7 +36,7 @@ everything with the Developer ID certificate. Components must be signed
 individually — `--deep` does not work reliably for Qt framework bundles.
 
 ```bash
-cd /Users/kazys/Developer/scantailor-weasel/build-clean-package
+cd /Users/kazys/Developer/scantailor-weasel/build
 IDENTITY="Developer ID Application: Kazys Varnelis (PHCL25Z99X)"
 APP="ScanTailor Spectre.app"
 ```

@@ -2,11 +2,16 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0a31** | macOS (Apple Silicon) | Requires macOS 15 or later
+**Version 2.0a32** | macOS (Apple Silicon) | Requires macOS 15 or later
 
 ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
+
+## Version 2.0a32
+
+- PDF export now opens in the source document's folder with a safe `<source>_processed.pdf` fallback name.
+- Saving a new project now carries already-generated pages and thumbnails from temporary storage into the project's `output` folder.
 
 ## Version 2.0a31
 
@@ -114,6 +119,8 @@ Although ScanTailor Spectre is designed to be as automated as possible, it can m
 After you run a stage, the parameters that stage set are stored in your project on a per-page basis. Let's say you set a page to color once. If you rerun the automatic color detection, it will not alter that setting even if it thinks it is grayscale.
 
 This is pre-beta software. Save your project frequently.  
+
+Before a new project is saved, generated page images and thumbnails are kept in macOS temporary storage. **Save Project** creates a self-contained project folder and moves a permanent copy into its `output` subfolder; closing an unsaved project may remove the temporary copy. The final PDF is created only when you use **Export to PDF**.
 
 ### Stage 1: Fix Orientation
 
@@ -415,12 +422,14 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 
 ## Project Files
 
-Projects are saved as `.ScanTailor` files containing:
-- References to source images (not copies)
-- All settings for every stage
-- Processing state
+**Save Project** creates a self-contained folder containing:
 
-**Important:** Keep source images in place - projects reference them by path.
+- The `.ScanTailor` project file
+- Copies of the source images in `originals`
+- Generated page images and thumbnails in `output`
+- All settings and processing state
+
+The exported PDF is separate. Create it from Stage 10 with **Export to PDF**.
 
 ---
 

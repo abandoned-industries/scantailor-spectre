@@ -2006,3 +2006,38 @@ analysis of the rendered PDF page 23: text-band column means peak at x=986
 - src/core/filters/page_layout: add persisted fullBleed page-layout params/settings; full-bleed pages use page box geometry, ignore content box and aggregate match-size, and disable margin/content drag handles.
 - src/core/filters/page_layout/OptionsWidget.cpp: add Full bleed page checkbox, hide duplicate alignment Apply To button, and make the remaining Apply To dialog apply page layout state.
 - src/app/MainWindow.cpp: add F shortcut for toggling full bleed from Margins, Finalize, or Output stages.
+
+---
+2026-07-11 23:46 - Fix source-based PDF defaults and preserve output when saving projects (cmake --build build --target scantailor -- -j4)
+- src/app/MainWindow.cpp/.h: default both PDF export dialogs to the source folder with a safe `_processed.pdf` fallback; track and clean the actual temporary output directory.
+- src/core/ProjectFolder.cpp/.h: copy generated pages and thumbnail cache into the permanent project output folder during Save Project.
+- README.md: document temporary output lifetime and the permanent project/output location.
+
+---
+2026-07-11 23:50 - Build configured test executables for export/project-save verification (cmake --build build --target math_tests imageproc_tests core_tests -- -j4)
+- ctest initially reported all three configured executables as not built; build the canonical test targets before rerunning the suite.
+
+---
+2026-07-11 23:53 - Add and build project-output migration regression test (cmake --build build --target core_tests -- -j4)
+- src/core/tests/TestProjectFolder.cpp: verify generated pages and nested thumbnail cache are copied and existing destination output is refreshed.
+- src/core/tests/CMakeLists.txt: register the new focused test source.
+
+---
+2026-07-11 23:55 - Rebuild focused core test after Boost Qt-printing compile error (cmake --build build --target core_tests -- -j4)
+- src/core/tests/TestProjectFolder.cpp: use boolean QByteArray comparisons because Boost's equality logger cannot stream QByteArray.
+
+---
+2026-07-12 00:03 - Release 2.0a32 export-location and saved-output fixes (cmake --build build --target scantailor_bundle -- -j4)
+- version.h.in / README.md: bump to 2.0a32 and add release notes for both GitHub discussion fixes.
+- Release plan: regenerate bundled README PDF, Developer ID sign, notarize with the machine-wide `notary` profile, staple app and DMG, and verify Gatekeeper.
+
+---
+2026-07-12 00:09 - Reconfigure distribution bundle without portable config (cmake --build build --target scantailor_bundle -- -j4)
+- The first Developer ID signing pass rejected Contents/MacOS/config/scantailor-spectre/scantailor-spectre.ini as loose unsigned data.
+- Reconfigure canonical build/ with PORTABLE_VERSION=OFF so settings use the normal macOS user location and the hardened app bundle has a valid Contents/MacOS layout.
+
+---
+2026-07-12 00:16 - Complete signed, notarized, and stapled 2.0a32 release
+- App notarization accepted: a33e9373-ea58-4f31-a7f0-12443de38dd3; stapler and Gatekeeper validation passed.
+- DMG notarization accepted: e1c2e024-a30c-4f07-9d20-77aa0d55c6fa; Developer ID signature, stapler, and Gatekeeper validation passed.
+- Artifact: ScanTailor-Spectre-2.0a32-20260712-0014.dmg; installed the same notarized app at /Applications/ScanTailor Spectre.app.

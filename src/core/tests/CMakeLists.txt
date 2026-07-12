@@ -1,6 +1,7 @@
 set(sources
     main.cpp
     TestContentSpanFinder.cpp
+    TestProjectFolder.cpp
     TestSmartFilenameOrdering.cpp)
 
 add_executable(core_tests ${sources})

@@ -41,11 +41,20 @@ class ProjectFolder {
   QString copyOriginal(const QString& sourcePath);
 
   /**
+   * Copies generated output and its cache into this project's output directory.
+   * Existing files are replaced because the user has already approved saving
+   * into the destination project folder.
+   */
+  bool copyOutputFrom(const QString& sourceDir);
+
+  /**
    * Checks if a folder appears to be a valid project folder.
    */
   static bool isValidProjectFolder(const QString& path);
 
  private:
+  static bool copyDirectoryContents(const QString& sourceDir, const QString& destinationDir);
+
   QString m_basePath;
 };
 

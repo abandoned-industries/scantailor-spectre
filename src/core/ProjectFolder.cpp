@@ -76,6 +76,48 @@ QString ProjectFolder::copyOriginal(const QString& sourcePath) {
   return QString();
 }
 
+bool ProjectFolder::copyOutputFrom(const QString& sourceDir) {
+  if (sourceDir.isEmpty() || !QDir(sourceDir).exists()) {
+    return true;
+  }
+
+  const QString sourcePath = QDir(sourceDir).canonicalPath();
+  const QString destinationPath = QDir(outputDir()).canonicalPath();
+  if (!sourcePath.isEmpty() && sourcePath == destinationPath) {
+    return true;
+  }
+
+  return copyDirectoryContents(sourceDir, outputDir());
+}
+
+bool ProjectFolder::copyDirectoryContents(const QString& sourceDir, const QString& destinationDir) {
+  QDir destination(destinationDir);
+  if (!destination.exists() && !destination.mkpath(".")) {
+    return false;
+  }
+
+  const QDir source(sourceDir);
+  const QFileInfoList entries = source.entryInfoList(
+      QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+  for (const QFileInfo& entry : entries) {
+    const QString destinationPath = destination.filePath(entry.fileName());
+    if (entry.isDir()) {
+      if (!copyDirectoryContents(entry.absoluteFilePath(), destinationPath)) {
+        return false;
+      }
+      continue;
+    }
+
+    if (QFile::exists(destinationPath) && !QFile::remove(destinationPath)) {
+      return false;
+    }
+    if (!QFile::copy(entry.absoluteFilePath(), destinationPath)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool ProjectFolder::isValidProjectFolder(const QString& path) {
   QDir dir(path);
   if (!dir.exists()) {

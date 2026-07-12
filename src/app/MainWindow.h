@@ -63,6 +63,7 @@ class QLineF;
 class QRectF;
 class QLayout;
 class BatchProcessingSummaryDialog;
+struct BookMetadata;
 
 class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::MainWindow {
   DECLARE_NON_COPYABLE(MainWindow)
@@ -316,6 +317,8 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
 
   QString suggestProjectName() const;
 
+  QString defaultPdfExportPath(const BookMetadata& metadata) const;
+
   void showInsertFileDialog(BeforeOrAfter beforeOrAfter, const ImageId& existig);
 
   void showRemovePagesDialog(const std::set<PageId>& pages);
@@ -391,6 +394,7 @@ class MainWindow : public QMainWindow, private FilterUiInterface, private Ui::Ma
   QString m_projectFolderPath;       // Base path when saved to project folder structure
   bool m_projectSavedToFolder = false;  // True when project is saved to folder structure
   QString m_defaultOutDir;  // Original (temp) output directory
+  QString m_sourceDocumentPath;  // Original source used for export location and naming
   OutputFileNameGenerator m_outFileNameGen;
   std::shared_ptr<ThumbnailPixmapCache> m_thumbnailCache;
   std::unique_ptr<ThumbnailSequence> m_thumbSequence;

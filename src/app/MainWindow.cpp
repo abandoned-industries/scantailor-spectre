@@ -146,6 +146,15 @@
 using namespace core;
 
 namespace {
+bool isSpectreTempOutputDir(const QString& path) {
+  if (path.isEmpty()) {
+    return false;
+  }
+  const QString tempPrefix = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                                 .absoluteFilePath(QStringLiteral("scantailor-spectre-"));
+  return QDir::cleanPath(path).startsWith(QDir::cleanPath(tempPrefix));
+}
+
 void showExportSuccessDialog(QWidget* parent, const QString& pdfPath, const QString& message) {
   QMessageBox msgBox(parent);
   msgBox.setIcon(QMessageBox::Information);
@@ -575,6 +584,11 @@ void MainWindow::switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
   }
   m_pages = pages;
   m_projectFile = projectFilePath;
+
+  const PageSequence sourcePages = pages->toPageSequence(IMAGE_VIEW);
+  m_sourceDocumentPath = sourcePages.numPages() > 0
+                             ? sourcePages.pageAt(0).id().imageId().filePath()
+                             : QString();
 
   // When opening an existing project (projectReader exists), mark it as saved
   if (projectReader && !projectFilePath.isEmpty()) {
@@ -2233,14 +2247,8 @@ void MainWindow::exportToPdf() {
 
   // Ask user where to save
   const BookMetadata legacyMeta = m_stages->exportFilter()->settings()->bookMetadata();
-  QString legacyDefaultName = "output.pdf";
-  if (ApplicationSettings::getInstance().isPdfRecommendedNameEnabled()) {
-    const QString fallbackBase =
-        m_projectFile.isEmpty() ? QString() : QFileInfo(m_projectFile).completeBaseName();
-    legacyDefaultName = buildRecommendedPdfFileName(legacyMeta, fallbackBase);
-  }
   QString pdfPath = QFileDialog::getSaveFileName(
-      this, tr("Export to PDF"), m_outFileNameGen.outDir() + "/" + legacyDefaultName, tr("PDF Files (*.pdf)"));
+      this, tr("Export to PDF"), defaultPdfExportPath(legacyMeta), tr("PDF Files (*.pdf)"));
 
   if (pdfPath.isEmpty()) {
     return;
@@ -2369,28 +2377,9 @@ void MainWindow::exportToPdfFromFilter() {
     }
   }
 
-  // Ask for PDF save location
-  QString projectDir;
-  if (!m_projectFile.isEmpty()) {
-    projectDir = QFileInfo(m_projectFile).absolutePath();
-  } else {
-    QSettings settings;
-    projectDir = settings.value("project/lastDir").toString();
-  }
-
   const BookMetadata meta = exportSettings->bookMetadata();
-  QString saveDir = projectDir;
-  if (ApplicationSettings::getInstance().isPdfRecommendedNameEnabled()) {
-    const QString fallbackBase =
-        m_projectFile.isEmpty() ? QString() : QFileInfo(m_projectFile).completeBaseName();
-    const QString recommendedName = buildRecommendedPdfFileName(meta, fallbackBase);
-    if (!saveDir.isEmpty() && !saveDir.endsWith('/')) {
-      saveDir += '/';
-    }
-    saveDir += recommendedName;
-  }
-
-  QString pdfPath = QFileDialog::getSaveFileName(this, tr("Export to PDF"), saveDir, tr("PDF Files (*.pdf)"));
+  QString pdfPath = QFileDialog::getSaveFileName(
+      this, tr("Export to PDF"), defaultPdfExportPath(meta), tr("PDF Files (*.pdf)"));
   if (pdfPath.isEmpty()) {
     return;
   }
@@ -3078,8 +3067,13 @@ void MainWindow::cleanupTempOutputFiles() {
     return;
   }
 
-  // Get the temp directory for this project
-  const QString tempDir = finalize::Settings::getTempOutputDir(m_projectFile);
+  // m_defaultOutDir is the directory actually assigned when the project was
+  // created. Re-hashing m_projectFile here points at a different directory
+  // after Save Project As and leaves the real temporary files behind.
+  const QString tempDir = m_defaultOutDir;
+  if (!isSpectreTempOutputDir(tempDir)) {
+    return;
+  }
   QDir dir(tempDir);
 
   // Check if temp directory exists and has files
@@ -3143,6 +3137,7 @@ bool MainWindow::saveProjectWithFeedback(const QString& projectFile) {
 
 bool MainWindow::saveProjectToFolder(const QString& folderPath) {
   ProjectFolder projectFolder(folderPath);
+  const QString previousOutputDir = m_outFileNameGen.outDir();
 
   // Create folder structure
   if (!projectFolder.create()) {
@@ -3189,6 +3184,14 @@ bool MainWindow::saveProjectToFolder(const QString& folderPath) {
   }
   progress.setValue(sourceFiles.size());
 
+  progress.setLabelText(tr("Copying generated output..."));
+  QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+  if (!projectFolder.copyOutputFrom(previousOutputDir)) {
+    QMessageBox::warning(this, tr("Error"),
+                         tr("Failed to copy generated output into the project folder."));
+    return false;
+  }
+
   // Create relinker with the path mappings
   auto relinker = std::make_shared<ProjectFolderRelinker>();
   for (auto it = pathMapping.constBegin(); it != pathMapping.constEnd(); ++it) {
@@ -3206,8 +3209,17 @@ bool MainWindow::saveProjectToFolder(const QString& folderPath) {
     m_thumbnailCache = Utils::createThumbnailCache(projectFolder.outputDir());
   }
 
-  // Save the project file
-  return saveProjectWithFeedback(projectFolder.projectFilePath());
+  // Save the project file before removing any temporary data.
+  if (!saveProjectWithFeedback(projectFolder.projectFilePath())) {
+    return false;
+  }
+
+  if (isSpectreTempOutputDir(previousOutputDir)
+      && QDir::cleanPath(previousOutputDir) != QDir::cleanPath(projectFolder.outputDir())) {
+    QDir(previousOutputDir).removeRecursively();
+  }
+  m_defaultOutDir = projectFolder.outputDir();
+  return true;
 }
 
 QString MainWindow::suggestProjectName() const {
@@ -3223,6 +3235,43 @@ QString MainWindow::suggestProjectName() const {
     }
   }
   return "Untitled_project";
+}
+
+QString MainWindow::defaultPdfExportPath(const BookMetadata& metadata) const {
+  QFileInfo sourceInfo(m_sourceDocumentPath);
+  QString directory;
+
+  if (sourceInfo.exists()) {
+    directory = sourceInfo.absolutePath();
+    if (!m_projectFolderPath.isEmpty()) {
+      const QString relativeSource = QDir(m_projectFolderPath).relativeFilePath(sourceInfo.absoluteFilePath());
+      if (relativeSource == QStringLiteral("originals")
+          || relativeSource.startsWith(QStringLiteral("originals/"))) {
+        directory = m_projectFolderPath;
+      }
+    }
+  } else if (!m_projectFile.isEmpty()) {
+    directory = QFileInfo(m_projectFile).absolutePath();
+  } else {
+    directory = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+  }
+
+  QString sourceBase = sourceInfo.completeBaseName();
+  if (sourceBase.isEmpty() && !m_projectFile.isEmpty()) {
+    sourceBase = QFileInfo(m_projectFile).completeBaseName();
+  }
+  if (sourceBase.isEmpty()) {
+    sourceBase = QStringLiteral("output");
+  }
+
+  QString fileName;
+  if (ApplicationSettings::getInstance().isPdfRecommendedNameEnabled()
+      && !metadata.title.trimmed().isEmpty()) {
+    fileName = buildRecommendedPdfFileName(metadata, sourceBase + QStringLiteral("_processed"));
+  } else {
+    fileName = sourceBase + QStringLiteral("_processed.pdf");
+  }
+  return QDir(directory).filePath(fileName);
 }
 
 /**
