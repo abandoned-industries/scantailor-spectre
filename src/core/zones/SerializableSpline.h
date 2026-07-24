@@ -1,0 +1,39 @@
+// Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#ifndef SCANTAILOR_ZONES_SERIALIZABLESPLINE_H_
+#define SCANTAILOR_ZONES_SERIALIZABLESPLINE_H_
+
+#include <QPointF>
+#include <QPolygonF>
+#include <QVector>
+#include <functional>
+
+class EditableSpline;
+class QTransform;
+class QDomDocument;
+class QDomElement;
+class QString;
+
+class SerializableSpline {
+ public:
+  SerializableSpline(const EditableSpline& spline);
+
+  explicit SerializableSpline(const QDomElement& el);
+
+  explicit SerializableSpline(const QPolygonF& polygon);
+
+  QDomElement toXml(QDomDocument& doc, const QString& name) const;
+
+  SerializableSpline transformed(const QTransform& xform) const;
+
+  SerializableSpline transformed(const std::function<QPointF(const QPointF&)>& xform) const;
+
+  QPolygonF toPolygon() const { return QPolygonF(m_points); }
+
+ private:
+  QVector<QPointF> m_points;
+};
+
+
+#endif  // ifndef SCANTAILOR_ZONES_SERIALIZABLESPLINE_H_

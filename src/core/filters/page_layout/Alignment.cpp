@@ -1,0 +1,97 @@
+// Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "Alignment.h"
+
+#include <QDomDocument>
+
+namespace page_layout {
+Alignment::Alignment() : m_vertical(VCENTER), m_horizontal(HCENTER), m_isNull(false) {}
+
+Alignment::Alignment(Vertical vertical, Horizontal horizontal)
+    : m_vertical(vertical), m_horizontal(horizontal), m_isNull(false) {}
+
+Alignment::Alignment(const QDomElement& el) {
+  const QString vert = el.attribute("vert");
+  const QString hor = el.attribute("hor");
+  m_isNull = (el.attribute("null").toInt() != 0);
+
+  if (vert == "top") {
+    m_vertical = TOP;
+  } else if (vert == "bottom") {
+    m_vertical = BOTTOM;
+  } else if (vert == "auto") {
+    m_vertical = VAUTO;
+  } else if (vert == "original") {
+    m_vertical = VORIGINAL;
+  } else {
+    m_vertical = VCENTER;
+  }
+
+  if (hor == "left") {
+    m_horizontal = LEFT;
+  } else if (hor == "right") {
+    m_horizontal = RIGHT;
+  } else if (hor == "auto") {
+    m_horizontal = HAUTO;
+  } else if (hor == "original") {
+    m_horizontal = HORIGINAL;
+  } else {
+    m_horizontal = HCENTER;
+  }
+}
+
+QDomElement Alignment::toXml(QDomDocument& doc, const QString& name) const {
+  const char* vert = nullptr;
+  switch (m_vertical) {
+    case TOP:
+      vert = "top";
+      break;
+    case VCENTER:
+      vert = "center";
+      break;
+    case BOTTOM:
+      vert = "bottom";
+      break;
+    case VAUTO:
+      vert = "auto";
+      break;
+    case VORIGINAL:
+      vert = "original";
+      break;
+  }
+
+  const char* hor = nullptr;
+  switch (m_horizontal) {
+    case LEFT:
+      hor = "left";
+      break;
+    case HCENTER:
+      hor = "center";
+      break;
+    case RIGHT:
+      hor = "right";
+      break;
+    case HAUTO:
+      hor = "auto";
+      break;
+    case HORIGINAL:
+      hor = "original";
+      break;
+  }
+
+  QDomElement el(doc.createElement(name));
+  el.setAttribute("vert", QString::fromLatin1(vert));
+  el.setAttribute("hor", QString::fromLatin1(hor));
+  el.setAttribute("null", m_isNull ? 1 : 0);
+  return el;
+}
+
+bool Alignment::operator==(const Alignment& other) const {
+  return (m_vertical == other.m_vertical) && (m_horizontal == other.m_horizontal) && (m_isNull == other.m_isNull);
+}
+
+bool Alignment::operator!=(const Alignment& other) const {
+  return !(*this == other);
+}
+}  // namespace page_layout

@@ -1,0 +1,115 @@
+// Copyright (C) 2026  ScanTailor Spectre contributors
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include <ImageLoader.h>
+#include <PdfReader.h>
+
+#include <QFile>
+#include <QFileInfo>
+#include <QImage>
+#include <QPageSize>
+#include <QPainter>
+#include <QPdfWriter>
+#include <QSemaphore>
+#include <QString>
+#include <QTemporaryDir>
+#include <boost/test/unit_test.hpp>
+#include <cstring>
+#include <thread>
+#include <vector>
+
+namespace {
+bool writeTestPdf(const QString& path, const QSizeF& pageSize, const QString& title) {
+  QPdfWriter writer(path);
+  writer.setResolution(72);
+  writer.setPageSize(QPageSize(pageSize, QPageSize::Point));
+  writer.setPageMargins(QMarginsF(), QPageLayout::Point);
+  writer.setTitle(title);
+
+  QPainter painter(&writer);
+  if (!painter.isActive()) {
+    return false;
+  }
+  painter.fillRect(QRectF(QPointF(), pageSize), Qt::white);
+  painter.fillRect(QRectF(10, 10, pageSize.width() / 2, pageSize.height() / 2), Qt::black);
+  return painter.end();
+}
+
+BOOST_AUTO_TEST_SUITE(PdfReaderTestSuite)
+
+BOOST_AUTO_TEST_CASE(concurrentRasterizationProducesIdenticalImages) {
+  const QString pdfPath = QStringLiteral(SCANTAILOR_TEST_SOURCE_DIR "/ScanTailor Spectre Readme.pdf");
+  BOOST_REQUIRE(QFileInfo::exists(pdfPath));
+
+  constexpr int workerCount = 4;
+  QSemaphore ready;
+  QSemaphore start;
+  std::vector<QImage> images(workerCount);
+  std::vector<std::thread> workers;
+  workers.reserve(workerCount);
+
+  for (int i = 0; i < workerCount; ++i) {
+    workers.emplace_back([&, i] {
+      ready.release();
+      start.acquire();
+      images[i] = PdfReader::readImage(pdfPath, 0, 72);
+    });
+  }
+  ready.acquire(workerCount);
+  start.release(workerCount);
+  for (std::thread& worker : workers) {
+    worker.join();
+  }
+
+  BOOST_REQUIRE(!images.front().isNull());
+  for (int i = 1; i < workerCount; ++i) {
+    BOOST_REQUIRE(images[i].size() == images.front().size());
+    BOOST_REQUIRE(images[i].format() == images.front().format());
+    BOOST_REQUIRE_EQUAL(images[i].sizeInBytes(), images.front().sizeInBytes());
+    BOOST_CHECK_EQUAL(
+        std::memcmp(images[i].constBits(), images.front().constBits(), images.front().sizeInBytes()), 0);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(samePathReplacementReloadsDocument) {
+  QTemporaryDir tempDir;
+  BOOST_REQUIRE(tempDir.isValid());
+  const QString path = tempDir.filePath("replace.pdf");
+
+  BOOST_REQUIRE(writeTestPdf(path, QSizeF(100, 120), QStringLiteral("first")));
+  const QImage first = PdfReader::readImage(path, 0, 72);
+  BOOST_REQUIRE(!first.isNull());
+  const QFileInfo firstInfo(path);
+  const qint64 firstSize = firstInfo.size();
+  const qint64 firstModificationTime = firstInfo.lastModified().toMSecsSinceEpoch();
+
+  BOOST_REQUIRE(QFile::remove(path));
+  BOOST_REQUIRE(writeTestPdf(path, QSizeF(220, 140), QString(200, QLatin1Char('x'))));
+  const QFileInfo secondInfo(path);
+  BOOST_REQUIRE(firstSize != secondInfo.size()
+                || firstModificationTime != secondInfo.lastModified().toMSecsSinceEpoch());
+
+  const QImage second = PdfReader::readImage(path, 0, 72);
+  BOOST_REQUIRE(!second.isNull());
+  BOOST_CHECK(first.size() != second.size());
+}
+
+BOOST_AUTO_TEST_CASE(decodedPdfCacheSeparatesRenderDpi) {
+  QTemporaryDir tempDir;
+  BOOST_REQUIRE(tempDir.isValid());
+  const QString path = tempDir.filePath("dpi.pdf");
+  BOOST_REQUIRE(writeTestPdf(path, QSizeF(100, 120), QStringLiteral("dpi")));
+
+  PdfReader::setImportDpi(path, 72);
+  const QImage lowDpi = ImageLoader::load(path, 0);
+  PdfReader::setImportDpi(path, 144);
+  const QImage highDpi = ImageLoader::load(path, 0);
+
+  BOOST_REQUIRE(!lowDpi.isNull());
+  BOOST_REQUIRE(!highDpi.isNull());
+  BOOST_CHECK_EQUAL(highDpi.width(), lowDpi.width() * 2);
+  BOOST_CHECK_EQUAL(highDpi.height(), lowDpi.height() * 2);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+}  // namespace

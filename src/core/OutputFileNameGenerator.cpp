@@ -1,0 +1,104 @@
+// Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "OutputFileNameGenerator.h"
+
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <stdexcept>
+#include <utility>
+
+#include "AbstractRelinker.h"
+#include "PageId.h"
+#include "RelinkablePath.h"
+
+OutputFileNameGenerator::OutputFileNameGenerator()
+    : m_disambiguator(std::make_shared<FileNameDisambiguator>()), m_outDir(), m_layoutDirection(Qt::LeftToRight) {}
+
+OutputFileNameGenerator::OutputFileNameGenerator(std::shared_ptr<FileNameDisambiguator> disambiguator,
+                                                 const QString& outDir,
+                                                 Qt::LayoutDirection layoutDirection)
+    : m_disambiguator(std::move(disambiguator)), m_outDir(outDir), m_layoutDirection(layoutDirection) {
+  if (!m_disambiguator) {
+    throw std::invalid_argument("OutputFileNameGenerator: disambiguator cannot be null");
+  }
+}
+
+void OutputFileNameGenerator::performRelinking(const AbstractRelinker& relinker) {
+  m_disambiguator->performRelinking(relinker);
+  m_outDir = relinker.substitutionPathFor(RelinkablePath(m_outDir, RelinkablePath::Dir));
+}
+
+QString OutputFileNameGenerator::formatExtension() const {
+  switch (m_outputFormat) {
+    case OutputImageFormat::PNG:
+      return QStringLiteral("png");
+    case OutputImageFormat::JPEG:
+      return QStringLiteral("jpg");
+    case OutputImageFormat::TIFF:
+    default:
+      return QStringLiteral("tif");
+  }
+}
+
+QString OutputFileNameGenerator::fileNameFor(const PageId& page) const {
+  const bool ltr = (m_layoutDirection == Qt::LeftToRight);
+  const PageId::SubPage subPage = page.subPage();
+  const int label = m_disambiguator->getLabel(page.imageId().filePath());
+
+  QString name(QFileInfo(page.imageId().filePath()).completeBaseName());
+  if (label != 0) {
+    name += QString::fromLatin1("(%1)").arg(label);
+  }
+  if (page.imageId().isMultiPageFile()) {
+    name += QString::fromLatin1("_page%1").arg(page.imageId().page(), 4, 10, QLatin1Char('0'));
+  }
+  if (subPage != PageId::SINGLE_PAGE) {
+    name += QLatin1Char('_');
+    name += QLatin1Char(ltr == (subPage == PageId::LEFT_PAGE) ? '1' : '2');
+    name += QLatin1Char(subPage == PageId::LEFT_PAGE ? 'L' : 'R');
+  }
+  // Use format from settings instead of ApplicationSettings
+  name += QLatin1Char('.') + formatExtension();
+  return name;
+}
+
+QString OutputFileNameGenerator::filePathFor(const PageId& page) const {
+  const QString fileName(fileNameFor(page));
+  return QDir(m_outDir).absoluteFilePath(fileName);
+}
+
+QString OutputFileNameGenerator::findExistingOutputFile(const PageId& page) const {
+  // Get base name without extension
+  const bool ltr = (m_layoutDirection == Qt::LeftToRight);
+  const PageId::SubPage subPage = page.subPage();
+  const int label = m_disambiguator->getLabel(page.imageId().filePath());
+
+  QString baseName(QFileInfo(page.imageId().filePath()).completeBaseName());
+  if (label != 0) {
+    baseName += QString::fromLatin1("(%1)").arg(label);
+  }
+  if (page.imageId().isMultiPageFile()) {
+    baseName += QString::fromLatin1("_page%1").arg(page.imageId().page(), 4, 10, QLatin1Char('0'));
+  }
+  if (subPage != PageId::SINGLE_PAGE) {
+    baseName += QLatin1Char('_');
+    baseName += QLatin1Char(ltr == (subPage == PageId::LEFT_PAGE) ? '1' : '2');
+    baseName += QLatin1Char(subPage == PageId::LEFT_PAGE ? 'L' : 'R');
+  }
+
+  // Check for files with any supported extension
+  static const QStringList extensions = {".tif", ".png", ".jpg"};
+  const QDir outDir(m_outDir);
+
+  for (const QString& ext : extensions) {
+    const QString filePath = outDir.absoluteFilePath(baseName + ext);
+    if (QFile::exists(filePath)) {
+      return filePath;
+    }
+  }
+
+  return QString();  // Not found
+}

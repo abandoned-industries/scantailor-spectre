@@ -1,0 +1,90 @@
+// Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#include "ColorParams.h"
+
+namespace output {
+ColorParams::ColorParams()
+    : m_colorMode(BLACK_AND_WHITE), m_colorModeUserSet(false), m_colorModePresetSet(false) {}
+
+ColorParams::ColorParams(const QDomElement& el)
+    : m_colorMode(parseColorMode(el.attribute("colorMode"))),
+      m_colorModeUserSet(el.attribute("colorModeUserSet", "0") == "1"),
+      m_colorModePresetSet(el.attribute("colorModePresetSet", "0") == "1"),
+      m_colorCommonOptions(el.namedItem("color-or-grayscale").toElement()),
+      m_bwOptions(el.namedItem("bw").toElement()),
+      m_photoAdjustments(el.namedItem("photo-adjustments").toElement()) {}
+
+QDomElement ColorParams::toXml(QDomDocument& doc, const QString& name) const {
+  QDomElement el(doc.createElement(name));
+  el.setAttribute("colorMode", formatColorMode(m_colorMode));
+  el.setAttribute("colorModeUserSet", m_colorModeUserSet ? "1" : "0");
+  el.setAttribute("colorModePresetSet", m_colorModePresetSet ? "1" : "0");
+  el.appendChild(m_colorCommonOptions.toXml(doc, "color-or-grayscale"));
+  el.appendChild(m_bwOptions.toXml(doc, "bw"));
+  el.appendChild(m_photoAdjustments.toXml(doc, "photo-adjustments"));
+  return el;
+}
+
+bool ColorParams::isColorModeUserSet() const {
+  return m_colorModeUserSet;
+}
+
+void ColorParams::setColorModeUserSet(bool userSet) {
+  m_colorModeUserSet = userSet;
+  if (userSet) {
+    // A normal UI selection supersedes a prior Force B&W preset marker.
+    // The preset application sets its marker explicitly after this call.
+    m_colorModePresetSet = false;
+  }
+}
+
+bool ColorParams::isColorModePresetSet() const {
+  return m_colorModePresetSet;
+}
+
+void ColorParams::setColorModePresetSet(bool presetSet) {
+  m_colorModePresetSet = presetSet;
+}
+
+ColorMode ColorParams::parseColorMode(const QString& str) {
+  if (str == "bw") {
+    return BLACK_AND_WHITE;
+  } else if (str == "colorOrGray") {
+    return COLOR_GRAYSCALE;
+  } else if (str == "mixed") {
+    return MIXED;
+  } else if (str == "color") {
+    return COLOR;
+  } else if (str == "grayscale") {
+    return GRAYSCALE;
+  } else {
+    return BLACK_AND_WHITE;
+  }
+}
+
+QString ColorParams::formatColorMode(const ColorMode mode) {
+  const char* str = "";
+  switch (mode) {
+    case BLACK_AND_WHITE:
+      str = "bw";
+      break;
+    case COLOR_GRAYSCALE:
+      str = "colorOrGray";
+      break;
+    case MIXED:
+      str = "mixed";
+      break;
+    case COLOR:
+      str = "color";
+      break;
+    case GRAYSCALE:
+      str = "grayscale";
+      break;
+    case AUTO_DETECT:
+      str = "bw";  // Should not be stored, but fallback to bw
+      break;
+  }
+  return QString::fromLatin1(str);
+}
+}  // namespace output

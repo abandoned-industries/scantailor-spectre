@@ -1,0 +1,1375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>output::OptionsWidget</class>
+ <widget class="QWidget" name="output::OptionsWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>228</width>
+    <height>1336</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_3">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="selectionIndicatorLabel">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="dpiPanel">
+     <property name="toolTip">
+      <string/>
+     </property>
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+     <property name="title">
+      <string>Output Resolution</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_dpi">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="dpiLabel">
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Plain</enum>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="changeDpiButton">
+        <property name="text">
+         <string>Change ...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_dpi">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>1</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="modePanel">
+     <property name="title">
+      <string>Mode</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <property name="checkable">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_6">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="modeAndApplyLayout">
+        <item>
+         <widget class="QComboBox" name="colorModeSelector">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="applyColorsButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Apply To...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="CollapsibleGroupBox" name="commonOptions">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="title">
+         <string>Options</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+        <layout class="QVBoxLayout" name="optionsVLayout">
+         <property name="spacing">
+          <number>2</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+           <item>
+            <widget class="QCheckBox" name="passThroughCheckBox">
+             <property name="toolTip">
+              <string>Skip heavy processing (binarization, despeckling, dewarping). Adjustments (brightness/contrast) still apply. Applies to all selected pages.</string>
+             </property>
+             <property name="text">
+              <string>Pass-through (skip processing)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="fillOffcutCB">
+             <property name="text">
+              <string>Fill offcut</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="fillMarginsCB">
+             <property name="text">
+              <string>Fill margins</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="fillColorLayout">
+             <property name="leftMargin">
+              <number>15</number>
+             </property>
+             <item>
+              <widget class="QRadioButton" name="fillWhiteRB">
+               <property name="text">
+                <string>White</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="fillBackgroundRB">
+               <property name="text">
+                <string>Background</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="fillColorSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>1</width>
+                 <height>1</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="equalizeIlluminationCB">
+             <property name="toolTip">
+              <string>Normalize illumination before binarization.</string>
+             </property>
+             <property name="text">
+              <string>Equalize illumination (B&amp;&amp;W)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="savitzkyGolaySmoothingCB">
+             <property name="text">
+              <string>Savitzky-Golay smoothing</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="morphologicalSmoothingCB">
+             <property name="text">
+              <string>Morphological smoothing</string>
+             </property>
+            </widget>
+           </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="CollapsibleGroupBox" name="thresholdOptions">
+        <property name="title">
+         <string>Threshold</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_11">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_22">
+           <item>
+            <widget class="QLabel" name="thresholMethodLabel">
+             <property name="text">
+              <string>Method:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="thresholdMethodBox"/>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_41">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>1</width>
+               <height>1</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QStackedWidget" name="binarizationOptions">
+           <property name="currentIndex">
+            <number>1</number>
+           </property>
+           <widget class="QWidget" name="page"/>
+           <widget class="QWidget" name="page_2"/>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="CollapsibleGroupBox" name="colorOperationsOptions">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="title">
+         <string>Reduce Noise</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+        <layout class="QVBoxLayout" name="colorOpsVLayout">
+         <property name="spacing">
+          <number>2</number>
+         </property>
+           <item>
+            <layout class="QGridLayout" name="filterColorOptions">
+             <item row="0" column="0">
+              <widget class="QLabel" name="wienerLabel">
+               <property name="text">
+                <string>Wiener denoiser</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QDoubleSpinBox" name="wienerCoef">
+               <property name="toolTip">
+                <string>Value is 0.0 .. 1.0..</string>
+               </property>
+               <property name="minimum">
+                <double>0.0</double>
+               </property>
+               <property name="maximum">
+                <double>1.0</double>
+               </property>
+               <property name="singleStep">
+                <double>0.01</double>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QSpinBox" name="wienerWindowSize">
+               <property name="toolTip">
+                <string>The dimensions of a pixel neighborhood to consider.</string>
+               </property>
+               <property name="minimum">
+                <number>3</number>
+               </property>
+               <property name="maximum">
+                <number>9999</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="colorSegmentationCB">
+             <property name="toolTip">
+              <string>Split the image into color segments and colorize b&amp;w mask.</string>
+             </property>
+             <property name="statusTip">
+              <string/>
+             </property>
+             <property name="text">
+              <string>Color segmentation</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QWidget" name="segmenterOptionsWidget" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_19">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_27">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacer_56">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Minimum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>15</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QLabel" name="rLabel">
+                  <property name="text">
+                   <string>R</string>
+                  </property>
+                  <property name="margin">
+                   <number>1</number>
+                  </property>
+                  <property name="indent">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="redAdjustmentSB">
+                  <property name="toolTip">
+                   <string>Red component adjustment. A negative value means the segmenter will be more sensitive to red and vice versa for a positive one.</string>
+                  </property>
+                  <property name="frame">
+                   <bool>false</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>-99</number>
+                  </property>
+                  <property name="maximum">
+                   <number>99</number>
+                  </property>
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLabel" name="gLabel">
+                  <property name="text">
+                   <string>G</string>
+                  </property>
+                  <property name="margin">
+                   <number>1</number>
+                  </property>
+                  <property name="indent">
+                   <number>3</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="greenAdjustmentSB">
+                  <property name="toolTip">
+                   <string>Green component adjustment. A negative value means the segmenter will be more sensitive to green and vice versa for a positive one.</string>
+                  </property>
+                  <property name="frame">
+                   <bool>false</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>-99</number>
+                  </property>
+                  <property name="maximum">
+                   <number>99</number>
+                  </property>
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLabel" name="bLabel">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                  <property name="margin">
+                   <number>1</number>
+                  </property>
+                  <property name="indent">
+                   <number>3</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="blueAdjustmentSB">
+                  <property name="toolTip">
+                   <string>Blue component adjustment. A negative value means the segmenter will be more sensitive to blue and vice versa for a positive one.</string>
+                  </property>
+                  <property name="frame">
+                   <bool>false</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>-99</number>
+                  </property>
+                  <property name="maximum">
+                   <number>99</number>
+                  </property>
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_57">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_28">
+                <item>
+                 <spacer name="horizontalSpacer_58">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Minimum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>15</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QLabel" name="reduceNoiseLabel">
+                  <property name="text">
+                   <string>Reduce noise:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="reduceNoiseSB">
+                  <property name="toolTip">
+                   <string/>
+                  </property>
+                  <property name="frame">
+                   <bool>true</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>0</number>
+                  </property>
+                  <property name="maximum">
+                   <number>999</number>
+                  </property>
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_59">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="posterizeCB">
+             <property name="toolTip">
+              <string>Reduce the number of colors of the output image by grouping similar colors.</string>
+             </property>
+             <property name="statusTip">
+              <string/>
+             </property>
+             <property name="text">
+              <string>Posterize</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QWidget" name="posterizeOptionsWidget" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_15">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_17">
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacer_32">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Minimum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>15</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QLabel" name="posterizeLevelLabel">
+                  <property name="text">
+                   <string>Level:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="posterizeLevelSB">
+                  <property name="toolTip">
+                   <string>Lower value means lower count of colors in the output image, values between 2 and 6 inclusive guarantee an indexed image.</string>
+                  </property>
+                  <property name="frame">
+                   <bool>true</bool>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                  </property>
+                  <property name="minimum">
+                   <number>2</number>
+                  </property>
+                  <property name="maximum">
+                   <number>255</number>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_33">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_19">
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacer_36">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Minimum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>15</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="posterizeNormalizationCB">
+                  <property name="toolTip">
+                   <string/>
+                  </property>
+                  <property name="statusTip">
+                   <string/>
+                  </property>
+                  <property name="text">
+                   <string>Normalize</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_37">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_18">
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacer_34">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeType">
+                   <enum>QSizePolicy::Minimum</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>15</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="posterizeForceBwCB">
+                  <property name="toolTip">
+                   <string>Applies only when Posterize is enabled.</string>
+                  </property>
+                  <property name="statusTip">
+                   <string/>
+                  </property>
+                  <property name="text">
+                   <string>Force b&amp;&amp;w</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_35">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>1</width>
+                    <height>1</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="CollapsibleGroupBox" name="pictureShapeOptions">
+        <property name="title">
+         <string>Picture Shape</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_13">
+           <item>
+            <widget class="QComboBox" name="pictureShapeSelector"/>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_24">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>1</width>
+               <height>1</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QWidget" name="pictureShapeSensitivityOptions" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_14">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="pictureShapeSensitivityLabel">
+              <property name="text">
+               <string>Sensitivity (%):</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="pictureShapeSensitivitySB">
+              <property name="frame">
+               <bool>true</bool>
+              </property>
+              <property name="minimum">
+               <number>0</number>
+              </property>
+              <property name="maximum">
+               <number>100</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_28">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>1</width>
+                <height>1</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+            <widget class="QCheckBox" name="higherSearchSensitivityCB">
+             <property name="text">
+              <string>Higher search sensitivity</string>
+             </property>
+            </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="adjustmentsPanel">
+     <property name="title">
+      <string>Photo Adjustments</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <layout class="QVBoxLayout" name="adjustmentsVLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="photoAdjAutoResetLayout">
+        <item>
+         <widget class="QPushButton" name="photoAdjAutoBtn">
+          <property name="text">
+           <string>Auto</string>
+          </property>
+          <property name="toolTip">
+           <string>Analyze image and set suggested adjustment values</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="photoAdjResetBtn">
+          <property name="text">
+           <string>Reset</string>
+          </property>
+          <property name="toolTip">
+           <string>Reset all photo adjustments to zero</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="photoAdjBtnSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>1</width>
+            <height>1</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="photoAdjGrid">
+        <property name="horizontalSpacing">
+         <number>4</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>1</number>
+        </property>
+        <item row="0" column="0" colspan="3">
+         <widget class="QLabel" name="wbSectionLabel">
+          <property name="styleSheet">
+           <string>font-weight: bold; margin-top: 4px;</string>
+          </property>
+          <property name="text">
+           <string>White Balance</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="tempLabel">
+          <property name="text"><string>Temp</string></property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="CenteredTickSlider" name="tempSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLineEdit" name="tempValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="tintLabel">
+          <property name="text"><string>Tint</string></property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="CenteredTickSlider" name="tintSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLineEdit" name="tintValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="3">
+         <widget class="QLabel" name="toneSectionLabel">
+          <property name="styleSheet">
+           <string>font-weight: bold; margin-top: 4px;</string>
+          </property>
+          <property name="text">
+           <string>Tone</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="exposureLabel">
+          <property name="text"><string>Exposure</string></property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="CenteredTickSlider" name="exposureSlider">
+          <property name="minimum"><number>-500</number></property>
+          <property name="maximum"><number>500</number></property>
+          <property name="singleStep"><number>10</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>100</number></property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QLineEdit" name="exposureValue">
+          <property name="text"><string>0.00</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>38</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>48</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="contrastLabel">
+          <property name="text"><string>Contrast</string></property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="CenteredTickSlider" name="contrastSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="5" column="2">
+         <widget class="QLineEdit" name="contrastValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QLabel" name="highlightsLabel">
+          <property name="text"><string>Highlights</string></property>
+         </widget>
+        </item>
+        <item row="6" column="1">
+         <widget class="CenteredTickSlider" name="highlightsSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="6" column="2">
+         <widget class="QLineEdit" name="highlightsValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="shadowsLabel">
+          <property name="text"><string>Shadows</string></property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="CenteredTickSlider" name="shadowsSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="7" column="2">
+         <widget class="QLineEdit" name="shadowsValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="8" column="0">
+         <widget class="QLabel" name="whitesLabel">
+          <property name="text"><string>Whites</string></property>
+         </widget>
+        </item>
+        <item row="8" column="1">
+         <widget class="CenteredTickSlider" name="whitesSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="8" column="2">
+         <widget class="QLineEdit" name="whitesValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+        <item row="9" column="0">
+         <widget class="QLabel" name="blacksLabel">
+          <property name="text"><string>Blacks</string></property>
+         </widget>
+        </item>
+        <item row="9" column="1">
+         <widget class="CenteredTickSlider" name="blacksSlider">
+          <property name="minimum"><number>-100</number></property>
+          <property name="maximum"><number>100</number></property>
+          <property name="singleStep"><number>1</number></property>
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="tickPosition"><enum>QSlider::NoTicks</enum></property>
+          <property name="tickInterval"><number>50</number></property>
+         </widget>
+        </item>
+        <item row="9" column="2">
+         <widget class="QLineEdit" name="blacksValue">
+          <property name="text"><string>0</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+          <property name="minimumSize"><size><width>32</width><height>0</height></size></property>
+          <property name="maximumSize"><size><width>44</width><height>16777215</height></size></property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="splittingOptions">
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+     <property name="title">
+      <string>Splitting</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_9">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <item>
+           <widget class="QCheckBox" name="splittingCB">
+            <property name="text">
+             <string>Split output</string>
+            </property>
+           </widget>
+      </item>
+      <item>
+           <widget class="QRadioButton" name="bwForegroundRB">
+            <property name="text">
+             <string>B&amp;&amp;W foreground</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+      </item>
+      <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_16">
+            <property name="leftMargin">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="originalBackgroundCB">
+              <property name="toolTip">
+               <string>Save the original background of the foreground layer.</string>
+              </property>
+              <property name="text">
+               <string>Original background</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+      </item>
+      <item>
+           <widget class="QRadioButton" name="colorForegroundRB">
+            <property name="text">
+             <string>Color foreground</string>
+            </property>
+           </widget>
+      </item>
+      <item>
+         <widget class="QPushButton" name="applySplittingButton">
+          <property name="text">
+           <string>Apply To ...</string>
+          </property>
+         </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="despecklePanel">
+     <property name="title">
+      <string>Despeckling</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_5">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <item>
+             <widget class="QCheckBox" name="despeckleCB">
+              <property name="text">
+               <string>Despeckle</string>
+              </property>
+             </widget>
+      </item>
+      <item>
+         <widget class="QSlider" name="despeckleSlider">
+          <property name="minimum">
+           <number>10</number>
+          </property>
+          <property name="maximum">
+           <number>30</number>
+          </property>
+          <property name="singleStep">
+           <number>2</number>
+          </property>
+          <property name="pageStep">
+           <number>5</number>
+          </property>
+          <property name="value">
+           <number>10</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+      </item>
+      <item>
+         <widget class="QPushButton" name="applyDespeckleButton">
+          <property name="text">
+           <string>Apply To ...</string>
+          </property>
+         </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="depthPerceptionPanel">
+     <property name="title">
+      <string>Depth perception</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_8">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QSlider" name="depthPerceptionSlider">
+        <property name="minimum">
+         <number>10</number>
+        </property>
+        <property name="maximum">
+         <number>30</number>
+        </property>
+        <property name="pageStep">
+         <number>5</number>
+        </property>
+        <property name="value">
+         <number>10</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+         <widget class="QPushButton" name="applyDepthPerceptionButton">
+          <property name="text">
+           <string>Apply To ...</string>
+          </property>
+         </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="CollapsibleGroupBox" name="dewarpingPanel">
+     <property name="title">
+      <string>Dewarping</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_7">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <item>
+         <widget class="QLabel" name="dewarpingStatusLabel">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+      </item>
+      <item>
+         <widget class="QPushButton" name="changeDewarpingButton">
+          <property name="text">
+           <string>Change ...</string>
+          </property>
+         </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>0</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header location="global">CollapsibleGroupBox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>CenteredTickSlider</class>
+   <extends>QSlider</extends>
+   <header location="global">CenteredTickSlider.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AutoProcessDialog</class>
+ <widget class="QDialog" name="AutoProcessDialog">
+  <property name="windowModality">
+   <enum>Qt::WindowModal</enum>
+  </property>
+  <property name="windowTitle">
+   <string>Auto Process</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="colorHandlingGroup">
+     <property name="title">
+      <string>Color handling</string>
+     </property>
+     <layout class="QVBoxLayout" name="colorHandlingLayout">
+      <item>
+       <widget class="QRadioButton" name="forceBlackAndWhiteButton">
+        <property name="text">
+         <string>Force black &amp;&amp; white</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="blackAndWhiteAndGrayscaleButton">
+        <property name="text">
+         <string>Black &amp;&amp; white + grayscale</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="bestGuessButton">
+        <property name="text">
+         <string>Best guess</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+   </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="redetectColorCheckBox">
+     <property name="toolTip">
+      <string>Resets automatic color decisions for every page so they are detected again. Manual per-page color choices are preserved.</string>
+     </property>
+     <property name="text">
+      <string>Re-detect color for all pages</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="ocrCheckBox">
+     <property name="text">
+      <string>Run OCR after Output</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>AutoProcessDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>AutoProcessDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>
