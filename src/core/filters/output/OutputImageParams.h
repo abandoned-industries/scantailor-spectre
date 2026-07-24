@@ -1,0 +1,196 @@
+// Copyright (C) 2019  Joseph Artsimovich <joseph.artsimovich@gmail.com>, 4lex4 <4lex49@zoho.com>
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#ifndef SCANTAILOR_OUTPUT_OUTPUTIMAGEPARAMS_H_
+#define SCANTAILOR_OUTPUT_OUTPUTIMAGEPARAMS_H_
+
+#include <DistortionModel.h>
+#include <ImageTransformation.h>
+
+#include <QColor>
+#include <QRect>
+#include <QSize>
+
+#include "ColorParams.h"
+#include "DepthPerception.h"
+#include "DespeckleLevel.h"
+#include "DewarpingOptions.h"
+#include "Dpi.h"
+#include "OutputProcessingParams.h"
+#include "Params.h"
+
+class ImageTransformation;
+class QDomDocument;
+class QDomElement;
+class QTransform;
+
+namespace output {
+/**
+ * \brief Parameters of the output image used to determine if we need to re-generate it.
+ */
+class OutputImageParams {
+ public:
+  OutputImageParams(const QSize& outImageSize,
+                    const QRect& contentRect,
+                    ImageTransformation xform,
+                    const Dpi& dpi,
+                    const ColorParams& colorParams,
+                    const SplittingOptions& splittingOptions,
+                    const DewarpingOptions& dewarpingOptions,
+                    const dewarping::DistortionModel& distortionModel,
+                    const DepthPerception& depthPerception,
+                    double despeckleLevel,
+                    const PictureShapeOptions& pictureShapeOptions,
+                    const OutputProcessingParams& outputProcessingParams,
+                    bool isBlackOnWhite,
+                    bool forceWhiteBalance = false,
+                    const QColor& manualWhiteBalanceColor = QColor());
+
+  explicit OutputImageParams(const QDomElement& el);
+
+  const DewarpingOptions& dewarpingMode() const;
+
+  const dewarping::DistortionModel& distortionModel() const;
+
+  void setDistortionModel(const dewarping::DistortionModel& model);
+
+  const DepthPerception& depthPerception() const;
+
+  double despeckleLevel() const;
+
+  void setOutputProcessingParams(const OutputProcessingParams& outputProcessingParams);
+
+  const PictureShapeOptions& getPictureShapeOptions() const;
+
+  const QPolygonF& getCropArea() const;
+
+  void setBlackOnWhite(bool blackOnWhite);
+
+  QDomElement toXml(QDomDocument& doc, const QString& name) const;
+
+  /**
+   * \brief Returns true if two sets of parameters are close enough
+   *        to avoid re-generating the output image.
+   */
+  bool matches(const OutputImageParams& other) const;
+
+ private:
+  class PartialXform {
+   public:
+    PartialXform();
+
+    PartialXform(const QTransform& xform);
+
+    explicit PartialXform(const QDomElement& el);
+
+    QDomElement toXml(QDomDocument& doc, const QString& name) const;
+
+    bool matches(const PartialXform& other) const;
+
+   private:
+    static bool closeEnough(double v1, double v2);
+
+    double m_11;
+    double m_12;
+    double m_21;
+    double m_22;
+  };
+
+  static bool colorParamsMatch(const ColorParams& cp1,
+                               double dl1,
+                               const SplittingOptions& so1,
+                               const ColorParams& cp2,
+                               double dl2,
+                               const SplittingOptions& so2);
+
+  /** Pixel size of the output image. */
+  QSize m_size;
+
+  /** Content rectangle in output image coordinates. */
+  QRect m_contentRect;
+
+  /** Crop area in output image coordinates. */
+  QPolygonF m_cropArea;
+
+  /**
+   * Some parameters from the transformation matrix that maps
+   * source image coordinates to unscaled (disregarding dpi changes)
+   * output image coordinates.
+   */
+  PartialXform m_partialXform;
+
+  /** DPI of the output image. */
+  Dpi m_dpi;
+
+  /** Non-geometric parameters used to generate the output image. */
+  ColorParams m_colorParams;
+
+  /** Parameters used to generate the split output images. */
+  SplittingOptions m_splittingOptions;
+
+  /** Shape of the pictures in image */
+  PictureShapeOptions m_pictureShapeOptions;
+
+  /** Two curves and two lines connecting their endpoints.  Used for dewarping. */
+  dewarping::DistortionModel m_distortionModel;
+
+  /** \see imageproc::CylindricalSurfaceDewarper */
+  DepthPerception m_depthPerception;
+
+  /** Dewarping mode (Off / Auto / Manual) and options */
+  DewarpingOptions m_dewarpingOptions;
+
+  /** Despeckle level of the output image. */
+  double m_despeckleLevel;
+
+  /** Per-page params set while processing. */
+  OutputProcessingParams m_outputProcessingParams;
+
+  /** Whether the page has dark content on light background */
+  bool m_blackOnWhite;
+
+  /** Whether to force white balance correction */
+  bool m_forceWhiteBalance;
+
+  /** Manual white balance color (if picked by user) */
+  QColor m_manualWhiteBalanceColor;
+};
+
+
+inline void OutputImageParams::setOutputProcessingParams(const OutputProcessingParams& outputProcessingParams) {
+  OutputImageParams::m_outputProcessingParams = outputProcessingParams;
+}
+
+inline const PictureShapeOptions& OutputImageParams::getPictureShapeOptions() const {
+  return m_pictureShapeOptions;
+}
+
+inline const QPolygonF& OutputImageParams::getCropArea() const {
+  return m_cropArea;
+}
+
+inline const DewarpingOptions& OutputImageParams::dewarpingMode() const {
+  return m_dewarpingOptions;
+}
+
+inline const dewarping::DistortionModel& OutputImageParams::distortionModel() const {
+  return m_distortionModel;
+}
+
+inline void OutputImageParams::setDistortionModel(const dewarping::DistortionModel& model) {
+  m_distortionModel = model;
+}
+
+inline const DepthPerception& OutputImageParams::depthPerception() const {
+  return m_depthPerception;
+}
+
+inline double OutputImageParams::despeckleLevel() const {
+  return m_despeckleLevel;
+}
+
+inline void OutputImageParams::setBlackOnWhite(bool blackOnWhite) {
+  m_blackOnWhite = blackOnWhite;
+}
+}  // namespace output
+#endif  // ifndef SCANTAILOR_OUTPUT_OUTPUTIMAGEPARAMS_H_

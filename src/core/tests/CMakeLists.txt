@@ -1,0 +1,26 @@
+set(sources
+    main.cpp
+    TestAutoColorModePolicy.cpp
+    TestBatchProcessingContext.cpp
+    TestColorDetection.cpp
+    TestContentSpanFinder.cpp
+    TestDurationFormatter.cpp
+    TestOcrResult.cpp
+    TestPdfExporter.cpp
+    TestPdfReader.cpp
+    TestProjectFolder.cpp
+    TestProjectPortability.cpp
+    TestSmartFilenameOrdering.cpp)
+
+add_executable(core_tests ${sources})
+target_compile_definitions(core_tests PRIVATE SCANTAILOR_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(
+    core_tests
+    PRIVATE core Boost::unit_test_framework
+    Boost::prg_exec_monitor ${EXTRA_LIBS})
+
+add_test(NAME core_tests COMMAND core_tests --log_level=message)
+
+add_executable(color_detection_diagnostic ColorDetectionDiagnostic.cpp)
+target_link_libraries(color_detection_diagnostic PRIVATE core ${LEPTONICA_LIBRARIES})
+target_include_directories(color_detection_diagnostic PRIVATE ${LEPTONICA_INCLUDE_DIRS})

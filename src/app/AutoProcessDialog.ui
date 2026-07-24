@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AutoProcessDialog</class>
+ <widget class="QDialog" name="AutoProcessDialog">
+  <property name="windowModality">
+   <enum>Qt::WindowModal</enum>
+  </property>
+  <property name="windowTitle">
+   <string>Auto Process</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="colorHandlingGroup">
+     <property name="title">
+      <string>Color handling</string>
+     </property>
+     <layout class="QVBoxLayout" name="colorHandlingLayout">
+      <item>
+       <widget class="QRadioButton" name="forceBlackAndWhiteButton">
+        <property name="text">
+         <string>Force black &amp;&amp; white</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="blackAndWhiteAndGrayscaleButton">
+        <property name="text">
+         <string>Black &amp;&amp; white + grayscale</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="bestGuessButton">
+        <property name="text">
+         <string>Best guess</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+   </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="redetectColorCheckBox">
+     <property name="toolTip">
+      <string>Resets automatic color decisions for every page so they are detected again. Manual per-page color choices are preserved.</string>
+     </property>
+     <property name="text">
+      <string>Re-detect color for all pages</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="ocrCheckBox">
+     <property name="toolTip">
+      <string>Recognize text from Weasel's processed page images after Output.</string>
+     </property>
+     <property name="text">
+      <string>Run OCR after Output</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="ocrOptionsGroup">
+     <property name="title">
+      <string>OCR options</string>
+     </property>
+     <layout class="QVBoxLayout" name="ocrOptionsLayout">
+      <item>
+       <widget class="QCheckBox" name="fastOcrCheckBox">
+        <property name="toolTip">
+         <string>Use Vision's fast recognition mode. Turn this off when maximum recognition accuracy matters more than speed.</string>
+        </property>
+        <property name="text">
+         <string>Fast OCR</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="multilingualOcrCheckBox">
+        <property name="toolTip">
+         <string>Detect multiple languages automatically. Leave this off to use the much faster system-language path.</string>
+        </property>
+        <property name="text">
+         <string>Multilingual detection (slower)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="skipOcrLanguageCorrectionCheckBox">
+        <property name="toolTip">
+         <string>Skip Vision's language-model correction. On the 392-page test book this reduced total time from 2:48 to about 1:30 with a modest accuracy cost.</string>
+        </property>
+        <property name="text">
+         <string>Skip language correction (faster)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>AutoProcessDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>AutoProcessDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

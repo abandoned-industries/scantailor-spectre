@@ -1,0 +1,72 @@
+// Copyright (C) 2024  ScanTailor Advanced contributors
+// Use of this source code is governed by the GNU GPLv3 license that can be found in the LICENSE file.
+
+#ifndef SCANTAILOR_CORE_PDFEXPORTER_H_
+#define SCANTAILOR_CORE_PDFEXPORTER_H_
+
+#include <QMap>
+#include <QRectF>
+#include <QString>
+#include <QStringList>
+#include <QVector>
+#include <functional>
+
+class PdfExporter {
+ public:
+  /**
+   * Quality presets for PDF export.
+   * Affects JPEG compression for color/mixed images (and grayscale if enabled).
+   */
+  enum class Quality {
+    High,    // JPEG 95% - visually lossless, larger files
+    Medium,  // JPEG 85% - good quality, balanced size
+    Low      // JPEG 70% - smaller files, some visible compression
+  };
+
+  /**
+   * Progress callback: (currentPage, totalPages) -> shouldContinue
+   * Return false to cancel the export.
+   */
+  using ProgressCallback = std::function<bool(int, int)>;
+
+  /**
+   * OCR text data for a single page (for invisible text layer).
+   */
+  struct OcrTextData {
+    struct Word {
+      QString text;
+      QRectF bounds;  // In image coordinates (pixels)
+    };
+    QVector<Word> words;
+    int imageWidth = 0;
+    int imageHeight = 0;
+  };
+
+  /**
+   * \brief Combines multiple image files into a single PDF.
+   *
+   * \param imagePaths List of paths to image files (in order).
+   * \param outputPdfPath Path where the PDF will be saved.
+   * \param title Optional PDF title metadata.
+   * \param author Optional PDF author metadata. Written only by the CoreGraphics
+   *        (macOS) path; the Qt fallback path (QPdfWriter) has no author API and
+   *        writes title only.
+   * \param quality Compression quality preset.
+   * \param compressGrayscale If true, use JPEG for grayscale images too (smaller but lossy).
+   * \param maxDpi Maximum resolution (0 = keep original). Images higher than this will be downsampled.
+   * \param ocrData Optional OCR text data for invisible text layer (image path -> OCR data).
+   * \param progressCallback Optional callback for progress updates.
+   * \return true if successful, false otherwise.
+   */
+  static bool exportToPdf(const QStringList& imagePaths,
+                          const QString& outputPdfPath,
+                          const QString& title = QString(),
+                          const QString& author = QString(),
+                          Quality quality = Quality::High,
+                          bool compressGrayscale = false,
+                          int maxDpi = 0,
+                          const QMap<QString, OcrTextData>& ocrData = {},
+                          ProgressCallback progressCallback = nullptr);
+};
+
+#endif  // SCANTAILOR_CORE_PDFEXPORTER_H_

@@ -1,0 +1,1783 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>783</width>
+    <height>464</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true"/>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="cursor">
+    <cursorShape>ArrowCursor</cursorShape>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <widget class="QFrame" name="imageViewFrame">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>1</horstretch>
+        <verstretch>1</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Sunken</enum>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>783</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuDebug">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <widget class="QMenu" name="menuUnits">
+     <property name="title">
+      <string>Units</string>
+     </property>
+     <addaction name="actionPixels"/>
+     <addaction name="actionMilimeters"/>
+     <addaction name="actionCentimetres"/>
+     <addaction name="actionInches"/>
+    </widget>
+    <addaction name="actionAutoMode"/>
+    <addaction name="separator"/>
+    <addaction name="actionFixDpi"/>
+    <addaction name="actionRelinking"/>
+    <addaction name="actionRemovePages"/>
+    <addaction name="separator"/>
+    <addaction name="actionDebug"/>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
+    <addaction name="actionDefaults"/>
+    <addaction name="separator"/>
+    <addaction name="menuUnits"/>
+   </widget>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionNewProject"/>
+    <addaction name="actionOpenProject"/>
+    <addaction name="actionImportPdf"/>
+    <addaction name="separator"/>
+    <addaction name="actionSaveProject"/>
+    <addaction name="actionSaveProjectAs"/>
+    <addaction name="separator"/>
+    <addaction name="actionExportPdf"/>
+    <addaction name="separator"/>
+    <addaction name="actionCloseProject"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuDebug"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <widget class="QDockWidget" name="thumbnailsDockWidget">
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>Thumbnails</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_2">
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <property name="spacing">
+      <number>2</number>
+     </property>
+     <property name="leftMargin">
+      <number>4</number>
+     </property>
+     <property name="topMargin">
+      <number>2</number>
+     </property>
+     <property name="bottomMargin">
+      <number>9</number>
+     </property>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>2</number>
+       </property>
+       <item>
+        <widget class="QToolButton" name="focusButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Keep current page in view.</string>
+         </property>
+         <property name="statusTip">
+          <string/>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/eye.svg</normaloff>:/icons/eye.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="line">
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="prevPageBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Previous page.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/triangle-up-arrow.svg</normaloff>:/icons/triangle-up-arrow.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="nextPageBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Next page.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/triangle-down-arrow.svg</normaloff>:/icons/triangle-down-arrow.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="filterSelectedBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Navigate through selected pages only.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/check-mark.svg</normaloff>:/icons/check-mark.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="line_2">
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="magnifyThumbnailsBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Magnify thumbnails.  (Ctrl++)</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/magnifying-glass.svg</normaloff>:/icons/magnifying-glass.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="diminishThumbnailsBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Diminish thumbnails.  (Ctrl+-)</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/diminishing-glass.svg</normaloff>:/icons/diminishing-glass.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="line_3">
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="gotoPageBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Go To Page...  (Ctrl+G)</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/right-pointing.svg</normaloff>:/icons/right-pointing.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="selectionModeBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Enable multi page selection mode.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}
+
+QToolButton:checked:hover {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(base);
+}
+
+QToolButton:checked {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/checkbox-styled.svg</normaloff>:/icons/checkbox-styled.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="thumbColumnViewBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Single/multi column display.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/single-column-view.svg</normaloff>:/icons/single-column-view.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sortingOrderBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Sorting order.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/ascending_sorting_order.svg</normaloff>:/icons/ascending_sorting_order.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="deviationHighlightingBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Highlight deviation.</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="icon">
+          <iconset resource="../resources/resources.qrc">
+           <normaloff>:/icons/six-spoked-asterisk.svg</normaloff>:/icons/six-spoked-asterisk.svg</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="line_colorfilter">
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="filterBwBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Show/hide B&amp;W pages in thumbnails</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}
+
+QToolButton:checked:hover {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(base);
+}
+
+QToolButton:checked {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true">B</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="filterGrayBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Show/hide Grayscale pages in thumbnails</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}
+
+QToolButton:checked:hover {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(base);
+}
+
+QToolButton:checked {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true">G</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="filterColorBtn">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>22</width>
+           <height>22</height>
+          </size>
+         </property>
+         <property name="toolTip">
+          <string>Show/hide Color pages in thumbnails</string>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QToolButton:!hover {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+}
+
+QToolButton:hover {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(base);
+}
+
+QToolButton:pressed {
+  padding: 0;
+  border: 1px solid palette(highlight);
+  background-color: palette(alternative-base);
+}
+
+QToolButton:checked:hover {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(base);
+}
+
+QToolButton:checked {
+  padding: 0;
+  border: 1px solid palette(window-text);
+  background-color: palette(alternative-base);
+}</string>
+         </property>
+         <property name="text">
+          <string notr="true">C</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>1</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QGraphicsView" name="thumbView">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Ignored" vsizetype="Expanding">
+           <horstretch>1</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>150</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="statusTip">
+          <string>Use Home, End, PgUp/Q, PgDown/W to navigate between pages or Shift+PgUp/Q and Shift+PgDown/W to navigate between selected ones. Alt+Wheel - scale thumbnails.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignHCenter|Qt::AlignTop</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="sortOptions">
+         <property name="sizeAdjustPolicy">
+          <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QDockWidget" name="filterDockWidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>274</width>
+     <height>204</height>
+    </size>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>Stages</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_5">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout_3">
+     <item>
+      <widget class="StageListView" name="filterList">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="autoScroll">
+        <bool>false</bool>
+       </property>
+       <property name="editTriggers">
+        <set>QAbstractItemView::NoEditTriggers</set>
+       </property>
+       <property name="tabKeyNavigation">
+        <bool>false</bool>
+       </property>
+       <property name="showDropIndicator" stdset="0">
+        <bool>false</bool>
+       </property>
+       <property name="alternatingRowColors">
+        <bool>true</bool>
+       </property>
+       <property name="selectionMode">
+        <enum>QAbstractItemView::SingleSelection</enum>
+       </property>
+       <property name="selectionBehavior">
+        <enum>QAbstractItemView::SelectRows</enum>
+       </property>
+       <property name="textElideMode">
+        <enum>Qt::ElideNone</enum>
+       </property>
+       <property name="showGrid">
+        <bool>false</bool>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+       <property name="cornerButtonEnabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QScrollArea" name="scrollArea">
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <property name="horizontalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOff</enum>
+       </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="scrollAreaWidgetContents">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>256</width>
+          <height>185</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>10</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="NonOwningWidget" name="filterOptions" native="true"/>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <action name="actionDebug">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Debug Mode</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSaveProject">
+   <property name="text">
+    <string>Save Project</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+S</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSaveProjectAs">
+   <property name="text">
+    <string>Duplicate Project...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextPage">
+   <property name="text">
+    <string>Next Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">PgDown</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPrevPage">
+   <property name="text">
+    <string>Previous Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">PgUp</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNewProject">
+   <property name="text">
+    <string>New Project ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+N</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionOpenProject">
+   <property name="text">
+    <string>Open Project ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+O</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionImportPdf">
+   <property name="text">
+    <string>Import PDF...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+I</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPrevPageQ">
+   <property name="text">
+    <string>Previous Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Q</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextPageW">
+   <property name="text">
+    <string>Next Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">W</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPrevPageLeft">
+   <property name="text">
+    <string>Previous Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Left</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextPageRight">
+   <property name="text">
+    <string>Next Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Right</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionCloseProject">
+   <property name="text">
+    <string>Close Project</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+W</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Q</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionFirstPage">
+   <property name="text">
+    <string>First Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Home</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionLastPage">
+   <property name="text">
+    <string>Last Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">End</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionFixDpi">
+   <property name="text">
+    <string>Fix DPI ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRelinking">
+   <property name="text">
+    <string>Relinking ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter1">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">O</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter2">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="toolTip">
+    <string>Switch filter to split pages</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">E</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter3">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="toolTip">
+    <string>Switch filter to deskew</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">N</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter4">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="toolTip">
+    <string>Switch filter to select content</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">V</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter5">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="toolTip">
+    <string>Switch filter to margins</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">K</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSwitchFilter6">
+   <property name="text">
+    <string>Switch filter to orientation</string>
+   </property>
+   <property name="toolTip">
+    <string>Switch filter to output</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">F</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPixels">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Pixels</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionMilimeters">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Millimetres</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionInches">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Inches</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionCentimetres">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Centimetres</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionDefaults">
+   <property name="text">
+    <string>Default parameters ...</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPrevSelectedPageQ">
+   <property name="text">
+    <string>Previous Selected Page</string>
+   </property>
+   <property name="toolTip">
+    <string>Previous Selected Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Shift+Q</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextSelectedPageW">
+   <property name="text">
+    <string>Next Selected Page</string>
+   </property>
+   <property name="toolTip">
+    <string>Next Selected Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Shift+W</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionNextSelectedPage">
+   <property name="text">
+    <string>Next Selected Page</string>
+   </property>
+   <property name="toolTip">
+    <string>Next Selected Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Shift+PgDown</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionPrevSelectedPage">
+   <property name="text">
+    <string>Previous Selected Page</string>
+   </property>
+   <property name="toolTip">
+    <string>Previous Selected Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Shift+PgUp</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionGotoPage">
+   <property name="text">
+    <string>Go To Page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+G</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionMagnifyThumbnails">
+   <property name="text">
+    <string>Magnify thumbnails</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl++</string>
+   </property>
+  </action>
+  <action name="actionDiminishThumbnails">
+   <property name="text">
+    <string>Diminish thumbnails</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+-</string>
+   </property>
+  </action>
+  <action name="actionReloadPage">
+   <property name="text">
+    <string>Reload current page</string>
+   </property>
+   <property name="toolTip">
+    <string>Reload current page</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">F5</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRemovePages">
+   <property name="text">
+    <string>Remove Selected Pages</string>
+   </property>
+   <property name="toolTip">
+    <string>Remove selected pages from project</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Backspace</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionExportPdf">
+   <property name="text">
+    <string>Export to PDF...</string>
+   </property>
+   <property name="toolTip">
+    <string>Combine output images into a single PDF</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+E</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSelectAll">
+   <property name="text">
+    <string>Select All</string>
+   </property>
+   <property name="toolTip">
+    <string>Select all pages</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+A</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAutoMode">
+   <property name="text">
+    <string>Auto Process…</string>
+   </property>
+   <property name="toolTip">
+    <string>Process all pages with configurable color handling and OCR</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Meta+Shift+A</string>
+   </property>
+   <property name="autoRepeat">
+    <bool>false</bool>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>StageListView</class>
+   <extends>QTableView</extends>
+   <header>StageListView.h</header>
+  </customwidget>
+  <customwidget>
+   <class>NonOwningWidget</class>
+   <extends>QWidget</extends>
+   <header>NonOwningWidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="../resources/resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>
