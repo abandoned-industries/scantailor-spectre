@@ -195,6 +195,22 @@ endif()
 
 #=================================== Qt ===================================#
 
+# Qt's FindWrapOpenGL.cmake links AGL.framework alongside OpenGL.framework on
+# Apple platforms. AGL still exists on the running system, so find_library()
+# locates it, but it was removed from the macOS 26 SDK the linker uses, and
+# Qt's "-framework AGL" fallback fails the same way -- so the app fails to
+# link on Xcode 26 with: ld: framework 'AGL' not found.
+#
+# AGL is legacy Carbon OpenGL and is unused here. Pre-seed the cache variable
+# FindWrapOpenGL.cmake reads, pointing it at OpenGL.framework (already linked,
+# so the duplicate is harmless). Self-disabling: on an SDK that still ships
+# AGL, and on Qt 6.9+ where this is fixed upstream, nothing changes.
+if (APPLE AND NOT DEFINED CACHE{WrapOpenGL_AGL}
+    AND NOT EXISTS "${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/AGL.framework")
+  set(WrapOpenGL_AGL "${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGL.framework"
+      CACHE FILEPATH "AGL shim: AGL.framework is absent from this SDK")
+endif ()
+
 find_package(
     Qt6 6.4 REQUIRED
     COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets WebEngineWidgets WebChannel
