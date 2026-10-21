@@ -117,6 +117,12 @@
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <widget class="QDockWidget" name="thumbnailsDockWidget">
+   <property name="minimumSize">
+    <size>
+     <width>220</width>
+     <height>0</height>
+    </size>
+   </property>
    <property name="features">
     <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
    </property>
@@ -132,16 +138,19 @@
    <widget class="QWidget" name="dockWidgetContents_2">
     <layout class="QHBoxLayout" name="horizontalLayout_4">
      <property name="spacing">
-      <number>2</number>
+      <number>0</number>
      </property>
      <property name="leftMargin">
-      <number>4</number>
+      <number>0</number>
      </property>
      <property name="topMargin">
-      <number>2</number>
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
      </property>
      <property name="bottomMargin">
-      <number>9</number>
+      <number>0</number>
      </property>
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -174,25 +183,6 @@
          <property name="statusTip">
           <string/>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string/>
          </property>
@@ -211,16 +201,6 @@ QToolButton:pressed {
          </property>
          <property name="checked">
           <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="Line" name="line">
-         <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -245,26 +225,7 @@ QToolButton:pressed {
           </size>
          </property>
          <property name="toolTip">
-          <string>Previous page.</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
+          <string>Previous page.  ⇧-click: up one screen.  ⌘-click: first page.</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -302,26 +263,7 @@ QToolButton:pressed {
           </size>
          </property>
          <property name="toolTip">
-          <string>Next page.</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
+          <string>Next page.  ⇧-click: down one screen.  ⌘-click: last page.</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -361,25 +303,6 @@ QToolButton:pressed {
          <property name="toolTip">
           <string>Navigate through selected pages only.</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true"/>
          </property>
@@ -395,16 +318,6 @@ QToolButton:pressed {
          </property>
          <property name="checkable">
           <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="Line" name="line_2">
-         <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -430,25 +343,6 @@ QToolButton:pressed {
          </property>
          <property name="toolTip">
           <string>Magnify thumbnails.  (Ctrl++)</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -488,25 +382,6 @@ QToolButton:pressed {
          <property name="toolTip">
           <string>Diminish thumbnails.  (Ctrl+-)</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true"/>
          </property>
@@ -519,16 +394,6 @@ QToolButton:pressed {
            <width>16</width>
            <height>16</height>
           </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="Line" name="line_3">
-         <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -554,25 +419,6 @@ QToolButton:pressed {
          </property>
          <property name="toolTip">
           <string>Go To Page...  (Ctrl+G)</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -611,37 +457,6 @@ QToolButton:pressed {
          </property>
          <property name="toolTip">
           <string>Enable multi page selection mode.</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}
-
-QToolButton:checked:hover {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(base);
-}
-
-QToolButton:checked {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -684,25 +499,6 @@ QToolButton:checked {
          <property name="toolTip">
           <string>Single/multi column display.</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true"/>
          </property>
@@ -743,25 +539,6 @@ QToolButton:pressed {
          </property>
          <property name="toolTip">
           <string>Sorting order.</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true"/>
@@ -804,25 +581,6 @@ QToolButton:pressed {
          <property name="toolTip">
           <string>Highlight deviation.</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true"/>
          </property>
@@ -838,16 +596,6 @@ QToolButton:pressed {
          </property>
          <property name="checkable">
           <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="Line" name="line_colorfilter">
-         <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
@@ -873,37 +621,6 @@ QToolButton:pressed {
          </property>
          <property name="toolTip">
           <string>Show/hide B&amp;W pages in thumbnails</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}
-
-QToolButton:checked:hover {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(base);
-}
-
-QToolButton:checked {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true">B</string>
@@ -939,37 +656,6 @@ QToolButton:checked {
          <property name="toolTip">
           <string>Show/hide Grayscale pages in thumbnails</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}
-
-QToolButton:checked:hover {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(base);
-}
-
-QToolButton:checked {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true">G</string>
          </property>
@@ -1003,37 +689,6 @@ QToolButton:checked {
          </property>
          <property name="toolTip">
           <string>Show/hide Mixed pages in thumbnails</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}
-
-QToolButton:checked:hover {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(base);
-}
-
-QToolButton:checked {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(alternative-base);
-}</string>
          </property>
          <property name="text">
           <string notr="true">M</string>
@@ -1069,37 +724,6 @@ QToolButton:checked {
          <property name="toolTip">
           <string>Show/hide Color pages in thumbnails</string>
          </property>
-         <property name="styleSheet">
-          <string notr="true">QToolButton:!hover {
-  padding: 0;
-  border: none;
-  background-color: transparent;
-}
-
-QToolButton:hover {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(base);
-}
-
-QToolButton:pressed {
-  padding: 0;
-  border: 1px solid palette(highlight);
-  background-color: palette(alternative-base);
-}
-
-QToolButton:checked:hover {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(base);
-}
-
-QToolButton:checked {
-  padding: 0;
-  border: 1px solid palette(window-text);
-  background-color: palette(alternative-base);
-}</string>
-         </property>
          <property name="text">
           <string notr="true">C</string>
          </property>
@@ -1132,6 +756,22 @@ QToolButton:checked {
         <number>0</number>
        </property>
        <item>
+        <widget class="QWidget" name="pagesHeader" native="true">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>64</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>64</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QGraphicsView" name="thumbView">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Ignored" vsizetype="Expanding">
@@ -1152,7 +792,7 @@ QToolButton:checked {
           </size>
          </property>
          <property name="statusTip">
-          <string>Use Home, End, PgUp/Q, PgDown/W to navigate between pages or Shift+PgUp/Q and Shift+PgDown/W to navigate between selected ones. Alt+Wheel - scale thumbnails.</string>
+          <string>Use PgUp/PgDown to scroll one screen, Home/End to jump, Q/W to navigate between pages, or Shift+PgUp/Q and Shift+PgDown/W to navigate between selected ones. Alt+Wheel - scale thumbnails.</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignHCenter|Qt::AlignTop</set>
@@ -1259,7 +899,7 @@ QToolButton:checked {
         <enum>QFrame::NoFrame</enum>
        </property>
        <property name="horizontalScrollBarPolicy">
-        <enum>Qt::ScrollBarAlwaysOff</enum>
+        <enum>Qt::ScrollBarAsNeeded</enum>
        </property>
        <property name="widgetResizable">
         <bool>true</bool>
@@ -1284,7 +924,7 @@ QToolButton:checked {
           <number>0</number>
          </property>
          <property name="rightMargin">
-          <number>10</number>
+          <number>0</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>

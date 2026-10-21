@@ -73,8 +73,6 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo, const Margins& margins
   m_alignment = alignment;
   m_fullBleed = m_settings->isPageFullBleed(m_pageId);
 
-  updateSelectionIndicator();
-
   for (const auto& [button, btnAlignment] : m_alignmentByButton) {
     if (alignment.isAutoVertical()) {
       if ((btnAlignment.vertical() == Alignment::VCENTER) && (btnAlignment.horizontal() == alignment.horizontal())) {
@@ -339,7 +337,14 @@ void OptionsWidget::fullBleedToggled(bool checked) {
   updateFullBleedControls();
 
   emit aggregateHardSizeChanged();
-  emit invalidateAllThumbnails();
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
+  } else {
+    emit invalidateThumbnail(m_pageId);
+  }
   emit reloadRequested();
 }
 
@@ -373,7 +378,9 @@ void OptionsWidget::applyPageLayout(const std::set<PageId>& pages) {
   }
 
   emit aggregateHardSizeChanged();
-  emit invalidateAllThumbnails();
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
+  }
 }
 
 void OptionsWidget::applyMargins(const std::set<PageId>& pages) {
@@ -396,7 +403,9 @@ void OptionsWidget::applyMargins(const std::set<PageId>& pages) {
   }
 
   emit aggregateHardSizeChanged();
-  emit invalidateAllThumbnails();
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
+  }
 }
 
 void OptionsWidget::applyAlignment(const std::set<PageId>& pages) {
@@ -412,7 +421,9 @@ void OptionsWidget::applyAlignment(const std::set<PageId>& pages) {
     m_settings->setPageAlignment(pageId, m_alignment);
   }
 
-  emit invalidateAllThumbnails();
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
+  }
 }
 
 void OptionsWidget::updateMarginsDisplay() {
@@ -610,9 +621,9 @@ void OptionsWidget::applyMarginsToSelectedPages() {
       }
     }
     emit aggregateHardSizeChanged();
-    emit invalidateAllThumbnails();
-    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
-    emit invalidateThumbnail(m_pageId);
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
   }
 }
 
@@ -632,9 +643,9 @@ void OptionsWidget::applyAlignmentToSelectedPages() {
 
       m_settings->setPageAlignment(pageId, m_alignment);
     }
-    emit invalidateAllThumbnails();
-    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
-    emit invalidateThumbnail(m_pageId);
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
   }
 }
 
@@ -652,14 +663,4 @@ void OptionsWidget::applyFullBleedToSelectedPages() {
   }
 }
 
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
-  }
-}
 }  // namespace page_layout

@@ -37,6 +37,10 @@ PageView Filter::getView() const {
   return PAGE_VIEW;
 }
 
+bool Filter::isPageComplete(const PageId&) const {
+  return true;
+}
+
 void Filter::selected() {
   // Nothing to do
 }

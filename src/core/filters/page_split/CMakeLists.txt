@@ -5,6 +5,7 @@ set(ui_files
     OptionsWidget.ui)
 
 set(sources
+    ApplyLayoutType.cpp ApplyLayoutType.h
     SplitLineObject.h
     ImageView.cpp ImageView.h
     Thumbnail.cpp Thumbnail.h
@@ -16,7 +17,7 @@ set(sources
     SpineDarknessFinder.cpp SpineDarknessFinder.h
     Filter.cpp Filter.h
     OptionsWidget.cpp OptionsWidget.h
-    SplitModeDialog.cpp SplitModeDialog.h
+    SplitModeDialog.cpp SplitModeDialog.h SplitModeDialogMode.h
     Settings.cpp Settings.h
     Task.cpp Task.h
     CacheDrivenTask.cpp CacheDrivenTask.h

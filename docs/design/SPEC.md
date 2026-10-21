@@ -120,6 +120,11 @@ Three columns, no toolbars, native menu bar not drawn.
      #5E5E5E ring. Pages the current stage has not processed: 40% opacity.
    - Sort combo appears under the header only on stages that offer more
      than "Natural order".
+   - R1.4 (designer, 2026-09-02, while building): all twelve of today's
+     rail buttons keep a place, none is dropped. The header is two 32 px
+     rows: row 1 "Pages" + magnify, diminish, column view, sort order,
+     deviation highlight; row 2 keep-in-view, previous, next, selected-only,
+     go-to-page, multi-select, then the B G M C pills.
 
 ### Copy rule (R1.1, owner-directed 2026-09-01)
 
@@ -220,8 +225,7 @@ primary.
 
 ### Open contract items (flagged, not invented)
 
-Owner asked 2026-09-01 "does your plan involve any loss of
-functionality?" Answer: none by design. Three gaps were found and drawn in
+The redesign must preserve existing functionality. Three gaps were found and drawn in
 R1.3 (Review actions, system-load slider, zone-mode icon). Still to map,
 stage by stage, before code: the Review "Fix" popup contents for Split
 Pages (Force two-page / Force single page / Reset to auto layout), Page
@@ -239,23 +243,28 @@ Dark scheme boards, Settings, Project Files dialog, Fix DPI, Relinking,
 menus, keyboard map (13 bare-letter bindings today; to be redesigned once
 the direction is approved).
 
-### Revision log
+### Revision decisions (public technical summary)
 
-- R1 2026-09-01: drafted from the playbook and the inventory. Awaiting the
-  owner's word on the direction.
-- R1 2026-09-01, owner: "the 'app now speaks first' is slop. we don't need
-  it." The slogan is removed from the spec, the canvas note and reports; the
-  behavior it named is unchanged.
-- R1.1 2026-09-01, owner: "remove ALL the app speaks now text. it's slop. get
-  rid of it. with the except of the book is ready." Every truth/did sentence
-  and chatty button label removed from spec and boards; "Your book is ready."
-  kept on Export. See Copy rule.
-- R1.2 2026-09-01, owner, looking at the three pictures: "that's fine, but
-  adjust is important. i think it should be collapsible. the default state
-  is whatever was last used in the app. we are not ready to fork yet."
-  Direction: the three-column window (was "Page first"). Adjust stays
-  collapsible and reopens as last left, per stage. No code branch yet.
-- R1.3 2026-09-01, owner: "yes." to placing the three missing functions.
-  Review redrawn on the Margins case with a "Fix" popup of today's actions;
-  Batch gains the system-load slider; the page chip gains the zone-mode icon.
-- R1 closed 2026-09-01, owner: "yes". No code work until he separately says go.
+- R1–R1.3: Retain the three-column layout, collapsible per-stage Adjust state,
+  review actions and batch system-load control. Use concise functional labels;
+  keep “Your book is ready.” on Export.
+- R1.4–R1.7: Preserve all thumbnail tools in a two-row header. Size action
+  buttons from styled size hints; wrap when necessary. Include scrollbar width
+  in the stage-column minimum. Thumbnail captions use page numbers.
+  Command-click previous/next jumps to first/last page.
+- R1.8–R1.11: Use “Apply to…” for page scopes and “Change…” for settings editors.
+  Manual split application carries the drawn line to target pages, adapted to
+  their outlines; Auto re-detects without carrying a line. Never discard manual
+  splits implicitly. Open the scope dialog in Manual after a manual line edit.
+- R1.12: Remove floating page chips that intercept content-box dragging; use
+  the bottom status strip. The shipped interface does not display file names.
+- R1.13: Page Up/Down and Shift-click previous/next scroll thumbnails one
+  screenful without selecting or reprocessing a page. Q/W, arrows and ordinary
+  clicks step pages. Shift+Page Up/Down navigate selected pages. Keep-current-page
+  must not cancel manual thumbnail scrolling.
+- R1.14: Invalidate only affected thumbnails for page edits and scoped changes;
+  rebuild the whole strip only for operations that can change the page set or
+  global rendering. Regression coverage accompanies these behaviors.
+
+Historical board specifications above may show superseded states; the release
+README describes the shipped interface. Private review correspondence is omitted.

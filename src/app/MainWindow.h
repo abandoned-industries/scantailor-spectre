@@ -43,6 +43,8 @@ class ThumbnailPixmapCache;
 class ProjectPages;
 class PageSequence;
 class StageSequence;
+class StageActionPanel;
+class PagesToCheckView;
 class PageOrderProvider;
 class PageSelectionAccessor;
 class FilterOptionsWidget;
@@ -51,6 +53,7 @@ class ImageInfo;
 class ImageViewBase;
 class PageInfo;
 class QLabel;
+class QProgressBar;
 class QStackedLayout;
 class WorkerThreadPool;
 class ProjectReader;
@@ -67,7 +70,6 @@ class OutOfMemoryDialog;
 class QLineF;
 class QRectF;
 class QLayout;
-class BatchProcessingSummaryDialog;
 struct BookMetadata;
 
 class MainWindow : public QMainWindow,
@@ -142,6 +144,8 @@ class MainWindow : public QMainWindow,
   void goNextPage();
 
   void goPrevPage();
+
+  void scrollThumbnailsByPage(int direction);
 
   void goNextSelectedPage();
 
@@ -263,6 +267,10 @@ class MainWindow : public QMainWindow,
                       DebugImages* debugImages = nullptr,
                       bool overlay = false) override;
 
+  void updateFilterDockMinimumWidth();
+
+  void scheduleFilterDockMinimumWidthUpdate();
+
   std::shared_ptr<AbstractCommand<void>> relinkingDialogRequester() override;
 
   void switchToNewProject(const std::shared_ptr<ProjectPages>& pages,
@@ -271,6 +279,12 @@ class MainWindow : public QMainWindow,
                           const ProjectReader* projectReader = nullptr);
 
   void updateThumbViewMinWidth();
+
+  void updateStageActionScope();
+
+  void refreshStageStatuses();
+
+  void updateFilterOptionsHeight();
 
   void setupThumbView();
 
@@ -354,6 +368,8 @@ class MainWindow : public QMainWindow,
   std::shared_ptr<CompositeCacheDrivenTask> createCompositeCacheDrivenTask(int lastFilterIdx);
 
   void createBatchProcessingWidget();
+  void setupThumbnailHeader();
+  void updateBatchProgress(int current, int total);
 
   void updateDisambiguationRecords(const PageSequence& pages);
 
@@ -400,6 +416,12 @@ class MainWindow : public QMainWindow,
 
   void disableAlignmentForPages(const std::vector<PageId>& pageIds);
 
+  void leaveReviewMode(bool restoreCurrentPage = true);
+  QWidget* createReviewAdjustWidget(const ReviewSetup& setup);
+  void updateReviewModel(const ReviewSetup& setup);
+  void handleReviewAction(const PageId& pageId, PagesToCheckView::ActionId actionId);
+  void applyReviewActionToAll(PagesToCheckView::ActionId actionId);
+
   // BatchSummariesContext / PdfExportFlowContext:
   StageSequence* stages() const override;
   PageSequence exportPageSequence() const override;
@@ -408,8 +430,10 @@ class MainWindow : public QMainWindow,
   ThumbnailSequence* thumbSequence() const override;
   PageView currentView() const override;
   int currentFilterIndex() const override;
+  bool isReviewMode() const override;
   void jumpToPage(const PageId& pageId) override;
   void selectFilterListRow(int row) override;
+  void showPagesToCheck(const ReviewSetup& setup) override;
 
   QSizeF m_maxLogicalThumbSize;
   std::shared_ptr<ProjectPages> m_pages;
@@ -429,14 +453,23 @@ class MainWindow : public QMainWindow,
   std::unique_ptr<ProcessingTaskQueue> m_interactiveQueue;
   QStackedLayout* m_imageFrameLayout;
   QStackedLayout* m_optionsFrameLayout;
+  StageActionPanel* m_stageActionPanel = nullptr;
   int m_filterDockBaseMinimumWidth = 0;
+  bool m_filterDockWidthUpdatePending = false;
   QPointer<FilterOptionsWidget> m_optionsWidget;
+  QPointer<PagesToCheckView> m_pagesToCheckView;
+  QPointer<QWidget> m_reviewAdjustWidget;
+  ReviewStage m_reviewStage = ReviewStage::PageSplit;
+  bool m_reviewMode = false;
+  bool m_reviewPreviousAdjustOpen = true;
   QPointer<FixDpiDialog> m_fixDpiDialog;
   std::unique_ptr<TabbedDebugImages> m_tabbedDebugImages;
   std::unique_ptr<ContentBoxPropagator> m_contentBoxPropagator;
   std::unique_ptr<PageOrientationPropagator> m_pageOrientationPropagator;
   std::unique_ptr<QWidget> m_batchProcessingWidget;
+  QLabel* m_batchStageLabel = nullptr;
   QLabel* m_batchProgressLabel = nullptr;
+  QProgressBar* m_batchProgressBar = nullptr;
   std::unique_ptr<ProcessingIndicationWidget> m_processingIndicationWidget;
   std::function<bool()> m_checkBeepWhenFinished;
   SelectedPage m_selectedPage;
@@ -480,6 +513,7 @@ class MainWindow : public QMainWindow,
   QActionGroup* m_unitsMenuActionGroup;
   QTimer m_maxLogicalThumbSizeUpdater;
   QTimer m_sceneItemsPosUpdater;
+  QTimer m_stageStatusRefreshTimer;
 };
 
 

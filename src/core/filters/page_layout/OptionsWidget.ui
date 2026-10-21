@@ -18,16 +18,6 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QLabel" name="selectionIndicatorLabel">
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="CollapsibleGroupBox" name="marginsGroup">
      <property name="title">
       <string>Margins</string>
@@ -278,7 +268,7 @@
         <item>
          <widget class="QPushButton" name="applyMarginsBtn">
           <property name="text">
-           <string>Apply To ...</string>
+           <string>Apply to…</string>
           </property>
          </widget>
         </item>
@@ -715,7 +705,7 @@
         <item>
          <widget class="QPushButton" name="applyAlignmentBtn">
           <property name="text">
-           <string>Apply To ...</string>
+           <string>Apply to…</string>
           </property>
          </widget>
         </item>

@@ -71,7 +71,6 @@ void OptionsWidget::setOutputSettings(std::shared_ptr<output::Settings> outputSe
 void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
   m_pageId = pageInfo.id();
   updateDisplay();
-  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const PageId& pageId) {
@@ -160,24 +159,13 @@ void OptionsWidget::applyColorModeToSelectedPages(ColorMode mode) {
   if (pagesToUpdate.size() > 1) {
     qDebug() << "Finalize: User set color mode to" << static_cast<int>(mode) << "for" << pagesToUpdate.size()
              << "pages";
-    emit invalidateAllThumbnails();
-    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
-    emit invalidateThumbnail(m_pageId);
+    for (const PageId& pageId : pagesToUpdate) {
+      emit invalidateThumbnail(pageId);
+    }
   } else {
     qDebug() << "Finalize: User set color mode to" << static_cast<int>(mode) << "for page"
              << m_pageId.imageId().filePath();
     emit invalidateThumbnail(m_pageId);
-  }
-}
-
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
   }
 }
 
@@ -229,12 +217,8 @@ void OptionsWidget::applyToConfirmed(const std::set<PageId>& pages) {
     }
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {

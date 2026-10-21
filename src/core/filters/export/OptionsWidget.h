@@ -46,6 +46,8 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::ExportOptionsWidge
   void setOcrSettings(std::shared_ptr<ocr::Settings> ocrSettings);
 
   void setProjectFilePath(const QString& projectFilePath);
+  QWidget* exportFooterWidget() const;
+  void restoreExportFooter();
   bool isZoteroLoopProject() const { return m_zoteroLoopSidecar.has_value(); }
   bool returnToZoteroEnabled() const;
   const std::optional<ZoteroLoopSidecar>& zoteroLoopSidecar() const { return m_zoteroLoopSidecar; }

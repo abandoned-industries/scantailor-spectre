@@ -8,8 +8,8 @@
 #include <cassert>
 #include <utility>
 
+#include "ApplyLayoutType.h"
 #include "Filter.h"
-#include "PageLayoutAdapter.h"
 #include "ProjectPages.h"
 #include "ScopedIncDec.h"
 #include "Settings.h"
@@ -40,7 +40,6 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   auto block = m_connectionManager.getScopedBlock();
 
   m_pageId = pageId;
-  updateSelectionIndicator();
   const Settings::Record record(m_settings->getPageRecord(pageId.imageId()));
   const LayoutType layoutType(record.combinedLayoutType());
 
@@ -161,52 +160,31 @@ void OptionsWidget::layoutTypeButtonToggled(const bool checked) {
 void OptionsWidget::showChangeDialog() {
   const Settings::Record record(m_settings->getPageRecord(m_pageId.imageId()));
   const Params* params = record.params();
-  if (!params) {
-    return;
-  }
+  const PageLayout::Type autoDetectedLayoutType
+      = params ? params->pageLayout().type() : m_uiData.pageLayout().type();
+  const AutoManualMode splitLineMode = params ? params->splitLineMode() : m_uiData.splitLineMode();
 
   auto* dialog = new SplitModeDialog(this, m_pageId, m_pageSelectionAccessor, record.combinedLayoutType(),
-                                     params->pageLayout().type());
+                                     autoDetectedLayoutType, splitLineMode);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
-  connect(dialog, SIGNAL(accepted(const std::set<PageId>&, LayoutType, bool)), this,
-          SLOT(layoutTypeSet(const std::set<PageId>&, LayoutType, bool)));
+  connect(dialog, SIGNAL(accepted(const std::set<PageId>&, LayoutType)), this,
+          SLOT(layoutTypeSet(const std::set<PageId>&, LayoutType)));
   dialog->show();
 }
 
-void OptionsWidget::layoutTypeSet(const std::set<PageId>& pages, const LayoutType layoutType, bool applyCut) {
+void OptionsWidget::layoutTypeSet(const std::set<PageId>& pages, const LayoutType layoutType) {
   if (pages.empty()) {
     return;
   }
 
-  const Params params = *(m_settings->getPageRecord(m_pageId.imageId()).params());
-
-  if (layoutType != AUTO_LAYOUT_TYPE) {
+  if ((layoutType != AUTO_LAYOUT_TYPE) && (layoutType != SINGLE_PAGE_UNCUT)) {
+    const Params sourceParams = *(m_settings->getPageRecord(m_pageId.imageId()).params());
+    applyManualSplitToScope(*m_settings, pages, sourceParams, layoutType);
+  } else {
     for (const PageId& pageId : pages) {
       Settings::UpdateAction updateAction;
       updateAction.setLayoutType(layoutType);
-      if (applyCut && (layoutType != SINGLE_PAGE_UNCUT)) {
-        Params newPageParams(params);
-        const Params* oldPageParams = m_settings->getPageRecord(pageId.imageId()).params();
-        if (oldPageParams) {
-          PageLayout newPageLayout = PageLayoutAdapter::adaptPageLayout(
-              params.pageLayout(), oldPageParams->pageLayout().uncutOutline().boundingRect());
-
-          updateAction.setLayoutType(newPageLayout.toLayoutType());
-          newPageParams.setPageLayout(newPageLayout);
-
-          Dependencies deps = oldPageParams->dependencies();
-          deps.setLayoutType(newPageLayout.toLayoutType());
-          newPageParams.setDependencies(deps);
-        }
-        updateAction.setParams(newPageParams);
-      }
       m_settings->updatePage(pageId.imageId(), updateAction);
-    }
-  } else {
-    for (const PageId& pageId : pages) {
-      Settings::UpdateAction updateParams;
-      updateParams.setLayoutType(layoutType);
-      m_settings->updatePage(pageId.imageId(), updateParams);
     }
   }
 
@@ -330,17 +308,6 @@ void OptionsWidget::applyLayoutTypeToSelectedPages(LayoutType lt) {
     } else {
       emit invalidateThumbnail(m_pageId);
     }
-  }
-}
-
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
   }
 }
 

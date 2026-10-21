@@ -37,6 +37,10 @@ PageView Filter::getView() const {
   return PAGE_VIEW;
 }
 
+bool Filter::isPageComplete(const PageId& pageId) const {
+  return m_settings->getOcrResult(pageId) != nullptr;
+}
+
 void Filter::selected() {
   // Nothing to do
 }

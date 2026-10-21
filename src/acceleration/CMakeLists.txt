@@ -39,7 +39,7 @@ if(APPLE)
         # Compile .metal -> .air -> .metallib (compile all shaders then link)
         add_custom_command(
             OUTPUT ${METALLIB_OUTPUT}
-            COMMAND ${METAL_EXECUTABLE} -c ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gauss_blur.metal -o ${CMAKE_CURRENT_BINARY_DIR}/gauss_blur.air
+            COMMAND ${METAL_EXECUTABLE} -std=metal3.2 -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET} -c ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gauss_blur.metal -o ${CMAKE_CURRENT_BINARY_DIR}/gauss_blur.air
             COMMAND ${METALLIB_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gauss_blur.air -o ${METALLIB_OUTPUT}
             DEPENDS ${METAL_SOURCES}
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

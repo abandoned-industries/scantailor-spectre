@@ -30,8 +30,6 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
   m_pageId = pageInfo.id();
   m_dpi = pageInfo.metadata().dpi();
 
-  updateSelectionIndicator();
-
   contentBoxGroup->setEnabled(false);
 
   onUnitsChanged(UnitsProvider::getInstance().getUnits());
@@ -163,12 +161,8 @@ void OptionsWidget::applySelection(const std::set<PageId>& pages, const bool app
     m_settings->setPageParams(pageId, newParams);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   emit reloadRequested();
@@ -237,20 +231,9 @@ void OptionsWidget::applyModeToSelectedPages() {
         m_settings->setPageParams(pageId, params);
       }
     }
-    emit invalidateAllThumbnails();
-    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
-    emit invalidateThumbnail(m_pageId);
-  }
-}
-
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
   }
 }
 

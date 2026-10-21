@@ -83,7 +83,7 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void showChangeDialog();
 
-  void layoutTypeSet(const std::set<PageId>& pages, LayoutType layoutType, bool applyCut);
+  void layoutTypeSet(const std::set<PageId>& pages, LayoutType layoutType);
 
   void splitLineModeChanged(bool autoMode);
 
@@ -97,8 +97,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void setupIcons();
 
   void applyLayoutTypeToSelectedPages(LayoutType layoutType);
-
-  void updateSelectionIndicator();
 
   std::shared_ptr<Settings> m_settings;
   std::shared_ptr<ProjectPages> m_pages;

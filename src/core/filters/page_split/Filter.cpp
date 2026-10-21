@@ -40,6 +40,10 @@ PageView Filter::getView() const {
   return IMAGE_VIEW;
 }
 
+bool Filter::isPageComplete(const PageId& pageId) const {
+  return m_settings->getPageRecord(pageId.imageId()).params() != nullptr;
+}
+
 void Filter::performRelinking(const AbstractRelinker& relinker) {
   m_settings->performRelinking(relinker);
 }

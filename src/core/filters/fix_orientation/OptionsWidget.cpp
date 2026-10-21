@@ -32,7 +32,6 @@ void OptionsWidget::preUpdateUI(const PageId& pageId, const OrthogonalRotation r
   m_pageId = pageId;
   m_rotation = rotation;
   setRotationPixmap();
-  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const OrthogonalRotation rotation) {
@@ -73,18 +72,16 @@ void OptionsWidget::appliedTo(const std::set<PageId>& pages) {
 
   m_settings->applyRotation(pages, m_rotation);
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 }
 
 void OptionsWidget::appliedToAllPages(const std::set<PageId>& pages) {
   m_settings->applyRotation(pages, m_rotation);
-  emit invalidateAllThumbnails();
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
+  }
 }
 
 void OptionsWidget::setRotation(const OrthogonalRotation& rotation) {
@@ -145,23 +142,13 @@ void OptionsWidget::applyRotationToSelectedPages() {
   // Only apply to multiple pages if current page is in selection and there are multiple selected
   if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
     m_settings->applyRotation(selectedPages, m_rotation);
-    emit invalidateAllThumbnails();
-    // Also explicitly invalidate current page to ensure it gets proper thumbnail treatment
-    emit invalidateThumbnail(m_pageId);
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
   } else {
     m_settings->applyRotation(m_pageId.imageId(), m_rotation);
     emit invalidateThumbnail(m_pageId);
   }
 }
 
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
-  }
-}
 }  // namespace fix_orientation

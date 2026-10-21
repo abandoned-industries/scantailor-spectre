@@ -195,6 +195,36 @@ endif()
 
 #=================================== Qt ===================================#
 
+# Qt's FindWrapOpenGL.cmake links AGL.framework alongside OpenGL.framework on
+# Apple platforms. AGL still exists on the running system, so find_library()
+# locates it, but it was removed from the macOS 26 SDK the linker uses, and
+# Qt's "-framework AGL" fallback fails the same way -- so the app fails to
+# link on Xcode 26 with: ld: framework 'AGL' not found.
+#
+# AGL is legacy Carbon OpenGL and is unused here. Point Qt's lookup at
+# OpenGL.framework (already linked, so the duplicate is harmless). Newer Qt
+# no longer reads this variable. Preserve both normal and cache overrides.
+# Keep our value out of the cache so changing SDKs re-evaluates the workaround.
+if (APPLE AND NOT DEFINED WrapOpenGL_AGL)
+  set(_st_opengl_sdk "${CMAKE_OSX_SYSROOT}")
+  # project() resolves SDK names to paths. An empty sysroot means the default SDK.
+  if (NOT _st_opengl_sdk)
+    execute_process(COMMAND xcrun --sdk macosx --show-sdk-path
+        OUTPUT_VARIABLE _st_opengl_sdk OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET RESULT_VARIABLE _st_opengl_sdk_result)
+    if (NOT _st_opengl_sdk_result EQUAL 0)
+      set(_st_opengl_sdk "")
+    endif ()
+    unset(_st_opengl_sdk_result)
+  endif ()
+  if (IS_ABSOLUTE "${_st_opengl_sdk}"
+      AND EXISTS "${_st_opengl_sdk}/System/Library/Frameworks/OpenGL.framework"
+      AND NOT EXISTS "${_st_opengl_sdk}/System/Library/Frameworks/AGL.framework")
+    set(WrapOpenGL_AGL "${_st_opengl_sdk}/System/Library/Frameworks/OpenGL.framework")
+  endif ()
+  unset(_st_opengl_sdk)
+endif ()
+
 find_package(
     Qt6 6.4 REQUIRED
     COMPONENTS Core Gui Widgets Xml Network LinguistTools OpenGL Svg OpenGLWidgets WebEngineWidgets WebChannel
@@ -236,6 +266,11 @@ if (WIN32 AND MSVC)
 endif()
 
 enable_testing()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME bundle_policy_tests COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/packaging/macos/test_bundle_policy.py")
+add_test(NAME bundle_closure_tests COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/packaging/macos/test_bundle_closure.py")
 
 # Prepare config.h
 option(PORTABLE_VERSION "Whether to build the portable version." ON)

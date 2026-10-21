@@ -4,7 +4,7 @@
 # Never hand-edit the output; regenerate with this script.
 set -euo pipefail
 
-DESIGN_SKILL_DIR="${DESIGN_SKILL_DIR:-/private/tmp/claude-501/bundled-skills/2.1.255/0bf08274c9319600f473f09b09c49b4a/design}"
+: "${DESIGN_SKILL_DIR:?Set DESIGN_SKILL_DIR to the directory containing seed-canvas.mjs and payload.template.html}"
 SEED="$DESIGN_SKILL_DIR/seed-canvas.mjs"
 TEMPLATE="$DESIGN_SKILL_DIR/payload.template.html"
 

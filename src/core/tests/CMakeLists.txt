@@ -14,6 +14,7 @@ set(sources
     TestOcrResult.cpp
     TestOcrTextCollector.cpp
     TestPageLayoutOutput.cpp
+    TestPageSplitApplyLayoutType.cpp
     TestPdfExporter.cpp
     TestPdfReadError.cpp
     TestPdfReader.cpp
@@ -24,6 +25,7 @@ set(sources
     TestProjectFolder.cpp
     TestProjectPortability.cpp
     TestSmartFilenameOrdering.cpp
+    TestThumbnailInvalidation.cpp
     TestTiffCompressionWiring.cpp
     TestWebpInput.cpp
     TestZoteroLoopSidecar.cpp)
@@ -32,13 +34,16 @@ add_executable(core_tests ${sources})
 target_compile_definitions(core_tests PRIVATE SCANTAILOR_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(
     core_tests
-    PRIVATE core Boost::unit_test_framework
+    PRIVATE core select_content Boost::unit_test_framework
     Boost::prg_exec_monitor TIFF::TIFF ${EXTRA_LIBS})
 target_include_directories(
     core_tests
-    PRIVATE "${CMAKE_SOURCE_DIR}/src/dewarping")
+    PRIVATE "${CMAKE_SOURCE_DIR}/src/dewarping"
+            "${CMAKE_BINARY_DIR}/src/core/filters/select_content/select_content_autogen/include")
 
 add_test(NAME core_tests COMMAND core_tests --log_level=message)
+set_tests_properties(core_tests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(zotero_client_tests TestZoteroClient.cpp)
 target_link_libraries(zotero_client_tests PRIVATE core ${EXTRA_LIBS})
@@ -48,6 +53,29 @@ add_executable(export_options_layout_tests TestExportOptionsLayout.cpp)
 target_link_libraries(export_options_layout_tests PRIVATE export_ Qt::Widgets)
 add_test(NAME export_options_layout_tests COMMAND export_options_layout_tests)
 set_tests_properties(export_options_layout_tests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(stage_column_layout_tests
+    TestStageColumnLayout.cpp
+    "${CMAKE_SOURCE_DIR}/src/app/StageActionPanel.cpp"
+    "${CMAKE_SOURCE_DIR}/src/app/StageColumnLayout.cpp")
+target_link_libraries(stage_column_layout_tests PRIVATE core Qt::Widgets)
+target_include_directories(stage_column_layout_tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/app")
+add_test(NAME stage_column_layout_tests COMMAND stage_column_layout_tests)
+set_tests_properties(stage_column_layout_tests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(export_panel_oscillation_tests
+    TestExportPanelOscillation.cpp
+    "${CMAKE_SOURCE_DIR}/src/app/StageActionPanel.cpp"
+    "${CMAKE_SOURCE_DIR}/src/app/StageColumnLayout.cpp"
+    "${CMAKE_SOURCE_DIR}/src/app/ExportPanelHeightLayout.cpp")
+target_link_libraries(export_panel_oscillation_tests PRIVATE core Qt::Widgets)
+target_include_directories(export_panel_oscillation_tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/app")
+add_test(NAME export_panel_oscillation_tests COMMAND export_panel_oscillation_tests)
+set_tests_properties(export_panel_oscillation_tests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(output_exposure_controls_tests TestOutputExposureControls.cpp)

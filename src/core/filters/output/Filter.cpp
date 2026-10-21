@@ -4,12 +4,19 @@
 #include "Filter.h"
 
 #include <OrderByCompletenessProvider.h>
+#include <QDir>
+#include <QFileInfo>
 
 #include "CacheDrivenTask.h"
 #include "FilterUiInterface.h"
 #include "OptionsWidget.h"
+#include "OutputFileNameGenerator.h"
+#include "OutputFileParams.h"
+#include "OutputParams.h"
+#include "Params.h"
 #include "ProjectReader.h"
 #include "ProjectWriter.h"
+#include "RenderParams.h"
 #include "Settings.h"
 #include "Task.h"
 #include "ThumbnailPixmapCache.h"
@@ -34,6 +41,49 @@ QString Filter::getName() const {
 
 PageView Filter::getView() const {
   return PAGE_VIEW;
+}
+
+bool Filter::isPageComplete(const PageId& pageId) const {
+  if (!m_outFileNameGen) {
+    return false;
+  }
+
+  const std::unique_ptr<OutputParams> storedOutputParams(m_settings->getOutputParams(pageId));
+  if (!storedOutputParams) {
+    return false;
+  }
+
+  const QFileInfo sourceFileInfo(pageId.imageId().filePath());
+  if (!storedOutputParams->sourceFileParams().matches(OutputFileParams(sourceFileInfo))) {
+    return false;
+  }
+
+  const QString outFilePath(m_outFileNameGen->filePathFor(pageId));
+  const QFileInfo outFileInfo(outFilePath);
+  const RenderParams renderParams(m_settings->getParams(pageId).colorParams(),
+                                  m_settings->getParams(pageId).splittingOptions());
+  if (!renderParams.splitOutput()) {
+    return outFileInfo.exists()
+        && storedOutputParams->outputFileParams().matches(OutputFileParams(outFileInfo));
+  }
+
+  const QFileInfo foregroundFileInfo(
+      QDir(Utils::foregroundDir(m_outFileNameGen->outDir())).absoluteFilePath(outFileInfo.fileName()));
+  const QFileInfo backgroundFileInfo(
+      QDir(Utils::backgroundDir(m_outFileNameGen->outDir())).absoluteFilePath(outFileInfo.fileName()));
+  if (!foregroundFileInfo.exists() || !backgroundFileInfo.exists()
+      || !storedOutputParams->foregroundFileParams().matches(OutputFileParams(foregroundFileInfo))
+      || !storedOutputParams->backgroundFileParams().matches(OutputFileParams(backgroundFileInfo))) {
+    return false;
+  }
+
+  if (!renderParams.originalBackground()) {
+    return true;
+  }
+  const QFileInfo originalBackgroundFileInfo(
+      QDir(Utils::originalBackgroundDir(m_outFileNameGen->outDir())).absoluteFilePath(outFileInfo.fileName()));
+  return originalBackgroundFileInfo.exists()
+      && storedOutputParams->originalBackgroundFileParams().matches(OutputFileParams(originalBackgroundFileInfo));
 }
 
 void Filter::performRelinking(const AbstractRelinker& relinker) {
@@ -143,6 +193,7 @@ std::shared_ptr<Task> Filter::createTask(const PageId& pageId,
 }
 
 std::shared_ptr<CacheDrivenTask> Filter::createCacheDrivenTask(const OutputFileNameGenerator& outFileNameGen) {
+  m_outFileNameGen = std::make_unique<OutputFileNameGenerator>(outFileNameGen);
   return std::make_shared<CacheDrivenTask>(m_settings, outFileNameGen);
 }
 

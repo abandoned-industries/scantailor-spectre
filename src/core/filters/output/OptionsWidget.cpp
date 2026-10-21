@@ -353,7 +353,6 @@ void OptionsWidget::preUpdateUI(const PageId& pageId) {
   const OutputProcessingParams opp = m_settings->getOutputProcessingParams(pageId);
   passThroughCheckBox->setChecked(opp.passThrough());
 
-  updateSelectionIndicator();
   updateDpiDisplay();
   updateColorsDisplay();
   updateDewarpingDisplay();
@@ -661,7 +660,14 @@ void OptionsWidget::photoAdjAutoClicked() {
   updateWebPanelState();
 
   emit reloadRequested();
-  emit invalidateAllThumbnails();
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
+  } else {
+    emit invalidateThumbnail(m_pageId);
+  }
 }
 
 void OptionsWidget::photoAdjResetClicked() {
@@ -684,7 +690,14 @@ void OptionsWidget::photoAdjResetClicked() {
   updateWebPanelState();
 
   emit reloadRequested();
-  emit invalidateAllThumbnails();
+  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
+  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
+  } else {
+    emit invalidateThumbnail(m_pageId);
+  }
 }
 
 void OptionsWidget::passThroughToggled(bool checked) {
@@ -701,7 +714,9 @@ void OptionsWidget::passThroughToggled(bool checked) {
       pageOpp.setPassThrough(checked);
       m_settings->setOutputProcessingParams(pageId, pageOpp);
     }
-    emit invalidateAllThumbnails();
+    for (const PageId& pageId : selectedPages) {
+      emit invalidateThumbnail(pageId);
+    }
   } else {
     emit invalidateThumbnail(m_pageId);
   }
@@ -761,12 +776,8 @@ void OptionsWidget::dpiChanged(const std::set<PageId>& pages, const Dpi& dpi) {
     m_settings->setDpi(pageId, dpi);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {
@@ -824,12 +835,8 @@ void OptionsWidget::applySplittingOptionsConfirmed(const std::set<PageId>& pages
     m_settings->setSplittingOptions(pageId, m_splittingOptions);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {
@@ -928,12 +935,8 @@ void OptionsWidget::applyDespeckleConfirmed(const std::set<PageId>& pages) {
     m_settings->setDespeckleLevel(pageId, m_despeckleLevel);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {
@@ -954,12 +957,8 @@ void OptionsWidget::dewarpingChanged(const std::set<PageId>& pages, const Dewarp
     m_settings->setDewarpingOptions(pageId, opt);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {
@@ -1026,12 +1025,8 @@ void OptionsWidget::applyDepthPerceptionConfirmed(const std::set<PageId>& pages)
     m_settings->setDepthPerception(pageId, m_depthPerception);
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
 
   if (pages.find(m_pageId) != pages.end()) {
@@ -1577,7 +1572,7 @@ void OptionsWidget::addBinarizationOptionsWidget(BinarizationOptionsWidget* widg
 
 void OptionsWidget::sendReloadRequested() {
   emit reloadRequested();
-  emit invalidateAllThumbnails();
+  emit invalidateThumbnail(m_pageId);
 }
 
 void OptionsWidget::sendSelectedPagesBatchProcessingRequested() {
@@ -1778,17 +1773,6 @@ void OptionsWidget::applyPhotoAdjustmentsToSelectedPages(bool triggerBatchProces
       m_pendingSelectedPagesBatchProcessing.insert(pagesToReprocess.begin(), pagesToReprocess.end());
       m_delayedSelectedPagesBatchProcessing.start(250);
     }
-  }
-}
-
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1 && selectedPages.find(m_pageId) != selectedPages.end()) {
-    selectionIndicatorLabel->setText(tr("Editing %1 pages").arg(selectedPages.size()));
-    selectionIndicatorLabel->setStyleSheet("QLabel { color: #666; font-weight: 500; }");
-    selectionIndicatorLabel->show();
-  } else {
-    selectionIndicatorLabel->hide();
   }
 }
 

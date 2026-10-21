@@ -80,19 +80,9 @@
        </layout>
       </item>
       <item>
-       <widget class="QLabel" name="selectionIndicatorLabel">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QPushButton" name="applyToBtn">
         <property name="text">
-         <string>Apply To ...</string>
+         <string>Apply to…</string>
         </property>
        </widget>
       </item>
@@ -193,6 +183,18 @@
         </item>
         <item>
          <widget class="QSlider" name="jpegQualitySlider">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="minimum">
            <number>1</number>
           </property>

@@ -3,9 +3,10 @@
 
 #include "StageListView.h"
 
-#include <QHBoxLayout>
 #include <QHeaderView>
+#include <QIcon>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScrollBar>
 #include <QTimer>
 #include <cassert>
@@ -15,8 +16,11 @@
 #include "ChangedStateItemDelegate.h"
 #include "ColorSchemeManager.h"
 #include "IconProvider.h"
-#include "SkinnedButton.h"
 #include "StageSequence.h"
+
+namespace {
+constexpr int StageStatusRole = Qt::UserRole + 1;
+}
 
 class StageListView::Model : public QAbstractTableModel {
  public:
@@ -25,6 +29,8 @@ class StageListView::Model : public QAbstractTableModel {
   void updateBatchProcessingAnimation(int selectedRow, const QPixmap& animationFrame);
 
   void disableBatchProcessingAnimation();
+
+  void setStageStatus(int row, StageListView::StageStatus status);
 
   int columnCount(const QModelIndex& parent) const override;
 
@@ -36,6 +42,7 @@ class StageListView::Model : public QAbstractTableModel {
   std::shared_ptr<StageSequence> m_stages;
   QPixmap m_curAnimationFrame;
   int m_curSelectedRow;
+  std::vector<StageListView::StageStatus> m_statuses;
 };
 
 
@@ -47,8 +54,6 @@ class StageListView::LeftColDelegate : public ChangedStateItemDelegate<QStyledIt
 
  private:
   using SuperClass = ChangedStateItemDelegate<QStyledItemDelegate>;
-
-  StageListView* m_view;
 };
 
 
@@ -74,6 +79,7 @@ StageListView::StageListView(QWidget* parent)
       m_batchProcessingPossible(false),
       m_batchProcessingInProgress(false) {
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  setAlternatingRowColors(false);
 
   // Prevent current item visualization. Not to be confused
   // with selected items.
@@ -87,20 +93,12 @@ StageListView::StageListView(QWidget* parent)
   hHeader->hide();
 
   QHeaderView* vHeader = verticalHeader();
-  vHeader->setSectionResizeMode(QHeaderView::ResizeToContents);
+  vHeader->setSectionResizeMode(QHeaderView::Fixed);
+  vHeader->setDefaultSectionSize(30);
+  vHeader->setMinimumSectionSize(30);
   vHeader->setSectionsMovable(false);
-  // Ensure enough width for two-digit row numbers (e.g. "10").
-  vHeader->setMinimumWidth(28);
-
-  const auto& iconProvider = IconProvider::getInstance();
-  m_launchBtn = new SkinnedButton(iconProvider.getIcon("play"), iconProvider.getIcon("play-hovered"),
-                                  iconProvider.getIcon("play-pressed"), viewport());
-  static_cast<QToolButton*>(m_launchBtn)->setMinimumSize({18, 18});
-  static_cast<QToolButton*>(m_launchBtn)->setIconSize({18, 18});
-  m_launchBtn->setStatusTip(tr("Launch batch processing"));
-  m_launchBtn->hide();
-
-  connect(m_launchBtn, SIGNAL(clicked()), this, SIGNAL(launchBatchProcessing()));
+  vHeader->setDefaultAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  vHeader->setFixedWidth(24);
 
   connect(verticalScrollBar(), SIGNAL(rangeChanged(int, int)), this, SLOT(ensureSelectedRowVisible()),
           Qt::QueuedConnection);
@@ -121,11 +119,9 @@ void StageListView::setStages(const std::shared_ptr<StageSequence>& stages) {
   QHeaderView* vHeader = verticalHeader();
   hHeader->setSectionResizeMode(0, QHeaderView::Stretch);
   hHeader->setSectionResizeMode(1, QHeaderView::Fixed);
+  hHeader->resizeSection(1, 30);
   if (vHeader->count() != 0) {
-    // Make the cells in the last column square.
-    const int squareSide = vHeader->sectionSize(0);
-    hHeader->resizeSection(1, squareSide);
-    const int reducedSquareSide = std::max(1, squareSide - 6);
+    const int reducedSquareSide = std::max(1, vHeader->sectionSize(0) - 6);
     createBatchAnimationSequence(reducedSquareSide);
   } else {
     // Just to avoid special cases elsewhere.
@@ -145,17 +141,14 @@ void StageListView::setStages(const std::shared_ptr<StageSequence>& stages) {
   updateGeometry();
 }  // StageListView::setStages
 
-void StageListView::setBatchProcessingPossible(const bool possible) {
-  if (m_batchProcessingPossible == possible) {
-    return;
+void StageListView::setStageStatus(const int row, const StageStatus status) {
+  if (m_model) {
+    m_model->setStageStatus(row, status);
   }
-  m_batchProcessingPossible = possible;
+}
 
-  if (possible) {
-    placeLaunchButton(selectedRow());
-  } else {
-    removeLaunchButton(selectedRow());
-  }
+void StageListView::setBatchProcessingPossible(const bool possible) {
+  m_batchProcessingPossible = possible;
 }
 
 void StageListView::setBatchProcessingInProgress(const bool inProgress) {
@@ -165,7 +158,6 @@ void StageListView::setBatchProcessingInProgress(const bool inProgress) {
   m_batchProcessingInProgress = inProgress;
 
   if (inProgress) {
-    removeLaunchButton(selectedRow());
     updateRowSpans();  // Join columns.
     // Some styles (Oxygen) visually separate items in a selected row.
     // We really don't want that, so we pretend the items are not selected.
@@ -177,7 +169,6 @@ void StageListView::setBatchProcessingInProgress(const bool inProgress) {
     m_timerId = startTimer(180);
   } else {
     updateRowSpans();  // Separate columns.
-    placeLaunchButton(selectedRow());
 
     m_firstColDelegate->removeChanges(QStyle::State_Selected | QStyle::State_MouseOver);
     m_secondColDelegate->removeChanges(QStyle::State_Selected | QStyle::State_MouseOver);
@@ -218,14 +209,6 @@ void StageListView::initiateBatchAnimationFrameRendering() {
 void StageListView::selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) {
   // Call the base version.
   QTableView::selectionChanged(selected, deselected);
-
-  if (!deselected.isEmpty()) {
-    removeLaunchButton(deselected.front().topLeft().row());
-  }
-
-  if (!selected.isEmpty()) {
-    placeLaunchButton(selected.front().topLeft().row());
-  }
 }
 
 void StageListView::ensureSelectedRowVisible() {
@@ -233,29 +216,6 @@ void StageListView::ensureSelectedRowVisible() {
   for (const QModelIndex& idx : selectionModel()->selectedRows(0)) {
     scrollTo(idx, EnsureVisible);
   }
-}
-
-void StageListView::removeLaunchButton(const int row) {
-  if (row == -1) {
-    return;
-  }
-
-  m_launchBtn->hide();
-}
-
-void StageListView::placeLaunchButton(int row) {
-  if (row == -1) {
-    return;
-  }
-
-  const QModelIndex idx(m_model->index(row, 0));
-  QRect buttonGeometry(visualRect(idx));
-
-  // Place it to the right (assuming height is less than width).
-  buttonGeometry.setLeft(buttonGeometry.right() + 1 - buttonGeometry.height());
-
-  m_launchBtn->setGeometry(buttonGeometry);
-  m_launchBtn->show();
 }
 
 void StageListView::createBatchAnimationSequence(const int squareSide) {
@@ -279,14 +239,7 @@ void StageListView::createBatchAnimationSequence(const int squareSide) {
 }
 
 void StageListView::updateRowSpans() {
-  if (!m_model) {
-    return;
-  }
-
-  const int count = m_model->rowCount(QModelIndex());
-  for (int i = 0; i < count; ++i) {
-    setSpan(i, 0, 1, m_batchProcessingInProgress ? 1 : 2);
-  }
+  clearSpans();
 }
 
 int StageListView::selectedRow() const {
@@ -300,20 +253,32 @@ int StageListView::selectedRow() const {
 /*========================= StageListView::Model ======================*/
 
 StageListView::Model::Model(QObject* parent, std::shared_ptr<StageSequence> stages)
-    : QAbstractTableModel(parent), m_stages(std::move(stages)), m_curSelectedRow(0) {
+    : QAbstractTableModel(parent),
+      m_stages(std::move(stages)),
+      m_curSelectedRow(0),
+      m_statuses(m_stages->count(), StageListView::StageStatus::Untouched) {
   assert(m_stages);
 }
 
 void StageListView::Model::updateBatchProcessingAnimation(const int selectedRow, const QPixmap& animationFrame) {
+  const int minRow = std::min(selectedRow, m_curSelectedRow);
   const int maxRow = std::max(selectedRow, m_curSelectedRow);
   m_curSelectedRow = selectedRow;
   m_curAnimationFrame = animationFrame;
-  emit dataChanged(index(0, 1), index(maxRow, 1));
+  emit dataChanged(index(minRow, 1), index(maxRow, 1));
 }
 
 void StageListView::Model::disableBatchProcessingAnimation() {
   m_curAnimationFrame = QPixmap();
   emit dataChanged(index(0, 1), index(m_curSelectedRow, 1));
+}
+
+void StageListView::Model::setStageStatus(const int row, const StageListView::StageStatus status) {
+  if (row < 0 || row >= static_cast<int>(m_statuses.size()) || m_statuses[row] == status) {
+    return;
+  }
+  m_statuses[row] = status;
+  emit dataChanged(index(row, 1), index(row, 1), {StageStatusRole});
 }
 
 int StageListView::Model::columnCount(const QModelIndex& parent) const {
@@ -332,28 +297,35 @@ QVariant StageListView::Model::data(const QModelIndex& index, const int role) co
   }
   if (role == Qt::UserRole) {
     if (index.column() == 1) {
-      if (index.row() <= m_curSelectedRow) {
+      if (index.row() == m_curSelectedRow) {
         return m_curAnimationFrame;
       }
     }
+  }
+  if (role == StageStatusRole && index.column() == 1) {
+    return static_cast<int>(m_statuses[index.row()]);
   }
   return QVariant();
 }
 
 /*================= StageListView::LeftColDelegate ===================*/
 
-StageListView::LeftColDelegate::LeftColDelegate(StageListView* view) : SuperClass(view), m_view(view) {}
+StageListView::LeftColDelegate::LeftColDelegate(StageListView* view) : SuperClass(view) {}
 
 void StageListView::LeftColDelegate::paint(QPainter* painter,
                                            const QStyleOptionViewItem& option,
                                            const QModelIndex& index) const {
-  SuperClass::paint(painter, option, index);
-
-  if ((index.row() == m_view->selectedRow()) && m_view->m_launchBtn->isVisible()) {
-    QRect buttonGeometry(option.rect);
-    // Place it to the right (assuming height is less than width).
-    buttonGeometry.setLeft(buttonGeometry.right() + 1 - buttonGeometry.height());
-    m_view->m_launchBtn->setGeometry(buttonGeometry);
+  QStyleOptionViewItem stageOption(option);
+  const bool selected = option.state.testFlag(QStyle::State_Selected);
+  if (selected) {
+    painter->fillRect(option.rect, option.palette.color(QPalette::Base));
+    stageOption.state &= ~QStyle::State_Selected;
+    stageOption.backgroundBrush = option.palette.color(QPalette::Base);
+    stageOption.font.setWeight(QFont::DemiBold);
+  }
+  SuperClass::paint(painter, stageOption, index);
+  if (selected) {
+    painter->fillRect(QRect(option.rect.left(), option.rect.top(), 3, option.rect.height()), QColor("#2D4FA3"));
   }
 }
 
@@ -364,7 +336,13 @@ StageListView::RightColDelegate::RightColDelegate(QObject* parent) : SuperClass(
 void StageListView::RightColDelegate::paint(QPainter* painter,
                                             const QStyleOptionViewItem& option,
                                             const QModelIndex& index) const {
-  SuperClass::paint(painter, option, index);
+  QStyleOptionViewItem stageOption(option);
+  if (option.state.testFlag(QStyle::State_Selected)) {
+    painter->fillRect(option.rect, option.palette.color(QPalette::Base));
+    stageOption.state &= ~QStyle::State_Selected;
+    stageOption.backgroundBrush = option.palette.color(QPalette::Base);
+  }
+  SuperClass::paint(painter, stageOption, index);
 
   const QVariant var(index.data(Qt::UserRole));
   if (!var.isNull()) {
@@ -373,6 +351,30 @@ void StageListView::RightColDelegate::paint(QPainter* painter,
       QRect r(pixmap.rect());
       r.moveCenter(option.rect.center());
       painter->drawPixmap(r, pixmap);
+      return;
     }
+  }
+
+  const auto status = static_cast<StageListView::StageStatus>(index.data(StageStatusRole).toInt());
+  const QRect glyphRect(QPoint(0, 0), QSize(16, 16));
+  QRect positionedGlyph(glyphRect);
+  positionedGlyph.moveCenter(option.rect.center());
+  if (status == StageListView::StageStatus::Done) {
+    IconProvider::getInstance().getIcon("check-mark").paint(
+        painter, positionedGlyph, Qt::AlignCenter, QIcon::Normal, QIcon::On);
+  } else if (status == StageListView::StageStatus::Partial) {
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    const QRectF circle = QRectF(positionedGlyph).adjusted(1.0, 1.0, -1.0, -1.0);
+    const QColor color(option.palette.color(QPalette::Text));
+    QPainterPath clipPath;
+    clipPath.addEllipse(circle);
+    painter->setClipPath(clipPath);
+    painter->fillRect(QRectF(circle.left(), circle.top(), circle.width() / 2.0, circle.height()), color);
+    painter->setClipping(false);
+    painter->setBrush(Qt::NoBrush);
+    painter->setPen(QPen(color, 1.5));
+    painter->drawEllipse(circle);
+    painter->restore();
   }
 }

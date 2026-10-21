@@ -7,6 +7,7 @@
 #include <core/IconProvider.h>
 
 #include <QActionGroup>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QKeyEvent>
@@ -16,6 +17,7 @@
 #include <QEventLoop>
 #include <QFileDialog>
 #include <QGuiApplication>
+#include <QHBoxLayout>
 #include <QRegularExpression>
 #include <QScreen>
 #include <QFileInfo>
@@ -31,13 +33,18 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QProgressBar>
 #include <QProgressDialog>
+#include <QPushButton>
+#include <QSlider>
 #include <QResource>
 #include <QSaveFile>
 #include <QScrollBar>
+#include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QStackedLayout>
 #include <QStandardPaths>
+#include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrent>
 #include <atomic>
 #include <cstdlib>
@@ -53,6 +60,10 @@
 #include "AutoAccept.h"
 #include "BenchmarkLog.h"
 #include "TempOutputCleanup.h"
+#include "ExportPanelHeightLayout.h"
+#include "StageActionPanel.h"
+#include "StageColumnLayout.h"
+#include "PagesToCheckView.h"
 #include "ProjectFolder.h"
 #include "ProjectFolderRelinker.h"
 #include "AutoRemovingFile.h"
@@ -97,7 +108,6 @@
 #include "PdfImportDialog.h"
 #include "PdfReadError.h"
 #include "PdfReader.h"
-#include "SkinnedButton.h"
 #include "SmartFilenameOrdering.h"
 #include "StageSequence.h"
 #include "SystemLoadWidget.h"
@@ -146,10 +156,6 @@
 #include "filters/page_split/Params.h"
 #include "filters/page_split/Settings.h"
 #include "filters/page_split/Task.h"
-#include "BatchProcessingSummaryDialog.h"
-#include "ContentCoverageSummaryDialog.h"
-#include "PageBoxSummaryDialog.h"
-#include "PageSizeWarningDialog.h"
 #include "filters/page_box/CacheDrivenTask.h"
 #include "filters/page_box/Settings.h"
 #include "filters/page_box/Task.h"
@@ -206,13 +212,18 @@ MainWindow::MainWindow(bool restoreGeometry)
                                                    ? ThumbnailSequence::SINGLE_COLUMN
                                                    : ThumbnailSequence::MULTI_COLUMN;
   m_thumbSequence = std::make_unique<ThumbnailSequence>(m_maxLogicalThumbSize, viewMode);
-  m_batchSummaries = std::make_unique<BatchSummaries>(static_cast<BatchSummariesContext&>(*this), this);
+  m_batchSummaries = std::make_unique<BatchSummaries>(static_cast<BatchSummariesContext&>(*this));
   m_pdfExportFlow = std::make_unique<PdfExportFlow>(static_cast<PdfExportFlowContext&>(*this), this);
 
   m_autoSaveTimer.setSingleShot(true);
   connect(&m_autoSaveTimer, SIGNAL(timeout()), SLOT(autoSaveProject()));
 
+  m_stageStatusRefreshTimer.setSingleShot(true);
+  m_stageStatusRefreshTimer.setInterval(250);
+  connect(&m_stageStatusRefreshTimer, &QTimer::timeout, this, &MainWindow::refreshStageStatuses);
+
   setupUi(this);
+  setupThumbnailHeader();
   setupIcons();
   m_filterDockBaseMinimumWidth = filterDockWidget->minimumWidth();
   scrollArea->viewport()->installEventFilter(this);
@@ -234,6 +245,21 @@ MainWindow::MainWindow(bool restoreGeometry)
   m_imageFrameLayout->setStackingMode(QStackedLayout::StackAll);
 
   m_optionsFrameLayout = new QStackedLayout(filterOptions);
+  m_stageActionPanel = new StageActionPanel(filterOptions, scrollAreaWidgetContents);
+  verticalLayout_4->addWidget(m_stageActionPanel);
+  m_stageActionPanel->setPrimaryEnabled(false);
+  connect(m_stageActionPanel, &StageActionPanel::processAllRequested, this, &MainWindow::startBatchProcessing);
+  connect(m_stageActionPanel, &StageActionPanel::thisPageRequested, this, &MainWindow::reloadRequested);
+  connect(m_stageActionPanel, &StageActionPanel::reviewPrimaryRequested,
+          this, [this]() { leaveReviewMode(); });
+  connect(m_stageActionPanel, &StageActionPanel::reviewSecondaryRequested,
+          this, [this]() { leaveReviewMode(); });
+  connect(m_stageActionPanel, &StageActionPanel::adjustToggled, this, [this](bool open) {
+    QSettings settings;
+    settings.setValue(QStringLiteral("stageActionPanel/adjustOpen/%1").arg(m_curFilter), open);
+    updateFilterOptionsHeight();
+    scheduleFilterDockMinimumWidthUpdate();
+  });
 
   m_timingStatusLabel = new QLabel;
   m_timingStatusLabel->setObjectName(QStringLiteral("timingStatusLabel"));
@@ -248,6 +274,7 @@ MainWindow::MainWindow(bool restoreGeometry)
     } else {
       m_statusBarPanel->clear();
     }
+    updateStageActionScope();
   });
 
   m_unitsMenuActionGroup = new QActionGroup(this);
@@ -326,8 +353,8 @@ MainWindow::MainWindow(bool restoreGeometry)
 
   connect(actionFirstPage, SIGNAL(triggered(bool)), SLOT(goFirstPage()));
   connect(actionLastPage, SIGNAL(triggered(bool)), SLOT(goLastPage()));
-  connect(actionPrevPage, SIGNAL(triggered(bool)), SLOT(goPrevPage()));
-  connect(actionNextPage, SIGNAL(triggered(bool)), SLOT(goNextPage()));
+  connect(actionPrevPage, &QAction::triggered, this, [this]() { scrollThumbnailsByPage(-1); });
+  connect(actionNextPage, &QAction::triggered, this, [this]() { scrollThumbnailsByPage(1); });
   connect(actionPrevPageQ, SIGNAL(triggered(bool)), this, SLOT(goPrevPage()));
   connect(actionNextPageW, SIGNAL(triggered(bool)), this, SLOT(goNextPage()));
   connect(actionPrevPageLeft, SIGNAL(triggered(bool)), this, SLOT(goPrevPage()));
@@ -342,6 +369,14 @@ MainWindow::MainWindow(bool restoreGeometry)
   connect(actionImportPdf, &QAction::triggered, this, &MainWindow::importPdf);
   connect(&OutOfMemoryHandler::instance(), SIGNAL(outOfMemory()), SLOT(handleOutOfMemorySituation()));
   connect(prevPageBtn, &QToolButton::clicked, this, [this]() {
+    if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) {
+      actionFirstPage->trigger();
+      return;
+    }
+    if (QGuiApplication::keyboardModifiers() & Qt::ShiftModifier) {
+      scrollThumbnailsByPage(-1);
+      return;
+    }
     if (filterSelectedBtn->isChecked()) {
       goPrevSelectedPage();
     } else {
@@ -349,6 +384,14 @@ MainWindow::MainWindow(bool restoreGeometry)
     }
   });
   connect(nextPageBtn, &QToolButton::clicked, this, [this]() {
+    if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) {
+      actionLastPage->trigger();
+      return;
+    }
+    if (QGuiApplication::keyboardModifiers() & Qt::ShiftModifier) {
+      scrollThumbnailsByPage(1);
+      return;
+    }
     if (filterSelectedBtn->isChecked()) {
       goNextSelectedPage();
     } else {
@@ -379,8 +422,6 @@ MainWindow::MainWindow(bool restoreGeometry)
 
   connect(filterList->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)), this,
           SLOT(filterSelectionChanged(const QItemSelection&)));
-  connect(filterList, SIGNAL(launchBatchProcessing()), this, SLOT(startBatchProcessing()));
-
   connect(m_workerThreadPool.get(), SIGNAL(taskResult(const BackgroundTaskPtr&, const FilterResultPtr&)), this,
           SLOT(filterResult(const BackgroundTaskPtr&, const FilterResultPtr&)));
 
@@ -498,6 +539,7 @@ MainWindow::MainWindow(bool restoreGeometry)
 }
 
 MainWindow::~MainWindow() {
+  leaveReviewMode(false);
   m_interactiveQueue->cancelAndClear();
   if (m_batchQueue) {
     m_batchQueue->cancelAndClear();
@@ -683,27 +725,42 @@ void MainWindow::showNewOpenProjectPanel() {
   setImageWidget(outerWidget.release(), TRANSFER_OWNERSHIP);
 
   filterList->setBatchProcessingPossible(false);
+  m_stageActionPanel->setPrimaryEnabled(false);
 #endif
 }  // MainWindow::showNewOpenProjectPanel
 
 void MainWindow::createBatchProcessingWidget() {
   m_batchProcessingWidget = std::make_unique<QWidget>();
-  auto* layout = new QGridLayout(m_batchProcessingWidget.get());
-  m_batchProcessingWidget->setLayout(layout);
+  m_batchProcessingWidget->setObjectName(QStringLiteral("batchProcessingWidget"));
+  auto* outerLayout = new QVBoxLayout(m_batchProcessingWidget.get());
+  outerLayout->setContentsMargins(24, 24, 24, 24);
+  outerLayout->addStretch();
 
-  const auto& iconProvider = IconProvider::getInstance();
-  auto* stopBtn = new SkinnedButton(iconProvider.getIcon("stop"), iconProvider.getIcon("stop-hovered"),
-                                    iconProvider.getIcon("stop-pressed"), m_batchProcessingWidget.get());
-  stopBtn->setIconSize({128, 128});
-  stopBtn->setStatusTip(tr("Stop batch processing"));
+  auto* content = new QWidget(m_batchProcessingWidget.get());
+  auto* layout = new QVBoxLayout(content);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(16);
 
-  // Progress label showing "p X / Y"
-  m_batchProgressLabel = new QLabel(m_batchProcessingWidget.get());
+  m_batchStageLabel = new QLabel(content);
+  m_batchStageLabel->setObjectName(QStringLiteral("batchStageLabel"));
+  m_batchStageLabel->setAlignment(Qt::AlignCenter);
+
+  m_batchProgressLabel = new QLabel(content);
+  m_batchProgressLabel->setObjectName(QStringLiteral("batchProgressLabel"));
   m_batchProgressLabel->setAlignment(Qt::AlignCenter);
   QFont progressFont = m_batchProgressLabel->font();
-  progressFont.setPointSize(24);
-  progressFont.setBold(true);
+  progressFont.setPixelSize(40);
+  progressFont.setWeight(QFont::DemiBold);
   m_batchProgressLabel->setFont(progressFont);
+
+  m_batchProgressBar = new QProgressBar(content);
+  m_batchProgressBar->setObjectName(QStringLiteral("batchProgressBar"));
+  m_batchProgressBar->setFixedSize(480, 4);
+  m_batchProgressBar->setTextVisible(false);
+
+  auto* stopBtn = new QPushButton(tr("Stop"), content);
+  stopBtn->setObjectName(QStringLiteral("secondaryActionButton"));
+  stopBtn->setStatusTip(tr("Stop batch processing"));
 
   class LowerPanel : public QWidget {
    public:
@@ -713,20 +770,84 @@ void MainWindow::createBatchProcessingWidget() {
   };
 
 
-  auto* lowerPanel = new LowerPanel(m_batchProcessingWidget.get());
+  auto* lowerPanel = new LowerPanel(content);
   m_checkBeepWhenFinished = [lowerPanel]() { return lowerPanel->ui.beepWhenFinished->isChecked(); };
 
-  int row = 0;  // Row 0 is reserved.
-  layout->addWidget(m_batchProgressLabel, ++row, 1, Qt::AlignCenter);
-  layout->addWidget(stopBtn, ++row, 1, Qt::AlignCenter);
-  layout->addWidget(lowerPanel, ++row, 0, 1, 3, Qt::AlignHCenter | Qt::AlignTop);
-  layout->setColumnStretch(0, 1);
-  layout->setColumnStretch(2, 1);
-  layout->setRowStretch(0, 1);
-  layout->setRowStretch(row, 1);
+  layout->addWidget(m_batchStageLabel, 0, Qt::AlignCenter);
+  layout->addWidget(m_batchProgressLabel, 0, Qt::AlignCenter);
+  layout->addWidget(m_batchProgressBar, 0, Qt::AlignCenter);
+  layout->addWidget(stopBtn, 0, Qt::AlignCenter);
+  layout->addWidget(lowerPanel, 0, Qt::AlignHCenter);
+
+  outerLayout->addWidget(content, 0, Qt::AlignCenter);
+  outerLayout->addStretch();
 
   connect(stopBtn, SIGNAL(clicked()), SLOT(stopBatchProcessing()));
 }  // MainWindow::createBatchProcessingWidget
+
+void MainWindow::setupThumbnailHeader() {
+  auto* headerLayout = new QVBoxLayout(pagesHeader);
+  headerLayout->setContentsMargins(0, 0, 0, 0);
+  headerLayout->setSpacing(0);
+
+  auto makeRow = [this]() {
+    auto* rowWidget = new QWidget(pagesHeader);
+    rowWidget->setFixedHeight(32);
+    auto* row = new QHBoxLayout(rowWidget);
+    row->setContentsMargins(8, 0, 8, 0);
+    row->setSpacing(4);
+    return std::pair<QWidget*, QHBoxLayout*>(rowWidget, row);
+  };
+
+  auto [firstRowWidget, firstRow] = makeRow();
+  auto* title = new QLabel(tr("Pages"), firstRowWidget);
+  title->setObjectName(QStringLiteral("pagesHeaderTitle"));
+  firstRow->addWidget(title);
+  firstRow->addStretch();
+
+  const QList<QToolButton*> firstRowButtons{
+      magnifyThumbnailsBtn, diminishThumbnailsBtn, thumbColumnViewBtn, sortingOrderBtn, deviationHighlightingBtn};
+  for (QToolButton* button : firstRowButtons) {
+    button->setProperty("thumbnailHeaderIcon", true);
+    button->setFixedSize(24, 24);
+    button->setIconSize(QSize(16, 16));
+    firstRow->addWidget(button);
+  }
+
+  auto [secondRowWidget, secondRow] = makeRow();
+  const QList<QToolButton*> secondRowButtons{
+      focusButton, prevPageBtn, nextPageBtn, filterSelectedBtn, gotoPageBtn, selectionModeBtn};
+  for (QToolButton* button : secondRowButtons) {
+    button->setProperty("thumbnailHeaderIcon", true);
+    button->setFixedSize(24, 24);
+    button->setIconSize(QSize(16, 16));
+    secondRow->addWidget(button);
+  }
+  secondRow->addStretch();
+
+  const QList<QToolButton*> colorButtons{filterBwBtn, filterGrayBtn, filterMixedBtn, filterColorBtn};
+  for (QToolButton* button : colorButtons) {
+    button->setProperty("thumbnailColorPill", true);
+    button->setFixedSize(20, 20);
+    secondRow->addWidget(button);
+  }
+
+  headerLayout->addWidget(firstRowWidget);
+  headerLayout->addWidget(secondRowWidget);
+
+  horizontalLayout_4->removeItem(verticalLayout_2);
+  delete verticalLayout_2;
+}
+
+void MainWindow::updateBatchProgress(int current, int total) {
+  if (m_batchProgressLabel) {
+    m_batchProgressLabel->setText(tr("%1 of %2").arg(current).arg(total));
+  }
+  if (m_batchProgressBar) {
+    m_batchProgressBar->setRange(0, total);
+    m_batchProgressBar->setValue(qBound(0, current, total));
+  }
+}
 
 void MainWindow::updateThumbViewMinWidth() {
   const int sb = thumbView->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
@@ -735,7 +856,8 @@ void MainWindow::updateThumbViewMinWidth() {
     innerWidth -= thumbView->frameWidth() * 2;
   }
   const int deltaX = thumbView->size().width() - innerWidth;
-  thumbView->setMinimumWidth((int) std::ceil(m_maxLogicalThumbSize.width() + deltaX));
+  const int logicalMinimum = (int) std::ceil(m_maxLogicalThumbSize.width() + deltaX);
+  thumbView->setMinimumWidth(qMin(logicalMinimum, 220));
 }
 
 void MainWindow::setupThumbView() {
@@ -744,14 +866,105 @@ void MainWindow::setupThumbView() {
   thumbView->installEventFilter(this);
 }
 
-bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
-  if ((obj == scrollArea->viewport()) && (ev->type() == QEvent::Resize)
-      && qobject_cast<export_::OptionsWidget*>(m_optionsWidget.data())) {
-    const int viewportHeight = scrollArea->viewport()->height();
-    if (viewportHeight > 0) {
-      const int minimumOptionsHeight = m_optionsWidget ? m_optionsWidget->minimumSizeHint().height() : viewportHeight;
-      filterOptions->setFixedHeight(qMax(viewportHeight, minimumOptionsHeight));
+void MainWindow::updateStageActionScope() {
+  if (!m_stageActionPanel || !m_thumbSequence) {
+    return;
+  }
+
+  const std::set<PageId> selected = m_thumbSequence->selectedItems();
+  if (selected.size() > 1) {
+    m_stageActionPanel->setScopeText(tr("Editing %1 pages").arg(selected.size()));
+    updateFilterDockMinimumWidth();
+    return;
+  }
+
+  const PageInfo leader = m_thumbSequence->selectionLeader();
+  const PageSequence pages = m_thumbSequence->toPageSequence();
+  if (!leader.isNull() && pages.numPages() > 0) {
+    m_stageActionPanel->setScopeText(
+        tr("Page %1 of %2").arg(pages.pageNo(leader.id()) + 1).arg(pages.numPages()));
+  } else {
+    m_stageActionPanel->setScopeText(QString());
+  }
+  updateFilterDockMinimumWidth();
+}
+
+void MainWindow::refreshStageStatuses() {
+  if (!m_stageActionPanel || !m_stages || !m_thumbSequence) {
+    return;
+  }
+
+  const PageSequence pages = m_thumbSequence->toPageSequence();
+  const int pageCount = pages.numPages();
+  int waitingAtCurrentStage = 0;
+  for (int stage = 0; stage < m_stages->count(); ++stage) {
+    int complete = 0;
+    const std::shared_ptr<AbstractFilter>& filter = m_stages->filterAt(stage);
+    for (const PageInfo& page : pages) {
+      if (filter->isPageComplete(page.id())) {
+        ++complete;
+      }
     }
+
+    StageListView::StageStatus status = StageListView::StageStatus::Untouched;
+    if (pageCount > 0 && complete == pageCount) {
+      status = StageListView::StageStatus::Done;
+    } else if (complete > 0) {
+      status = StageListView::StageStatus::Partial;
+    }
+    filterList->setStageStatus(stage, status);
+
+    if (stage == m_curFilter) {
+      waitingAtCurrentStage = pageCount - complete;
+    }
+  }
+
+  if (m_curFilter == m_stages->exportFilterIdx() || waitingAtCurrentStage == 0) {
+    m_stageActionPanel->setWaitingText(QString());
+  } else {
+    m_stageActionPanel->setWaitingText(tr("%n pages waiting", nullptr, waitingAtCurrentStage));
+  }
+  updateFilterDockMinimumWidth();
+}
+
+void MainWindow::updateFilterOptionsHeight() {
+  if (!m_stageActionPanel || !m_optionsWidget
+      || !qobject_cast<export_::OptionsWidget*>(m_optionsWidget.data())) {
+    return;
+  }
+
+  ExportPanelHeightLayout::apply(m_stageActionPanel, filterOptions,
+                                 m_optionsWidget->minimumSizeHint().height(), scrollArea);
+}
+
+void MainWindow::updateFilterDockMinimumWidth() {
+  if (!m_stageActionPanel || (!m_optionsWidget && !m_reviewAdjustWidget)) {
+    filterDockWidget->setMinimumWidth(m_filterDockBaseMinimumWidth);
+    return;
+  }
+
+  StageColumnLayout::apply(this, filterDockWidget, scrollArea,
+                           scrollAreaWidgetContents, m_stageActionPanel,
+                           m_filterDockBaseMinimumWidth);
+}
+
+void MainWindow::scheduleFilterDockMinimumWidthUpdate() {
+  if (m_filterDockWidthUpdatePending) {
+    return;
+  }
+  m_filterDockWidthUpdatePending = true;
+  QTimer::singleShot(0, this, [this]() {
+    m_filterDockWidthUpdatePending = false;
+    updateFilterDockMinimumWidth();
+  });
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
+  if ((obj == scrollArea->viewport()) && (ev->type() == QEvent::Resize)) {
+    if (qobject_cast<export_::OptionsWidget*>(m_optionsWidget.data())) {
+      updateFilterOptionsHeight();
+    }
+    scheduleFilterDockMinimumWidthUpdate();
   }
 
   if ((obj == thumbView) && (ev->type() == QEvent::Resize)) {
@@ -947,6 +1160,7 @@ void MainWindow::resetThumbSequence(const std::shared_ptr<const PageOrderProvide
   }
 
   m_thumbSequence->reset(currentPageSequence(), selectionAction, pageOrderProvider);
+  refreshStageStatuses();
 
   if (!m_thumbnailCache) {
     // Empty project.
@@ -979,7 +1193,15 @@ void MainWindow::setOptionsWidget(FilterOptionsWidget* widget, const Ownership o
     return;
   }
 
+  QSettings settings;
+  const QString adjustKey = QStringLiteral("stageActionPanel/adjustOpen/%1").arg(m_curFilter);
+  m_stageActionPanel->setAdjustOpen(settings.value(adjustKey, true).toBool());
+
   if (m_optionsWidget != widget) {
+    if (auto* exportOptions = qobject_cast<export_::OptionsWidget*>(m_optionsWidget.data())) {
+      m_stageActionPanel->setPinnedWidget(nullptr);
+      exportOptions->restoreExportFooter();
+    }
     removeWidgetsFromLayout(m_optionsFrameLayout);
   }
   // Delete the old widget we were owning, if any.
@@ -1006,28 +1228,26 @@ void MainWindow::setOptionsWidget(FilterOptionsWidget* widget, const Ownership o
   m_optionsFrameLayout->addWidget(widget);
   m_optionsWidget = widget;
 
+  auto* exportOptions = qobject_cast<export_::OptionsWidget*>(widget);
+  m_stageActionPanel->setHeadingText(
+      exportOptions ? tr("Your book is ready.") : QString());
+  m_stageActionPanel->setActionRowVisible(exportOptions == nullptr);
+  m_stageActionPanel->setPinnedWidget(
+      exportOptions ? exportOptions->exportFooterWidget() : nullptr);
+
   // Export owns an inner scroller so its action footer can stay pinned.  Bind
   // its frame to the outer viewport instead of letting the outer scroll area
   // grow it to Export's full settings-content size hint. Other filters retain
   // the traditional outer-scroller behavior.
-  const bool hasIndependentScroller = qobject_cast<export_::OptionsWidget*>(widget) != nullptr;
+  const bool hasIndependentScroller = exportOptions != nullptr;
   filterOptions->setMinimumHeight(0);
   filterOptions->setMaximumHeight(QWIDGETSIZE_MAX);
+  // Every stage makes the dock wide enough for its complete column. The outer
+  // horizontal scrollbar remains a safety net for future controls whose
+  // minimum changes after this layout pass.
+  updateFilterDockMinimumWidth();
   if (hasIndependentScroller) {
-    // Export intentionally disables horizontal scrolling. Its runtime compact
-    // minimum must therefore be satisfied by the dock itself; otherwise the
-    // outer viewport silently clips the footer and primary action on the
-    // right. Include the dock/layout chrome already visible around the
-    // viewport, then restore the normal minimum for every other stage.
-    const int dockChromeWidth = qMax(0, filterDockWidget->width() - scrollArea->viewport()->width());
-    filterDockWidget->setMinimumWidth(
-        qMax(m_filterDockBaseMinimumWidth, widget->minimumWidth() + dockChromeWidth));
-  } else {
-    filterDockWidget->setMinimumWidth(m_filterDockBaseMinimumWidth);
-  }
-  if (hasIndependentScroller && scrollArea->viewport()->height() > 0) {
-    filterOptions->setFixedHeight(
-        qMax(scrollArea->viewport()->height(), m_optionsWidget->minimumSizeHint().height()));
+    updateFilterOptionsHeight();
   }
 
   // We use an asynchronous connection here, because the slot
@@ -1090,10 +1310,13 @@ void MainWindow::setImageWidget(QWidget* widget, const Ownership ownership, Debu
     }
     m_imageFrameLayout->addWidget(m_tabbedDebugImages.get());
   }
+
 }
 
 void MainWindow::removeImageWidget() {
-  removeWidgetsFromLayout(m_imageFrameLayout);
+  for (int i = m_imageFrameLayout->count() - 1; i >= 0; --i) {
+    delete m_imageFrameLayout->takeAt(i);
+  }
 
   m_tabbedDebugImages->clear();
   // Delete the old widget we were owning, if any.
@@ -1151,10 +1374,10 @@ void MainWindow::batchProcessPages(const std::set<PageId>& pages) {
   filterList->setBatchProcessingInProgress(true);
   filterList->setEnabled(false);
 
-  // Initialize progress display
-  if (m_batchProgressLabel) {
-    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  if (m_batchStageLabel) {
+    m_batchStageLabel->setText(m_stages->filterAt(m_curFilter)->getName());
   }
+  updateBatchProgress(0, m_batchQueue->totalPages());
 
   BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
   if (task) {
@@ -1296,6 +1519,18 @@ void MainWindow::goPrevSelectedPage() {
   }
 }
 
+void MainWindow::scrollThumbnailsByPage(const int direction) {
+  QScrollBar* const scrollBar = thumbView->verticalScrollBar();
+  const int target = ThumbnailScroll::pageTarget(scrollBar->value(),
+                                                  scrollBar->minimum(),
+                                                  scrollBar->maximum(),
+                                                  thumbView->viewport()->height(),
+                                                  m_thumbSequence->rowHeightForPageScroll(direction),
+                                                  scrollBar->pageStep(),
+                                                  direction);
+  scrollBar->setValue(target);
+}
+
 void MainWindow::goToPage(const PageId& pageId, const ThumbnailSequence::SelectionAction selectionAction) {
   focusButton->setChecked(true);
 
@@ -1309,9 +1544,15 @@ void MainWindow::goToPage(const PageId& pageId, const ThumbnailSequence::Selecti
 void MainWindow::currentPageChanged(const PageInfo& pageInfo,
                                     const QRectF& thumbRect,
                                     const ThumbnailSequence::SelectionFlags flags) {
+  const bool currentPageActuallyChanged = m_selectedPage.get(getCurrentView()) != pageInfo.id();
   m_selectedPage.set(pageInfo.id(), getCurrentView());
+  const bool leftReview = m_reviewMode;
+  if (leftReview) {
+    leaveReviewMode(false);
+  }
 
-  if ((flags & ThumbnailSequence::SELECTED_BY_USER) || focusButton->isChecked()) {
+  if ((flags & ThumbnailSequence::SELECTED_BY_USER)
+      || (focusButton->isChecked() && currentPageActuallyChanged)) {
     if (!(flags & ThumbnailSequence::AVOID_SCROLLING_TO)) {
       thumbView->ensureVisible(thumbRect, 0, 0);
     }
@@ -1320,7 +1561,7 @@ void MainWindow::currentPageChanged(const PageInfo& pageInfo,
   if (flags & ThumbnailSequence::SELECTED_BY_USER) {
     if (isBatchProcessingInProgress()) {
       stopBatchProcessing();
-    } else if (!(flags & ThumbnailSequence::REDUNDANT_SELECTION)) {
+    } else if (leftReview || !(flags & ThumbnailSequence::REDUNDANT_SELECTION)) {
       // Start loading / processing the newly selected page.
       updateMainArea();
     }
@@ -1330,6 +1571,7 @@ void MainWindow::currentPageChanged(const PageInfo& pageInfo,
     selectionModeBtn->setChecked(false);
   }
 
+  updateStageActionScope();
   updateAutoSaveTimer();
 }
 
@@ -1464,6 +1706,8 @@ void MainWindow::filterSelectionChanged(const QItemSelection& selected) {
   if (selected.empty()) {
     return;
   }
+
+  leaveReviewMode(false);
 
   m_interactiveQueue->cancelAndClear();
   if (m_batchQueue) {
@@ -1634,10 +1878,10 @@ void MainWindow::startBatchProcessing() {
   filterList->setBatchProcessingInProgress(true);
   filterList->setEnabled(false);
 
-  // Initialize progress display
-  if (m_batchProgressLabel) {
-    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  if (m_batchStageLabel) {
+    m_batchStageLabel->setText(m_stages->filterAt(m_curFilter)->getName());
   }
+  updateBatchProgress(0, m_batchQueue->totalPages());
 
   BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
   if (task) {
@@ -2071,10 +2315,10 @@ void MainWindow::startBatchProcessingFrom(const PageInfo& startPage) {
   filterList->setBatchProcessingInProgress(true);
   filterList->setEnabled(false);
 
-  // Initialize progress display
-  if (m_batchProgressLabel) {
-    m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+  if (m_batchStageLabel) {
+    m_batchStageLabel->setText(m_stages->filterAt(m_curFilter)->getName());
   }
+  updateBatchProgress(0, m_batchQueue->totalPages());
 
   BackgroundTaskPtr task(m_batchQueue->takeForProcessing());
   if (task) {
@@ -2150,11 +2394,7 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
   m_interactiveQueue->processingFinished(task);
   if (m_batchQueue) {
     m_batchQueue->processingFinished(task);
-    // Update progress display
-    if (m_batchProgressLabel) {
-      m_batchProgressLabel->setText(
-          tr("p. %1 / %2").arg(m_batchQueue->processedPages() + 1).arg(m_batchQueue->totalPages()));
-    }
+    updateBatchProgress(m_batchQueue->processedPages(), m_batchQueue->totalPages());
   }
 
   if (task->isCancelled()) {
@@ -2191,8 +2431,13 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
   // for instance because thumbnail invalidation is done from here.
   result->updateUI(this);
 
+  if (result->filter() == m_stages->filterAt(m_curFilter)) {
+    m_stageStatusRefreshTimer.start();
+  }
+
   if (isBatchProcessingInProgress()) {
     if (m_batchQueue->allProcessed()) {
+      refreshStageStatuses();
       // Check if we're in a two-pass batch and need to start the second pass
       if (m_twoPassBatchInProgress && m_twoPassTargetFilter >= 0) {
         // First pass (Page Layout) is complete. Now start the second pass (Output).
@@ -2211,10 +2456,10 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
           m_batchQueue->addProcessingTask(page, createCompositeTask(page, targetFilter, /*batch=*/true, m_debug));
         }
 
-        // Update progress display for second pass
-        if (m_batchProgressLabel) {
-          m_batchProgressLabel->setText(tr("p. %1 / %2").arg(1).arg(m_batchQueue->totalPages()));
+        if (m_batchStageLabel) {
+          m_batchStageLabel->setText(m_stages->filterAt(m_curFilter)->getName());
         }
+        updateBatchProgress(0, m_batchQueue->totalPages());
 
         // Start processing
         BackgroundTaskPtr nextTask(m_batchQueue->takeForProcessing());
@@ -2279,29 +2524,21 @@ void MainWindow::filterResult(const BackgroundTaskPtr& task, const FilterResultP
         }
       }
 
-      // Show batch processing summary for Page Split filter
-      if (wasPageSplitBatch) {
-        showBatchProcessingSummary();
-      }
-
-      // Show page box size summary for Page Box filter
-      if (wasPageBoxBatch) {
-        showPageBoxSummary();
-      }
-
-      // Show content coverage summary for Select Content filter
-      if (wasSelectContentBatch) {
-        showContentCoverageSummary();
-      }
-
-      // Show page size warning for Margins filter (if mixed page sizes detected)
-      if (wasPageLayoutBatch) {
-        showPageSizeWarning();
-      }
-
       if (m_selectedPage.get(getCurrentView()) == m_thumbSequence->lastPage().id()) {
         // If batch processing finished at the last page, jump to the first one.
         goFirstPage();
+      }
+
+      // Enter review only after the post-batch page reset, so that reset does
+      // not immediately dismiss the pages-to-check board.
+      if (wasPageSplitBatch) {
+        showBatchProcessingSummary();
+      } else if (wasPageBoxBatch) {
+        showPageBoxSummary();
+      } else if (wasSelectContentBatch) {
+        showContentCoverageSummary();
+      } else if (wasPageLayoutBatch) {
+        showPageSizeWarning();
       }
       return;
     }
@@ -2822,11 +3059,18 @@ void MainWindow::removeWidgetsFromLayout(QLayout* layout) {
 }
 
 void MainWindow::removeFilterOptionsWidget() {
+  if (auto* exportOptions = qobject_cast<export_::OptionsWidget*>(m_optionsWidget.data())) {
+    m_stageActionPanel->setPinnedWidget(nullptr);
+    exportOptions->restoreExportFooter();
+  }
   removeWidgetsFromLayout(m_optionsFrameLayout);
   // Delete the old widget we were owning, if any.
   m_optionsWidgetCleanup.clear();
 
   m_optionsWidget = nullptr;
+  m_stageActionPanel->setHeadingText(QString());
+  m_stageActionPanel->setActionRowVisible(true);
+  m_stageActionPanel->setPinnedWidget(nullptr);
   filterOptions->setMinimumHeight(0);
   filterOptions->setMaximumHeight(QWIDGETSIZE_MAX);
   filterDockWidget->setMinimumWidth(m_filterDockBaseMinimumWidth);
@@ -2883,26 +3127,31 @@ PageView MainWindow::getCurrentView() const {
 void MainWindow::updateMainArea() {
   if (m_pages->numImages() == 0) {
     filterList->setBatchProcessingPossible(false);
+    m_stageActionPanel->setPrimaryEnabled(false);
     setDockWidgetsVisible(false);
     showNewOpenProjectPanel();
     m_statusBarPanel->clear();
   } else if (isBatchProcessingInProgress()) {
     filterList->setBatchProcessingPossible(false);
+    m_stageActionPanel->setPrimaryEnabled(false);
     setImageWidget(m_batchProcessingWidget.get(), KEEP_OWNERSHIP);
   } else {
     setDockWidgetsVisible(true);
     const PageInfo page(m_thumbSequence->selectionLeader());
     if (page.isNull()) {
       filterList->setBatchProcessingPossible(false);
+      m_stageActionPanel->setPrimaryEnabled(false);
       removeImageWidget();
       removeFilterOptionsWidget();
     } else {
       // Note that loadPageInteractive may reset it to false.
       filterList->setBatchProcessingPossible(true);
+      m_stageActionPanel->setPrimaryEnabled(true);
       PageSequence pageSequence = m_thumbSequence->toPageSequence();
       if (pageSequence.numPages() > 0) {
         m_statusBarPanel->updatePage(pageSequence.pageNo(page.id()) + 1, pageSequence.numPages(), page.id());
       }
+      updateStageActionScope();
       loadPageInteractive(page);
     }
   }
@@ -2919,6 +3168,7 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
 
   if (isOutputFilter() && !checkReadyForOutput(&page.id())) {
     filterList->setBatchProcessingPossible(false);
+    m_stageActionPanel->setPrimaryEnabled(false);
 
     const QString errText(
         tr("Output is not yet possible, as the final size"
@@ -2934,6 +3184,7 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
   // Export filter has no batch processing - it only has the "Export to PDF" button
   if (m_curFilter == m_stages->exportFilterIdx()) {
     filterList->setBatchProcessingPossible(false);
+    m_stageActionPanel->setPrimaryEnabled(false);
   }
 
   for (int i = 0; i < m_stages->count(); i++) {
@@ -2948,7 +3199,13 @@ void MainWindow::loadPageInteractive(const PageInfo& page) {
     if (m_imageFrameLayout->indexOf(m_processingIndicationWidget.get()) != -1) {
       m_processingIndicationWidget->processingRestartedEffect();
     }
-    bool currentWidgetIsImage = (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(0)) != nullptr);
+    bool currentWidgetIsImage = false;
+    for (int i = 0; i < m_imageFrameLayout->count(); ++i) {
+      if (Utils::castOrFindChild<ImageViewBase*>(m_imageFrameLayout->widget(i))) {
+        currentWidgetIsImage = true;
+        break;
+      }
+    }
     setImageWidget(m_processingIndicationWidget.get(), KEEP_OWNERSHIP, nullptr, currentWidgetIsImage);
     m_stages->filterAt(m_curFilter)->preUpdateUI(this, page);
   }
@@ -3423,6 +3680,7 @@ void MainWindow::insertImage(const ImageInfo& newImage, BeforeOrAfter beforeOrAf
     m_thumbSequence->insert(pageInfo, beforeOrAfter, existing);
     existing = pageInfo.imageId();
   }
+  refreshStageStatuses();
 }
 
 void MainWindow::removeFromProject(const std::set<PageId>& pages) {
@@ -3474,6 +3732,7 @@ void MainWindow::removeFromProject(const std::set<PageId>& pages) {
   }
 
   updateMainArea();
+  refreshStageStatuses();
 }  // MainWindow::removeFromProject
 
 void MainWindow::eraseOutputFiles(const std::set<PageId>& pages) {
@@ -3923,6 +4182,219 @@ void MainWindow::disableAlignmentForPages(const std::vector<PageId>& pageIds) {
   m_batchSummaries->disableAlignmentForPages(pageIds);
 }
 
+void MainWindow::showPagesToCheck(const ReviewSetup& setup) {
+  if (setup.model.pages.empty()) {
+    return;
+  }
+  leaveReviewMode(false);
+
+  m_reviewMode = true;
+  m_reviewStage = setup.stage;
+  m_reviewPreviousAdjustOpen = m_stageActionPanel->adjustOpen();
+  m_reviewAdjustWidget = createReviewAdjustWidget(setup);
+  m_stageActionPanel->setAdjustWidget(m_reviewAdjustWidget);
+  m_stageActionPanel->setReviewMode(true);
+  m_stageActionPanel->setHeadingText(tr("%n pages to check", nullptr,
+                                        static_cast<int>(setup.model.pages.size())));
+  m_stageActionPanel->setActionTexts(tr("All fine"), tr("Show all %1").arg(setup.model.totalPages));
+  m_stageActionPanel->setActionRowVisible(true);
+  m_stageActionPanel->setPrimaryEnabled(true);
+  m_stageActionPanel->setAdjustOpen(true);
+  updateFilterDockMinimumWidth();
+
+  auto* view = new PagesToCheckView(setup.model, m_thumbnailCache, imageViewFrame);
+  m_pagesToCheckView = view;
+  connect(view, &PagesToCheckView::remainingChanged, this, [this](const int count) {
+    if (m_reviewMode) {
+      m_stageActionPanel->setHeadingText(tr("%n pages to check", nullptr, count));
+    }
+  });
+  connect(view, &PagesToCheckView::jumpToPage, this, [this](const PageId& pageId) {
+    QTimer::singleShot(0, this, [this, pageId]() {
+      PageId target = pageId;
+      const PageSequence pages = m_pages->toPageSequence(getCurrentView());
+      for (const PageInfo& pageInfo : pages) {
+        if (pageInfo.id().imageId() == pageId.imageId()) {
+          target = pageInfo.id();
+          break;
+        }
+      }
+      leaveReviewMode(false);
+      goToPage(target);
+    });
+  });
+  connect(view, &PagesToCheckView::actionRequested,
+          this, &MainWindow::handleReviewAction);
+  connect(view, &PagesToCheckView::allFine, this, [this]() { leaveReviewMode(); },
+          Qt::QueuedConnection);
+  setImageWidget(view, TRANSFER_OWNERSHIP);
+}
+
+QWidget* MainWindow::createReviewAdjustWidget(const ReviewSetup& setup) {
+  auto* controls = new QWidget;
+  controls->setObjectName(QStringLiteral("reviewAdjustControls"));
+  auto* layout = new QVBoxLayout(controls);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(8);
+
+  if (setup.stage == ReviewStage::PageSplit) {
+    auto* row = new QHBoxLayout;
+    row->setContentsMargins(0, 0, 0, 0);
+    row->setSpacing(0);
+    auto* notSplit = new QPushButton(tr("Not Split (%1)").arg(setup.firstCount), controls);
+    auto* split = new QPushButton(tr("Split (%1)").arg(setup.secondCount), controls);
+    notSplit->setObjectName(QStringLiteral("reviewSegmentButton"));
+    split->setObjectName(QStringLiteral("reviewSegmentButton"));
+    notSplit->setCheckable(true);
+    split->setCheckable(true);
+    notSplit->setChecked(!setup.showSecondGroup);
+    split->setChecked(setup.showSecondGroup);
+    auto* group = new QButtonGroup(controls);
+    group->setExclusive(true);
+    group->addButton(notSplit, 0);
+    group->addButton(split, 1);
+    connect(group, &QButtonGroup::idClicked, this, [this](const int id) {
+      updateReviewModel(m_batchSummaries->pageSplitReview(id == 1));
+    });
+    row->addWidget(notSplit);
+    row->addWidget(split);
+    layout->addLayout(row);
+    return controls;
+  }
+
+  auto* thresholdLabel = new QLabel(controls);
+  auto* slider = new QSlider(Qt::Horizontal, controls);
+  slider->setTickPosition(QSlider::NoTicks);
+  QPushButton* allButton = nullptr;
+
+  if (setup.stage == ReviewStage::PageBox) {
+    thresholdLabel->setText(tr("Deviation threshold: %1%").arg(setup.threshold));
+    slider->setRange(5, 30);
+    allButton = new QPushButton(tr("Disable page box (all listed)"), controls);
+    connect(slider, &QSlider::valueChanged, this, [this, thresholdLabel](const int value) {
+      thresholdLabel->setText(tr("Deviation threshold: %1%").arg(value));
+      updateReviewModel(m_batchSummaries->pageBoxReview(value));
+    });
+    connect(allButton, &QPushButton::clicked, this, [this]() {
+      applyReviewActionToAll(PagesToCheckView::ActionId::DisablePageBox);
+    });
+  } else if (setup.stage == ReviewStage::SelectContent) {
+    thresholdLabel->setText(tr("Coverage threshold: %1%").arg(setup.threshold));
+    slider->setRange(20, 80);
+    allButton = new QPushButton(tr("Preserve layout (all listed)"), controls);
+    connect(slider, &QSlider::valueChanged, this, [this, thresholdLabel](const int value) {
+      thresholdLabel->setText(tr("Coverage threshold: %1%").arg(value));
+      updateReviewModel(m_batchSummaries->contentCoverageReview(value));
+    });
+    connect(allButton, &QPushButton::clicked, this, [this]() {
+      applyReviewActionToAll(PagesToCheckView::ActionId::PreserveLayout);
+    });
+  } else {
+    thresholdLabel->setText(tr("Sensitivity: %1%").arg(setup.threshold));
+    slider->setRange(10, 100);
+    allButton = new QPushButton(tr("Detach all listed"), controls);
+    connect(slider, &QSlider::valueChanged, this, [this, thresholdLabel](const int value) {
+      thresholdLabel->setText(tr("Sensitivity: %1%").arg(value));
+      updateReviewModel(m_batchSummaries->pageSizeReview(value));
+    });
+    connect(allButton, &QPushButton::clicked, this, [this]() {
+      applyReviewActionToAll(PagesToCheckView::ActionId::DetachFromAggregateSize);
+    });
+  }
+
+  slider->setValue(setup.threshold);
+  layout->addWidget(thresholdLabel);
+  layout->addWidget(slider);
+  layout->addWidget(allButton);
+  return controls;
+}
+
+void MainWindow::updateReviewModel(const ReviewSetup& setup) {
+  if (!m_reviewMode || !m_pagesToCheckView) {
+    return;
+  }
+  m_pagesToCheckView->setModel(setup.model);
+  if (m_pagesToCheckView->listedPageIds().empty()) {
+    QTimer::singleShot(0, this, [this]() { leaveReviewMode(); });
+  }
+}
+
+void MainWindow::handleReviewAction(const PageId& pageId,
+                                    const PagesToCheckView::ActionId actionId) {
+  const std::vector<PageId> pageIds{pageId};
+  const std::vector<ImageId> imageIds{pageId.imageId()};
+  switch (actionId) {
+    case PagesToCheckView::ActionId::JumpToPage:
+      break;
+    case PagesToCheckView::ActionId::ForceTwoPageLayout:
+      m_batchSummaries->forceTwoPageForImages(imageIds);
+      break;
+    case PagesToCheckView::ActionId::ForceSinglePageLayout:
+      m_batchSummaries->forceSinglePageForImages(imageIds);
+      break;
+    case PagesToCheckView::ActionId::ResetAutoLayout:
+      m_batchSummaries->resetAutoLayoutForImages(imageIds);
+      break;
+    case PagesToCheckView::ActionId::DisablePageBox:
+      m_batchSummaries->disablePageBoxForPages(pageIds);
+      break;
+    case PagesToCheckView::ActionId::PreserveLayout:
+      m_batchSummaries->preserveLayoutForPages(pageIds);
+      break;
+    case PagesToCheckView::ActionId::DetachFromAggregateSize:
+      m_batchSummaries->disableAlignmentForPages(pageIds);
+      break;
+    case PagesToCheckView::ActionId::GoToSplitPages:
+      QTimer::singleShot(0, this, [this]() {
+        leaveReviewMode(false);
+        filterList->selectRow(m_stages->pageSplitFilterIdx());
+      });
+      break;
+  }
+}
+
+void MainWindow::applyReviewActionToAll(const PagesToCheckView::ActionId actionId) {
+  if (!m_pagesToCheckView) {
+    return;
+  }
+  const std::vector<PageId> pageIds = m_pagesToCheckView->listedPageIds();
+  if (pageIds.empty()) {
+    leaveReviewMode();
+    return;
+  }
+  if (actionId == PagesToCheckView::ActionId::DisablePageBox) {
+    m_batchSummaries->disablePageBoxForPages(pageIds);
+  } else if (actionId == PagesToCheckView::ActionId::PreserveLayout) {
+    m_batchSummaries->preserveLayoutForPages(pageIds);
+  } else if (actionId == PagesToCheckView::ActionId::DetachFromAggregateSize) {
+    m_batchSummaries->disableAlignmentForPages(pageIds);
+  }
+  leaveReviewMode();
+}
+
+void MainWindow::leaveReviewMode(const bool restoreCurrentPage) {
+  if (!m_reviewMode) {
+    return;
+  }
+  m_reviewMode = false;
+  m_pagesToCheckView = nullptr;
+  m_stageActionPanel->setAdjustWidget(filterOptions);
+  if (m_reviewAdjustWidget) {
+    delete m_reviewAdjustWidget.data();
+    m_reviewAdjustWidget = nullptr;
+  }
+  m_stageActionPanel->setReviewMode(false);
+  m_stageActionPanel->setHeadingText(QString());
+  m_stageActionPanel->setActionTexts(tr("Process all pages"), tr("This page only"));
+  m_stageActionPanel->setActionRowVisible(true);
+  m_stageActionPanel->setAdjustOpen(m_reviewPreviousAdjustOpen);
+  updateFilterDockMinimumWidth();
+  removeImageWidget();
+  if (restoreCurrentPage) {
+    updateMainArea();
+  }
+}
+
 StageSequence* MainWindow::stages() const {
   return m_stages.get();
 }
@@ -3943,6 +4415,10 @@ int MainWindow::currentFilterIndex() const {
   return m_curFilter;
 }
 
+bool MainWindow::isReviewMode() const {
+  return m_reviewMode;
+}
+
 void MainWindow::jumpToPage(const PageId& pageId) {
   goToPage(pageId);
 }
@@ -3950,4 +4426,3 @@ void MainWindow::jumpToPage(const PageId& pageId) {
 void MainWindow::selectFilterListRow(int row) {
   filterList->selectRow(row);
 }
-

@@ -56,7 +56,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::FinalizeOptionsWid
   void updateDisplay();
   void updateOutputUI();
   void updateFormatOptions();
-  void updateSelectionIndicator();
   void applyColorModeToSelectedPages(ColorMode mode);
 
   std::shared_ptr<Settings> m_settings;

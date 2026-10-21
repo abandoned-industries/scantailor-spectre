@@ -46,6 +46,8 @@ class Filter : public AbstractFilter {
 
   PageView getView() const override;
 
+  bool isPageComplete(const PageId& pageId) const override;
+
   void performRelinking(const AbstractRelinker& relinker) override;
 
   void preUpdateUI(FilterUiInterface* ui, const PageInfo& pageInfo) override;
@@ -87,6 +89,7 @@ class Filter : public AbstractFilter {
   FillZonePropFactory m_fillZonePropFactory;
   std::vector<PageOrderOption> m_pageOrderOptions;
   int m_selectedPageOrder;
+  std::unique_ptr<OutputFileNameGenerator> m_outFileNameGen;
 };
 }  // namespace output
 #endif  // ifndef SCANTAILOR_OUTPUT_FILTER_H_

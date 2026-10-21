@@ -8,14 +8,17 @@
 #include <cassert>
 #include <iostream>
 
+#include "ApplyLayoutType.h"
 #include "PageSelectionAccessor.h"
+#include "SplitModeDialogMode.h"
 
 namespace page_split {
 SplitModeDialog::SplitModeDialog(QWidget* const parent,
                                  const PageId& curPage,
                                  const PageSelectionAccessor& pageSelectionAccessor,
                                  const LayoutType layoutType,
-                                 const PageLayout::Type autoDetectedLayoutType)
+                                 const PageLayout::Type autoDetectedLayoutType,
+                                 const AutoManualMode splitLineMode)
     : QDialog(parent),
       m_pages(pageSelectionAccessor.allPages()),
       m_selectedPages(pageSelectionAccessor.selectedPages()),
@@ -38,13 +41,12 @@ SplitModeDialog::SplitModeDialog(QWidget* const parent,
     everyOtherSelectedHint->setEnabled(false);
   }
 
-  layoutTypeLabel->setPixmap(iconFor(m_layoutType).pixmap(32, 32));
-  if (m_layoutType == AUTO_LAYOUT_TYPE) {
-    modeAuto->setChecked(true);
-    applyCutOption->setEnabled(false);
-  } else {
+  if (splitModeDialogOpensManual(m_layoutType, splitLineMode)) {
     modeManual->setChecked(true);
-    applyCutOption->setEnabled(true);
+    manualModeSelected();
+  } else {
+    modeAuto->setChecked(true);
+    autoDetectionSelected();
   }
 
   connect(modeAuto, SIGNAL(pressed()), this, SLOT(autoDetectionSelected()));
@@ -56,13 +58,10 @@ SplitModeDialog::~SplitModeDialog() = default;
 
 void SplitModeDialog::autoDetectionSelected() {
   layoutTypeLabel->setPixmap(iconFor(AUTO_LAYOUT_TYPE).pixmap(32, 32));
-  applyCutOption->setEnabled(false);
-  applyCutOption->setChecked(false);
 }
 
 void SplitModeDialog::manualModeSelected() {
   layoutTypeLabel->setPixmap(iconFor(combinedLayoutType()).pixmap(32, 32));
-  applyCutOption->setEnabled(true);
 }
 
 void SplitModeDialog::onSubmit() {
@@ -71,39 +70,27 @@ void SplitModeDialog::onSubmit() {
     layoutType = combinedLayoutType();
   }
 
-  std::set<PageId> pages;
-
+  LayoutTypeScope scope;
   if (thisPageRB->isChecked()) {
-    pages.insert(m_curPage);
+    scope = LayoutTypeScope::THIS_PAGE;
   } else if (allPagesRB->isChecked()) {
-    m_pages.selectAll().swap(pages);
+    scope = LayoutTypeScope::ALL_PAGES;
   } else if (thisPageAndFollowersRB->isChecked()) {
-    m_pages.selectPagePlusFollowers(m_curPage).swap(pages);
+    scope = LayoutTypeScope::THIS_PAGE_AND_FOLLOWERS;
   } else if (selectedPagesRB->isChecked()) {
-    emit accepted(m_selectedPages, layoutType, applyCutOption->isChecked());
-    accept();
-    return;
+    scope = LayoutTypeScope::SELECTED_PAGES;
   } else if (everyOtherRB->isChecked()) {
-    m_pages.selectEveryOther(m_curPage).swap(pages);
+    scope = LayoutTypeScope::EVERY_OTHER;
   } else if (thisEveryOtherRB->isChecked()) {
-    std::set<PageId> tmp;
-    m_pages.selectPagePlusFollowers(m_curPage).swap(tmp);
-    auto it = tmp.begin();
-    for (int i = 0; it != tmp.end(); ++it, ++i) {
-      if (i % 2 == 0) {
-        pages.insert(*it);
-      }
-    }
+    scope = LayoutTypeScope::THIS_PAGE_AND_FOLLOWING_EVERY_OTHER;
   } else if (everyOtherSelectedRB->isChecked()) {
-    auto it = m_selectedPages.begin();
-    for (int i = 0; it != m_selectedPages.end(); ++it, ++i) {
-      if (i % 2 == 0) {
-        pages.insert(*it);
-      }
-    }
+    scope = LayoutTypeScope::EVERY_OTHER_SELECTED;
+  } else {
+    return;
   }
 
-  emit accepted(pages, layoutType, applyCutOption->isChecked());
+  const std::set<PageId> pages = pagesForLayoutTypeScope(m_pages, m_selectedPages, m_curPage, scope);
+  emit accepted(pages, layoutType);
   // We assume the default connection from accepted() to accept()
   // was removed.
   accept();

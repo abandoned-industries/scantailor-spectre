@@ -106,7 +106,9 @@ OptionsWidget::OptionsWidget(std::shared_ptr<Settings> settings, const PageSelec
   setMinimumWidth(qMax(250, settingsMinimumWidth));
 }
 
-OptionsWidget::~OptionsWidget() = default;
+OptionsWidget::~OptionsWidget() {
+  restoreExportFooter();
+}
 
 void OptionsWidget::setOutputSettings(std::shared_ptr<output::Settings> outputSettings) {
   m_outputSettings = std::move(outputSettings);
@@ -155,6 +157,18 @@ void OptionsWidget::setProjectFilePath(const QString& projectFilePath) {
     sendToZoteroCB->setToolTip(QString());
     zoteroStatusLabel->setText(tr("Zotero: checking…"));
   }
+}
+
+QWidget* OptionsWidget::exportFooterWidget() const {
+  return exportFooter;
+}
+
+void OptionsWidget::restoreExportFooter() {
+  if (exportFooter->parentWidget() != this) {
+    exportFooter->setParent(this);
+    verticalLayout->addWidget(exportFooter);
+  }
+  exportFooter->show();
 }
 
 void OptionsWidget::resizeEvent(QResizeEvent* event) {

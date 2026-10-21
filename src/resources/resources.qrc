@@ -2,6 +2,7 @@
   <qresource prefix="/">
     <file>icons/file.svg</file>
     <file>icons/folder.svg</file>
+    <file>icons/project.svg</file>
     <file>icons/undo.svg</file>
     <file>scantailor-spectre2.png</file>
     <file>scantailor-spectres.icns</file>

@@ -28,6 +28,10 @@ set(gui_only_sources
     AppController.cpp AppController.h
     AccessibilitySafeguard.cpp AccessibilitySafeguard.h
     SystemLoadWidget.cpp SystemLoadWidget.h
+    StageActionPanel.cpp StageActionPanel.h
+    StageColumnLayout.cpp StageColumnLayout.h
+    ExportPanelHeightLayout.cpp ExportPanelHeightLayout.h
+    PagesToCheckView.cpp PagesToCheckView.h
     MainWindow.cpp MainWindow.h
     main.cpp
     StatusBarPanel.cpp StatusBarPanel.h
@@ -37,10 +41,6 @@ set(gui_only_sources
     BatchSummaries.cpp BatchSummaries.h
     PdfExportFlow.cpp PdfExportFlow.h
     TempOutputCleanup.cpp TempOutputCleanup.h
-    BatchProcessingSummaryDialog.cpp BatchProcessingSummaryDialog.h
-    ContentCoverageSummaryDialog.cpp ContentCoverageSummaryDialog.h
-    PageBoxSummaryDialog.cpp PageBoxSummaryDialog.h
-    PageSizeWarningDialog.cpp PageSizeWarningDialog.h
     PdfImportDialog.cpp PdfImportDialog.h)
 
 set(gui_only_ui_files
@@ -51,7 +51,6 @@ set(gui_only_ui_files
     FixDpiDialog.ui
     LoadFilesStatusDialog.ui
     MainWindow.ui
-    NewOpenProjectPanel.ui
     OutOfMemoryDialog.ui
     ProjectFilesDialog.ui
     RelinkingDialog.ui
@@ -164,7 +163,14 @@ if(APPLE)
   find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
 
   if(MACDEPLOYQT_EXECUTABLE)
-    set(SCANTAILOR_BUNDLE_DIR "$<TARGET_BUNDLE_DIR:scantailor>")
+    # Deployment must never contaminate the incremental development bundle.
+    set(SCANTAILOR_BUNDLE_DIR "${CMAKE_BINARY_DIR}/../release-staging/ScanTailor Spectre.app")
+    set(SCANTAILOR_BUNDLE_DEPENDENCY_PREFIXES "" CACHE STRING
+        "Semicolon-separated trusted, deployment-compatible dependency prefixes")
+    set(SCANTAILOR_BUNDLE_PREFIX_ARGS)
+    foreach(_prefix IN LISTS SCANTAILOR_BUNDLE_DEPENDENCY_PREFIXES)
+      list(APPEND SCANTAILOR_BUNDLE_PREFIX_ARGS --prefix "${_prefix}")
+    endforeach()
     set(SCANTAILOR_BUNDLE_CONTENTS_DIR "${SCANTAILOR_BUNDLE_DIR}/Contents")
     set(SCANTAILOR_BUNDLE_FRAMEWORKS_DIR "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/Frameworks")
     set(SCANTAILOR_BUNDLE_PLUGINS_DIR "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/PlugIns")
@@ -187,15 +193,18 @@ if(APPLE)
         "${CMAKE_SOURCE_DIR}/packaging/macos/sign-adhoc.sh")
 
     add_custom_target(scantailor_bundle
-      COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_FRAMEWORKS_DIR}"
+      COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_DIR}"
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_BUNDLE_DIR:scantailor>" "${SCANTAILOR_BUNDLE_DIR}"
       COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_PLUGINS_DIR}"
       COMMAND ${CMAKE_COMMAND} -E rm -rf "${SCANTAILOR_BUNDLE_SIGNATURE_DIR}"
       COMMAND ${CMAKE_COMMAND} -E rm -f "${SCANTAILOR_BUNDLE_QT_CONF}"
       COMMAND "${MACDEPLOYQT_EXECUTABLE}"
         "${SCANTAILOR_BUNDLE_DIR}"
         -always-overwrite
-      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/packaging/macos/fix-bundle-libs.sh" "${SCANTAILOR_BUNDLE_DIR}"
-      ${SCANTAILOR_DOCUMENT_OCR_BUNDLE_COMMAND}
+      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/packaging/macos/fix-bundle-libs.sh" "${SCANTAILOR_BUNDLE_DIR}" ${SCANTAILOR_BUNDLE_PREFIX_ARGS}
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "$<TARGET_BUNDLE_DIR:scantailor>/Contents/Resources"
+        "${SCANTAILOR_BUNDLE_CONTENTS_DIR}/Resources"
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SCANTAILOR_README_PDF}"
         "${SCANTAILOR_BUNDLED_README_PDF}"
@@ -217,6 +226,7 @@ if(APPLE)
     )
 
     if(SCANTAILOR_MAC_BUNDLE_POST_BUILD)
+      message(FATAL_ERROR "In-place deployment is disabled; use scantailor_bundle on its staging copy.")
       # Run macdeployqt to bundle Qt frameworks
       add_custom_command(TARGET scantailor POST_BUILD
       COMMAND "${MACDEPLOYQT_EXECUTABLE}"

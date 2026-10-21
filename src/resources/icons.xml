@@ -12,6 +12,9 @@
   <icon name="folder" styled="on">
     <file>:/icons/folder.svg</file>
   </icon>
+  <icon name="project" styled="on">
+    <file>:/icons/project.svg</file>
+  </icon>
   <icon name="undo" styled="on">
     <file>:/icons/undo.svg</file>
   </icon>
@@ -38,24 +41,6 @@
   </icon>
   <icon name="insert-before" styled="on">
     <file>:/icons/insert-before.svg</file>
-  </icon>
-  <icon name="play-hovered" styled="on">
-    <file>:/icons/play-hovered.svg</file>
-  </icon>
-  <icon name="play" styled="on">
-    <file>:/icons/play.svg</file>
-  </icon>
-  <icon name="play-pressed" styled="on">
-    <file>:/icons/play-pressed.svg</file>
-  </icon>
-  <icon name="stop">
-    <file>:/icons/stop.svg</file>
-  </icon>
-  <icon name="stop-hovered">
-    <file>:/icons/stop-hovered.svg</file>
-  </icon>
-  <icon name="stop-pressed">
-    <file>:/icons/stop-pressed.svg</file>
   </icon>
   <icon name="stock-center" styled="on">
     <file>:/icons/stock-center.svg</file>

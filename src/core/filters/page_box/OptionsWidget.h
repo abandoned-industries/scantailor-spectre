@@ -53,7 +53,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   void updatePageDetectOptionsDisplay();
   void commitCurrentParams();
   void setupUiConnections();
-  void updateSelectionIndicator();
 
   std::shared_ptr<Settings> m_settings;
   PageSelectionAccessor m_pageSelectionAccessor;

@@ -12,9 +12,10 @@ private final class DocumentRecognitionResult: @unchecked Sendable {
 
 /// Small Objective-C bridge for Vision's Swift-only document recognizer.
 ///
-/// The library containing this class targets macOS 26 and is loaded dynamically.
-/// The main application retains its macOS 15 deployment target and its existing
-/// VNRecognizeTextRequest fallback.
+/// The library uses the application's deployment target and is loaded dynamically.
+/// This class is available only on macOS 26; the caller retains its existing
+/// VNRecognizeTextRequest fallback on earlier systems.
+@available(macOS 26.0, *)
 @objc(SpectreDocumentOCRBridge)
 public final class SpectreDocumentOCRBridge: NSObject {
   // Vision's document model already exploits the Neural Engine internally.

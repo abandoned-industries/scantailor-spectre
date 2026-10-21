@@ -89,8 +89,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
 
   void applyToSelectedPages();
 
-  void updateSelectionIndicator();
-
   void setupUiConnections();
 
   static double spinBoxToDegrees(double sbValue);

@@ -6,49 +6,38 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>245</width>
-    <height>64</height>
+    <width>480</width>
+    <height>88</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="4">
-    <widget class="SystemLoadWidget" name="systemLoadWidget" native="true"/>
-   </item>
-   <item row="1" column="0">
-    <spacer name="horizontalSpacer">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>1</width>
-       <height>1</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="1" column="1">
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>16</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item alignment="Qt::AlignHCenter">
     <widget class="QCheckBox" name="beepWhenFinished">
      <property name="text">
       <string>Beep when finished</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="2">
-    <spacer name="horizontalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>1</width>
-       <height>1</height>
-      </size>
-     </property>
-    </spacer>
+   <item>
+    <widget class="SystemLoadWidget" name="systemLoadWidget" native="true"/>
    </item>
   </layout>
  </widget>

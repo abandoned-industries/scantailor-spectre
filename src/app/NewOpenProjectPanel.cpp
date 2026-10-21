@@ -3,96 +3,163 @@
 
 #include "NewOpenProjectPanel.h"
 
+#include <core/IconProvider.h>
+
+#include <algorithm>
+#include <functional>
+#include <utility>
+
+#include <QDir>
 #include <QFileInfo>
+#include <QFrame>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QIcon>
+#include <QLabel>
 #include <QMouseEvent>
+#include <QPixmap>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 #include "RecentProjects.h"
+#include "version.h"
 
-// ClickableLabel implementation
-ClickableLabel::ClickableLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
-  setCursor(Qt::PointingHandCursor);
-  m_normalColor = palette().color(QPalette::WindowText);
-  m_hoverColor = palette().color(QPalette::Link);
-  applyColor(m_normalColor);
-}
+namespace {
+class RecentProjectRow : public QWidget {
+ public:
+  RecentProjectRow(const QString& projectName, const QString& parentFolder,
+                   std::function<void()> activated, QWidget* parent = nullptr)
+      : QWidget(parent), m_activated(std::move(activated)) {
+    setFixedHeight(36);
+    setCursor(Qt::PointingHandCursor);
 
-void ClickableLabel::setTextColor(const QColor& color) {
-  m_normalColor = color;
-  applyColor(m_normalColor);
-}
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
-void ClickableLabel::applyColor(const QColor& color) {
-  QPalette pal = palette();
-  pal.setColor(QPalette::WindowText, color);
-  setPalette(pal);
-}
+    auto* nameLabel = new QLabel(projectName, this);
+    nameLabel->setObjectName(QStringLiteral("recentProjectName"));
+    nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    layout->addWidget(nameLabel);
 
-void ClickableLabel::enterEvent(QEnterEvent* event) {
-  // No color change on hover - cursor change only
-  QLabel::enterEvent(event);
-}
-
-void ClickableLabel::leaveEvent(QEvent* event) {
-  QLabel::leaveEvent(event);
-}
-
-void ClickableLabel::mousePressEvent(QMouseEvent* event) {
-  if (event->button() == Qt::LeftButton) {
-    emit clicked();
+    auto* folderLabel = new QLabel(parentFolder, this);
+    folderLabel->setObjectName(QStringLiteral("recentProjectFolder"));
+    folderLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    layout->addWidget(folderLabel);
   }
-  QLabel::mousePressEvent(event);
-}
 
-// NewOpenProjectPanel implementation
+ protected:
+  void mousePressEvent(QMouseEvent* event) override {
+    if (event->button() == Qt::LeftButton) {
+      m_activated();
+    }
+    QWidget::mousePressEvent(event);
+  }
+
+ private:
+  std::function<void()> m_activated;
+};
+
+QWidget* createActionRow(const QString& text, const QString& shortcutHint, const QIcon& icon,
+                         QWidget* parent, const std::function<void()>& activated) {
+  auto* row = new QWidget(parent);
+  row->setFixedHeight(44);
+
+  auto* layout = new QGridLayout(row);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(0);
+
+  auto* button = new QPushButton(icon, text, row);
+  button->setObjectName(QStringLiteral("startupActionButton"));
+  button->setCursor(Qt::PointingHandCursor);
+  button->setIconSize(QSize(16, 16));
+  layout->addWidget(button, 0, 0);
+
+  auto* hint = new QLabel(shortcutHint, row);
+  hint->setObjectName(QStringLiteral("startupShortcutHint"));
+  hint->setAttribute(Qt::WA_TransparentForMouseEvents);
+  hint->setContentsMargins(0, 0, 14, 0);
+  layout->addWidget(hint, 0, 0, Qt::AlignRight | Qt::AlignVCenter);
+
+  QObject::connect(button, &QPushButton::clicked, row, activated);
+  return row;
+}
+}  // namespace
+
 NewOpenProjectPanel::NewOpenProjectPanel(QWidget* parent) : QWidget(parent) {
-  // Main layout - anchored top-left with fixed margins
+  setObjectName(QStringLiteral("newOpenProjectPanel"));
+  setAttribute(Qt::WA_StyledBackground);
+
   auto* mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(40, 40, 40, 40);
-  mainLayout->setSpacing(8);
-  mainLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+  mainLayout->setSpacing(12);
 
-  // Action labels - bold weight
-  QFont actionFont;
-  actionFont.setPointSize(15);
-  actionFont.setWeight(QFont::DemiBold);
+  auto* header = new QWidget(this);
+  header->setFixedHeight(48);
+  auto* headerLayout = new QHBoxLayout(header);
+  headerLayout->setContentsMargins(0, 0, 0, 0);
+  headerLayout->setSpacing(12);
 
-  auto* importPdfLabel = new ClickableLabel(tr("Import PDF"), this);
-  importPdfLabel->setFont(actionFont);
-  mainLayout->addWidget(importPdfLabel);
+  auto* appIcon = new QLabel(header);
+  appIcon->setFixedSize(48, 48);
+  appIcon->setPixmap(QPixmap(QStringLiteral(":/scantailor-spectre2.png"))
+                         .scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  headerLayout->addWidget(appIcon);
 
-  auto* importFolderLabel = new ClickableLabel(tr("Import Folder"), this);
-  importFolderLabel->setFont(actionFont);
-  mainLayout->addWidget(importFolderLabel);
+  auto* titleColumn = new QVBoxLayout();
+  titleColumn->setContentsMargins(0, 0, 0, 0);
+  titleColumn->setSpacing(0);
 
-  auto* openProjectLabel = new ClickableLabel(tr("Open Project"), this);
-  openProjectLabel->setFont(actionFont);
-  mainLayout->addWidget(openProjectLabel);
+  auto* appName = new QLabel(tr("ScanTailor Spectre"), header);
+  QFont appNameFont = appName->font();
+  appNameFont.setPointSize(appNameFont.pointSize() + 5);
+  appNameFont.setWeight(QFont::DemiBold);
+  appName->setFont(appNameFont);
+  titleColumn->addWidget(appName);
 
-  // Spacer between actions and recent section
-  mainLayout->addSpacing(20);
+  auto* version = new QLabel(QString::fromUtf8(VERSION), header);
+  version->setObjectName(QStringLiteral("startupSecondaryLabel"));
+  QFont versionFont = version->font();
+  versionFont.setPointSize(std::max(1, versionFont.pointSize() - 2));
+  version->setFont(versionFont);
+  titleColumn->addWidget(version);
+  headerLayout->addLayout(titleColumn);
+  headerLayout->addStretch();
+  mainLayout->addWidget(header);
 
-  // Recent section label - same style as action labels
+  auto& icons = IconProvider::getInstance();
+  mainLayout->addWidget(createActionRow(tr("Import PDF"), QStringLiteral("⌘I"), icons.getIcon("file"), this,
+                                        [this]() { emit importPdf(); }));
+  mainLayout->addWidget(createActionRow(tr("Import Folder"), QString(), icons.getIcon("folder"), this,
+                                        [this]() { emit importFolder(); }));
+  mainLayout->addWidget(createActionRow(tr("Open Project"), QStringLiteral("⌘O"), icons.getIcon("project"), this,
+                                        [this]() { emit openProject(); }));
+
   auto* recentLabel = new QLabel(tr("Recent Projects"), this);
-  recentLabel->setFont(actionFont);
+  recentLabel->setObjectName(QStringLiteral("recentProjectsHeading"));
   mainLayout->addWidget(recentLabel);
 
-  // Recent projects container
   m_recentContainer = new QWidget(this);
+  m_recentContainer->setObjectName(QStringLiteral("recentProjectsContainer"));
   m_recentLayout = new QVBoxLayout(m_recentContainer);
   m_recentLayout->setContentsMargins(0, 0, 0, 0);
-  m_recentLayout->setSpacing(4);
-  mainLayout->addWidget(m_recentContainer);
+  m_recentLayout->setSpacing(0);
+  m_recentLayout->setAlignment(Qt::AlignTop);
 
-  // "No recent projects" label - same font as actions
+  auto* recentScroll = new QScrollArea(this);
+  recentScroll->setObjectName(QStringLiteral("recentProjectsScroll"));
+  recentScroll->setFrameShape(QFrame::NoFrame);
+  recentScroll->setWidgetResizable(true);
+  recentScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  recentScroll->setWidget(m_recentContainer);
+  mainLayout->addWidget(recentScroll, 1);
+
   m_noRecentLabel = new QLabel(tr("No recent projects"), m_recentContainer);
-  m_noRecentLabel->setFont(actionFont);
+  m_noRecentLabel->setObjectName(QStringLiteral("startupSecondaryLabel"));
   m_recentLayout->addWidget(m_noRecentLabel);
 
-  // Push everything to the top
-  mainLayout->addStretch();
-
-  // Load recent projects
   RecentProjects rp;
   rp.read();
   if (!rp.validate()) {
@@ -103,11 +170,6 @@ NewOpenProjectPanel::NewOpenProjectPanel(QWidget* parent) : QWidget(parent) {
     m_noRecentLabel->setVisible(false);
     rp.enumerate([this](const QString& filePath) { addRecentProject(filePath); });
   }
-
-  // Connect signals
-  connect(importPdfLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::importPdf);
-  connect(importFolderLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::importFolder);
-  connect(openProjectLabel, &ClickableLabel::clicked, this, &NewOpenProjectPanel::openProject);
 }
 
 void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
@@ -117,32 +179,9 @@ void NewOpenProjectPanel::addRecentProject(const QString& filePath) {
     baseName = QChar('_');
   }
 
-  auto* label = new ClickableLabel(baseName, m_recentContainer);
-  label->setToolTip(filePath);
-
-  // Same font as action labels
-  QFont font;
-  font.setPointSize(15);
-  font.setWeight(QFont::DemiBold);
-  label->setFont(font);
-
-  // Use palette-aware color: slightly lighter than normal text for visual hierarchy
-  QColor textColor = palette().color(QPalette::WindowText);
-  // Mix with mid to get a softer secondary color that works in both themes
-  QColor secondaryColor;
-  const int brightness = (textColor.red() + textColor.green() + textColor.blue()) / 3;
-  if (brightness > 128) {
-    // Dark mode (light text) - darken slightly
-    secondaryColor = textColor.darker(130);
-  } else {
-    // Light mode (dark text) - lighten slightly
-    secondaryColor = textColor.lighter(160);
-  }
-  label->setTextColor(secondaryColor);
-
-  m_recentLayout->addWidget(label);
-
-  connect(label, &ClickableLabel::clicked, this, [this, filePath]() {
-    emit openRecentProject(filePath);
-  });
+  const QString parentFolder = fileInfo.dir().dirName();
+  auto* row = new RecentProjectRow(baseName, parentFolder,
+                                   [this, filePath]() { emit openRecentProject(filePath); }, m_recentContainer);
+  row->setToolTip(filePath);
+  m_recentLayout->addWidget(row);
 }

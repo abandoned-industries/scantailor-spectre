@@ -41,6 +41,11 @@ PageView Filter::getView() const {
   return PAGE_VIEW;
 }
 
+bool Filter::isPageComplete(const PageId& pageId) const {
+  const std::unique_ptr<Params> params(m_settings->getPageParams(pageId));
+  return params && (params->mode() != MODE_AUTO || !params->dependencies().matches(Dependencies()));
+}
+
 void Filter::performRelinking(const AbstractRelinker& relinker) {
   m_settings->performRelinking(relinker);
   m_imageSettings->performRelinking(relinker);

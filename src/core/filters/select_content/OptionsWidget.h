@@ -114,8 +114,6 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void applyModeToSelectedPages();
 
-  void updateSelectionIndicator();
-
   void updateDetectionSettingsUI();
 
   std::shared_ptr<Settings> m_settings;

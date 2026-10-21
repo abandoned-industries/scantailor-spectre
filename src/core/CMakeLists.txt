@@ -182,7 +182,7 @@ if(APPLE)
       OUTPUT "${SCANTAILOR_DOCUMENT_OCR_BRIDGE}"
       COMMAND xcrun swiftc
         -swift-version 5
-        -target arm64-apple-macosx26.0
+        -target "arm64-apple-macosx${CMAKE_OSX_DEPLOYMENT_TARGET}"
         -parse-as-library
         -emit-library
         -module-cache-path "${CMAKE_BINARY_DIR}/swift-module-cache"
@@ -203,7 +203,9 @@ target_include_directories(core PRIVATE ${LEPTONICA_INCLUDE_DIRS} ${LEPTONICA_IN
 
 target_link_libraries(
   core
-  PRIVATE TIFF::TIFF PNG::PNG ZLIB::ZLIB JPEG::JPEG
+  # TiffWriter.h exposes TIFF types to consumers (including core_tests).
+  PUBLIC TIFF::TIFF
+  PRIVATE PNG::PNG ZLIB::ZLIB JPEG::JPEG
     ${LEPTONICA_LIBRARIES}
     $<$<BOOL:${VISION_FRAMEWORK}>:${VISION_FRAMEWORK}>
     $<$<BOOL:${FOUNDATION_FRAMEWORK}>:${FOUNDATION_FRAMEWORK}>

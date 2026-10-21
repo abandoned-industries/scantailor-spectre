@@ -209,8 +209,6 @@ class OptionsWidget : public FilterOptionsWidget, private Ui::OptionsWidget {
   // when the user pauses (~100ms), preventing N-writes-per-pixel during a drag.
   void commitPhotoAdjustments();
 
-  void updateSelectionIndicator();
-
   void updateWebPanelState();
 
   std::shared_ptr<Settings> m_settings;

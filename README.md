@@ -2,9 +2,22 @@
 
 <img width="256" height="256" alt="scantailor-spectre" src="https://github.com/user-attachments/assets/a3988c3d-d80e-4089-9418-2bd8302b4b63" />
 
-**Version 2.0b3** | macOS (Apple Silicon) | Requires macOS 15 or later
+**Version 2.0b7** | macOS (Apple Silicon) | Requires macOS 15 or later
 
-ScanTailor Spectre transforms raw scans into clean, publication-ready pages. Import a PDF or folder of images, process through a 10-stage workflow, and export a polished, searchable PDF.
+## New in 2.0b7: a redesigned workspace
+
+ScanTailor Spectre turns scanned books into cleaned-up, searchable PDFs. Version 2.0b7 introduces a more modern interface: explicit processing buttons, progress you can follow without losing sight of your pages, and inline review cards instead of summary dialogs.
+
+If you are upgrading from 2.0b3, the ten-stage workflow is familiar, but the workspace has changed:
+
+- Run a stage with **Process all pages**, or reprocess the page in front of you with **This page only**. Its settings sit under **Adjust**, which remembers whether you left it open or closed.
+- Keep the stage list and thumbnails in view while processing. A page count, progress bar and **Stop** button show what is happening; completion marks and a pages-waiting count show what remains.
+- Review **pages to check** directly in the workspace after Split Pages, Page Box, Select Content or Margins. Each card offers **Fine** and a **Fix** menu, so you can accept an unusual page or correct it without a separate summary dialog.
+- Navigate from the **Pages** header, with color-mode filters and numbered thumbnails. Page Up/Down now scroll the thumbnail list without changing the page you are editing; Q/W and the arrow keys still change pages.
+- Export from a **Your book is ready.** panel with **Export PDF…** in a fixed footer and resolution, PDF settings and metadata under **Adjust**. The Export panel also stays stable at window sizes that previously made it shake.
+- Start with **Import PDF**, **Import Folder** or **Open Project**, or reopen a recent project by name and folder.
+
+The redesign changes how you run and review your work, not the need to inspect the results. See the [quick start](#quick-start) below and the [release details](#version-20b7) for navigation changes and known limitations.
 
 ScanTailor Spectre is not intended for copyrighted works, but rather for works that you have the rights to or are in the public domain.
 
@@ -17,7 +30,7 @@ ScanTailor Spectre is not intended for copyrighted works, but rather for works t
 From the startup screen or from the file menu:
 - **Import PDF** - Extract pages from an existing PDF
 - **Import Folder** - Load a folder of scanned images
-- **Import Project** - Load a project you have previously saved.
+- **Open Project** - Load a project you have previously saved.
 
 **Supported formats:** PDF, TIFF, PNG, JPEG, JPEG 2000 (.jp2), HEIC/HEIF, WebP, BMP, GIF, PNM (.pbm/.pgm/.ppm)
 
@@ -40,21 +53,22 @@ Each filter stage refines your pages. Work top to bottom:
 | 9 | **OCR** | Text recognition for searchable PDFs |
 | 10 | **Export** | Create final PDF |
 
-To run a stage, click on the little triangular play button next to the stage you are at. Stage 10 is special. You don't need to run it, you simply click on Export to PDF. 
+Select a processing stage, then click **Process all pages** to run it across the book or **This page only** to reprocess the current page. Open **Adjust** to change its settings. Export is different: select **Export**, check its settings under **Adjust**, then click **Export PDF…**.
 
 ### 3. Auto Mode or Batch Process
 
 **Auto Mode** (`Cmd+Shift+A`) processes all pages through stages 2-8 with smart defaults. It automatically detects majority page layout, sets deskew to zero, preserves layout for low-coverage pages, and detaches size outliers from aggregate sizing. For OCR as well, use `Cmd+Shift+O`. You can stop auto mode at any point with the stop button.
 
-For manual control, batch process individual stages using the play button. If you need to split spreads to pages, run stage 2. If not, or if you have run stage 2 already go to stage 6, Finalize, and run it and each of the next stages.
+For manual control, work down the stage list using **Process all pages**. Check splitting and page geometry before continuing through Finalize and Output. Run OCR if you want searchable text, then use **Export PDF…** in Export.
 
-After batch processing certain stages, a summary dialog appears to help catch common problems:
+After Split Pages, Page Box, Select Content or Margins, an inline **pages to check** view helps you review unusual pages:
 
-- **Stage 2 (Split Pages)** - Shows pages that were/weren't split, lets you force changes
-- **Stage 4 (Select Content)** - Shows pages with low content coverage that might need layout preserved
-- **Stage 5 (Margins)** - Warns about unsplit spreads or outlier pages that cause margin issues. If you have unspilt spreads, you will have to go back to Stage 2. 
+- **Split Pages (2)** lets you review split and unsplit scans and correct their layout.
+- **Page Box (4)** flags unusual page boundaries.
+- **Select Content (5)** flags low-coverage pages whose original layout you may want to preserve.
+- **Margins (6)** flags size outliers and possible unsplit spreads.
 
-The dialogs in stage 2 and 5 let you jump directly to problem pages and take corrective action without hunting through hundreds of thumbnails.
+Use **Fine** to accept a card or its **Fix** menu to jump to the page or apply a correction. **All fine** clears the review; **Show all** returns to the page view. Review thresholds and bulk actions are under **Adjust**. These checks do not replace inspecting your output.
 
 ---
 
@@ -68,7 +82,7 @@ After you run a stage, the parameters that stage set are stored in your project 
 
 This is beta software. Save your project frequently.
 
-Before a new project is saved, generated page images and thumbnails are kept in macOS temporary storage. **Save Project** creates a self-contained project folder and moves a permanent copy into its `output` subfolder; closing an unsaved project may remove the temporary copy. The final PDF is created only when you use **Export to PDF**.
+Before a new project is saved, generated page images and thumbnails are kept in macOS temporary storage. **Save Project** creates a self-contained project folder and moves a permanent copy into its `output` subfolder; closing an unsaved project may remove the temporary copy. The final PDF is created only when you use **Export PDF…**.
 
 ### Stage 1: Fix Orientation
 
@@ -84,7 +98,7 @@ path and then trusted the center-ish split it found. That worked for clean
 text spreads, but it was weak on art books and photo-heavy scans where the
 visible gutter is a broad shadow rather than a thin white gap.
 
-In the current 2.0a25 line, Split Pages combines Apple Vision text-region
+Split Pages combines Apple Vision text-region
 evidence with a dedicated spine-darkness search. Vision provides a coarse
 anchor and page-number evidence; `SpineDarknessFinder` then tests candidate
 gutter columns using vertical persistence, local darkness, neighbor contrast,
@@ -109,25 +123,17 @@ The detector can still be wrong. For difficult art books, inspect Stage 2
 before continuing, especially spreads with full-page photographs, chapter
 openers, or images that run into the gutter.
 
-After batch processing, a summary dialog appears with two toggle buttons:
-- **Not Split (X)** - Pages kept as single pages (may need to be split)
-- **Split (Y)** - Pages that were split (may have been split incorrectly)
+After batch processing, review the inline **pages to check** cards. Under **Adjust**, switch between **Not Split** and **Split** to inspect either group. Use a card's **Fix** menu to jump to the page, force a two-page or single-page layout, or reset it to automatic layout. Use **Fine** when the result is correct.
 
-Double-click any page to jump to it for inspection. Use the action buttons to force changes:
-- In "Not Split" view: **Force Two-Page** makes pages split
-- In "Split" view: **Force Single Page** makes pages unsplit
-
-**Visual indicators in the list:**
-- Gray strikethrough = page was visited/jumped to
-- Dark green strikethrough = action was taken (force split or unsplit)   
+When applying a manual layout with **Apply to…**, the split line carries to the chosen pages, fitted to each page's outline. If you have dragged the line, the dialog opens on Manual; choosing Auto re-detects the split instead.
 
 ### Stage 3: Deskew
 
 Straightens pages that were slightly tilted during scanning. Even 1-2° of tilt is noticeable in output.
 
-**Tip:** Sort by "decreasing deviation" to review the most-skewed pages first. The sort order is located at the bottom of the thumbnail panel on the right.
+**Tip:** Sort by "decreasing deviation" to review the most-skewed pages first. The sort controls are in the **Pages** header above the thumbnails on the right.
 
-**Thumbnail Filters:** The B, G, M, C buttons at the bottom of the thumbnail panel filter pages by color mode (B&W, Grayscale, Mixed, Color). Mixed is independent, so you can review pages that combine text and photographs without also showing every color page. Click a button to show only pages of that type.
+**Thumbnail Filters:** The B, G, M, C pills in the **Pages** header filter pages by color mode (B&W, Grayscale, Mixed, Color). Mixed is independent, so you can review pages that combine text and photographs without also showing every color page. Click a button to show only pages of that type.
 
 ### Stage 4: Page Box
 
@@ -177,21 +183,11 @@ This excludes:
 
 Auto detection is not always perfect, especially with images or decorative elements. Sort by "Order by completeness" to review pages that may need manual adjustment.
 
-#### Content Coverage Summary
+#### Review content coverage
 
-After batch processing, a summary dialog appears showing pages grouped by content coverage:
-- **Low Coverage** - Pages where detected content covers less than the threshold percentage of the page area. These may have intentional layout (chapter titles, short paragraphs) that shouldn't be centered.
-- **Normal Coverage** - Pages where content fills most of the page area.
+After batch processing, **pages to check** lists pages whose detected content covers less than the threshold percentage of the page area. Chapter titles and short paragraphs may have intentional spacing that should not be centered.
 
-Use the **Coverage threshold** slider (20%-80%) to adjust what counts as "low coverage."
-
-**Actions for low coverage pages:**
-- **Jump to Selected** - Navigate to a page for manual inspection
-- **Preserve Layout (Selected/All)** - Disable content detection for these pages, keeping their original layout intact
-
-**Visual indicators:**
-- Gray strikethrough = page was visited/jumped to
-- Dark green strikethrough = action was taken (preserve layout)
+Under **Adjust**, use the **Coverage threshold** slider (20%-80%) to choose which pages are listed. A card's **Fix** menu lets you jump to that page or preserve its layout by disabling content detection. **Preserve layout (all listed)** applies that choice to the whole list. Use **Fine** to accept a page without changing it.
 
 ### Stage 6: Margins
 
@@ -218,7 +214,7 @@ The **Midtone Threshold** slider adjusts detection sensitivity, useful for small
 
 **Clear All Pages** resets all pages to unprocessed state, useful if you want to re-run automatic detection with different settings.
 
-Previous versions of ScanTailor exported to images, the workflow in this one is images or PDF to PDF. Images will be discarded when you close the project unless you choose to preserve them at this point by ticking the box to "Preserve Output Images."
+Generated images belong to the project workflow; they are not the final PDF. Save the project to keep its source images, processed images and settings together. Unsaved projects use temporary storage (see [Project Files](#project-files)).
 
 ### Stage 8: Output
 
@@ -283,9 +279,9 @@ These controls help the algorithm distinguish paper from content when correcting
 
 To draw a zone, select the zone tool, then click and drag on the preview image.
 
-#### Apply To...
+#### Apply to…
 
-Once you've tuned settings for one page, use **Apply To...** to copy those settings to other pages. You can apply to:
+Once you've tuned settings for one page, use **Apply to…** to copy those settings to other pages. You can apply to:
 - All pages
 - Selected pages only
 - Pages with the same color mode
@@ -305,16 +301,16 @@ Performs optical character recognition to make your PDF searchable. When enabled
 - Shows whether the current page has been processed
 - Displays the number of text blocks found
 
-OCR runs automatically when you batch process through the Export stage. Results are cached per-page, so re-running won't re-process pages that already have OCR data unless you clear them.
+Use **Process all pages** in OCR, or Auto Process All + OCR, to recognize text before exporting. Results are cached per-page, so re-running won't re-process pages that already have OCR data unless you clear them.
 
 ### Stage 10: Export
 
-Creates the final PDF.
+Creates the final PDF. The **Your book is ready.** panel keeps **Export PDF…** in a fixed footer while settings scroll separately. Open **Adjust** for resolution, PDF settings and book metadata. For Zotero projects, the return-to-Zotero option sits above the export button.
 
 **Max DPI:** Limits output resolution for grayscale and color pages. 
 
 400 DPI is the Library of Congress recommendation for most documents.
-If your scan is lower quality or to be read on screen only, you may find that lowering the resolution as low as 72 DPI gives acceptable results and a much lower final PDF size. At 72 DPI, however, it would be very difficult to read black and white pages, which is why they are controlled by the master output resolution in Stage 7.
+If your scan is lower quality or to be read on screen only, you may find that lowering the resolution as low as 72 DPI gives acceptable results and a much lower final PDF size. At 72 DPI, however, it would be very difficult to read black and white pages, which is why they are controlled by the output resolution in Stage 8 (Output).
  
 ---
 
@@ -322,9 +318,10 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 
 | Key | Action |
 |-----|--------|
-| `Cmd+Shift+A` | Auto Process All (stages 2-7) |
-| `Cmd+Shift+O` | Auto Process All + OCR (stages 2-8) |
-| `Page Up/Down` | Previous/next page |
+| `Cmd+Shift+A` | Auto Process All (Split Pages through Output) |
+| `Cmd+Shift+O` | Auto Process All + OCR (Split Pages through OCR) |
+| `Q` / `W`, arrow keys | Previous/next page |
+| `Page Up/Down` | Scroll thumbnails one screenful (does not change the current page) |
 | `Home` / `End` | First/last page |
 | `Cmd+S` | Save project |
 
@@ -378,7 +375,7 @@ If your scan is lower quality or to be read on screen only, you may find that lo
 - Generated page images and thumbnails in `output`
 - All settings and processing state
 
-The exported PDF is separate. Create it from Stage 10 with **Export to PDF**.
+The exported PDF is separate. Create it from Stage 10 with **Export PDF…**.
 
 ## Zotero Integration
 
@@ -409,17 +406,17 @@ If an item has several PDFs, the dialog lets you pick which one; if you right-cl
 Work through the stages as usual. For Zotero round-trip projects, **Return to Zotero** in the Export stage is turned on automatically (unchecking it is remembered for that project). When you export, the finished PDF is attached to the original Zotero item, and the export also succeeds locally even if Zotero is unreachable at that moment.
 
 ## Features
-- **Auto Mode** - One-button processing through all stages with smart defaults: majority-vote page splitting, zero deskew, content outlier detection, and size outlier handling
+- **Auto Mode** - Processing from Split Pages through Output, with optional OCR and smart defaults: majority-vote page splitting, zero deskew, content outlier detection, and size outlier handling
 - **Apple Silicon Native** -  Gatekeeper-friendly application
 - **PDF Import** - Open PDFs directly, no need to extract pages first
-- **Batch Processing Summaries** - Dialogs after stages 2, 4, 5 to catch problems and jump to pages needing attention
+- **Inline review** - Pages-to-check cards after Split Pages, Page Box, Select Content and Margins, with direct correction actions
 - **Detection Settings** - Adjustable Fill Factor and Border Tolerance for art books and photo-heavy content
-- **Finalize Stage** - New stage for color mode selection and output format
+- **Finalize Stage** - Dedicated stage for color mode selection and output format
 - **Intelligent Color Detection** - Auto-detects B&W vs grayscale vs color pages, including embedded photographs
 - **Photo Adjustments** - Temp, Tint, Exposure, Contrast, Highlights, Shadows, Whites, Blacks sliders with Auto and Reset. Exposure covers -1.00 to +1.00 f-stops in fine 0.01-stop steps.
 - **Packaged Web Output Panel** - Output stage web controls now ship with the required Qt WebEngine helper dependencies in the app bundle
 - **OCR Stage** - Automatic text recognition for searchable PDFs
-- **Export Stage** - New dedicated PDF export with quality presets
+- **Export Stage** - PDF export with quality presets, metadata under Adjust and a fixed export footer
 
 ---
 
@@ -450,6 +447,75 @@ Lastly, the first application I vibe-coded was a clone of the 1990s game Spectre
 The "spectre in the machine" draws on all of these. 
 
 ## Version History
+
+### Version 2.0b7
+
+This release brings a redesigned workspace to users upgrading from 2.0b3. The processing stages remain, but their actions, settings and review results now have distinct places in the window. Page Up/Down navigation has changed as described below.
+
+**The left column**
+
+- Processing stages now open with two buttons at the top: **Process all pages** runs the stage over the whole book (the small play button that used to sit in the stage list is gone; this button does its job), and **This page only** reprocesses the page you are looking at.
+- Under the buttons is a fold labeled **Adjust**. Click it to hide or show the stage's controls. Each stage remembers whether you left its fold open or closed, and reopens it that way next time. On first run every fold is open.
+- The stage list shows a check mark on stages that are finished for every page and a half circle on stages that are partly done. The stage you are on has a blue bar at its left edge.
+- The bottom of the column shows where you are: **Page 37 of 212**, or **Editing 3 pages** when several are selected, and **N pages waiting** when the current stage still has unprocessed pages. The **Editing N pages** label that used to sit inside each stage's controls is gone; this footer replaces it.
+- The column is never narrower than its contents. If the two buttons cannot fit side by side, the second drops under the first. Nothing runs off the right edge, scrollbar included.
+
+**Thumbnails**
+
+- The tool strip beside the thumbnails is now a two-row header under the word **Pages**. Every button that was there before is still there; the B, G, M and C color toggles are now small pills.
+- ⌘-click on the header's ▲ or ▼ goes to the first or last page, same as Home and End.
+- ⇧-click on ▲ or ▼, or Page Up and Page Down, scroll the thumbnails one screenful, so the row that was at the top ends up at the bottom. This only scrolls: the current page does not change and nothing is reprocessed. Q and W, the arrow keys and a plain click on ▲/▼ still step one page at a time; Shift+Page Up/Down still go to the previous or next selected page. Page Up and Page Down used to mean previous and next page; they no longer do.
+- The caption under each thumbnail is its page number in the current order (**37**). It used to be the file name.
+- The thumbnails no longer snap back to the current page while you are scrolling them; they re-center only when the current page actually changes.
+
+**Processing**
+
+- The stage list and thumbnails stay on screen while pages are being processed. The middle shows the stage name, a count such as **40 of 212**, a thin blue progress bar, a **Stop** button, **Beep when finished**, and the **System load** slider with its **Minimal** and **Maximal** ends. Thumbnails fill in as each page finishes.
+- The four pop-ups that used to appear after processing (split summary, page box, content coverage, page size) are gone. When some pages fall outside the rest, the middle shows them as cards under a heading such as **3 pages to check**. Each card has the page number, a note such as **152 × 228 mm · +31%**, a **Fine** button and a **Fix** menu with the same actions those pop-ups offered: jump to page, force two-page or single page layout, reset to auto layout, disable page box, preserve layout, detach from aggregate size, go to Split Pages. **All fine** clears the list; **Show all 212** brings back the full page. The threshold slider and the "all listed" button from each pop-up live under **Adjust**. Which pages get flagged, and at what threshold, is unchanged.
+
+**Split Pages**
+
+- The **Apply cut** box in the Apply to… dialog is gone. Choosing a manual layout and a range of pages now always carries your split line to those pages, fitted to each page's own outline. Auto still re-detects and carries no line. Nothing you drew by hand is ever discarded by an apply.
+- If you have dragged the split line on a page, the Apply to… dialog opens on **Manual** for that page instead of Auto, so accepting it no longer re-detects the line away. It opens on Auto only when the page is untouched.
+
+**Export**
+
+- The Export panel no longer oscillates (shakes) with each repaint at certain window sizes.
+- The Export stage is a card headed **Your book is ready.** with **Export PDF…** pinned at the bottom so it never scrolls out of reach. When a Zotero project is open, the return-to-Zotero line sits just above the button. Resolution, PDF settings and book metadata are under **Adjust**.
+
+**Start window**
+
+- The Start window shows the app icon and version, three large rows (**Import PDF**, **Import Folder**, **Open Project**) with their keyboard shortcuts, and your recent projects with the project name and its folder. There is no Zotero row: a scan sent from Zotero opens straight into its project.
+
+**Everywhere**
+
+- Every button that chooses which pages a setting applies to now reads **Apply to…**, Split Pages included. The three buttons that open a settings editor rather than a page chooser (output resolution, dewarping, export resolution) keep **Change…**.
+- The status bar at the bottom of the window still shows mouse position, image size, units and zone mode.
+- The file name of the current page is no longer shown anywhere. In 2.0b3 it appeared under each thumbnail; now the thumbnails show page numbers and nothing else carries it.
+
+**Unchanged on purpose**
+
+- Settings, the Project Files dialog, Fix DPI, Relinking, the menus and the keyboard shortcuts (apart from Page Up/Down above) are exactly as in 2.0b3. Dark mode was not checked in this version.
+
+**Known gaps**
+
+- Recent projects on the Start window show only the name and folder, not the page count or the last stage reached.
+- "Pages to check" appears only after Split Pages, Page Box, Select Content and Margins. Output does not flag pages.
+- The file name of the current page is not shown anywhere (see above).
+- There is no zoom readout.
+- Dark mode has not been validated for the redesign.
+
+**Compatibility and build corrections**
+
+- The minimum requirement remains **macOS 15 on Apple Silicon**. Runtime verification is limited to the current macOS 27 host; **macOS 15 has not been runtime-tested**. The release candidate was manually tested and accepted by the user on that host; this is not a claim that every workflow or input has been tested.
+- Uses official Qt 6.8.3 and checksum-pinned image libraries compiled for macOS 15, without lowering deployment-version metadata after compilation.
+- Repairs bundled dependencies, framework IDs and search paths, including nested WebEngine helpers; excludes the unused virtual-keyboard plugin. Metal shaders, translations, documentation and the Zotero companion are included.
+- The optional macOS 26 OCR bridge uses compiler-checked availability and retains the earlier-system fallback.
+- Includes **knutfh's PR #13 OpenGL/AGL workaround**, with corrected SDK lookup and override handling, plus TIFF public-header propagation and Metal deployment-target flags.
+
+### Earlier releases (archive)
+
+The entries below describe earlier versions, not additional changes in 2.0b7. Historical interface descriptions and benchmark results apply to the versions named. Use the guide above for the current workflow.
 
 ### Version 2.0b3
 

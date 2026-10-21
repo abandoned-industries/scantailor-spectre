@@ -123,8 +123,6 @@ class OptionsWidget : public FilterOptionsWidget, public UnitsListener, private 
 
   void applyFullBleedToSelectedPages();
 
-  void updateSelectionIndicator();
-
   std::shared_ptr<Settings> m_settings;
   PageSelectionAccessor m_pageSelectionAccessor;
   QIcon m_chainIcon;

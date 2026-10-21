@@ -7,12 +7,12 @@
 #include <core/IconProvider.h>
 
 #include <QApplication>
-#include <QFileInfo>
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsView>
 #include <QStyleOptionGraphicsItem>
 #include <QTimer>
+#include <QtMath>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QMessageBox>
 #include <boost/foreach.hpp>
@@ -23,6 +23,7 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <functional>
+#include <limits>
 #include <memory>
 
 #include "ColorSchemeManager.h"
@@ -97,6 +98,10 @@ class ThumbnailSequence::Impl {
   PageSequence toPageSequence() const;
 
   void updateSceneItemsPos();
+
+  int rowHeightForPageScroll(int direction) const;
+
+  void updatePageNumbers();
 
   void invalidateThumbnail(const PageId& pageId);
 
@@ -272,11 +277,14 @@ class ThumbnailSequence::LabelGroup : public QGraphicsItemGroup {
 
   void updateAppearence(bool selected, bool selectionLeader);
 
+  void setPageNumber(int pageNumber);
+
  private:
   QGraphicsSimpleTextItem* m_normalLabel;
   QGraphicsSimpleTextItem* m_boldLabel;
   QGraphicsPixmapItem* m_pixmap;
   QGraphicsPixmapItem* m_pixmapSelected;
+  int m_pageNumber = 0;
 };
 
 
@@ -295,6 +303,8 @@ class ThumbnailSequence::CompositeItem : public QGraphicsItemGroup {
   void updateSceneRect(QRectF& sceneRect);
 
   void updateAppearence(bool selected, bool selectionLeader);
+
+  void setPageNumber(int pageNumber);
 
   virtual QRectF boundingRect() const;
 
@@ -430,6 +440,10 @@ void ThumbnailSequence::setMaxLogicalThumbSize(const QSizeF& size) {
 
 void ThumbnailSequence::updateSceneItemsPos() {
   m_impl->updateSceneItemsPos();
+}
+
+int ThumbnailSequence::rowHeightForPageScroll(const int direction) const {
+  return m_impl->rowHeightForPageScroll(direction);
 }
 
 ThumbnailSequence::ViewMode ThumbnailSequence::getViewMode() const {
@@ -617,6 +631,7 @@ void ThumbnailSequence::Impl::orderItems() {
 
 void ThumbnailSequence::Impl::updateSceneItemsPos() {
   m_sceneRect = QRectF(0.0, 0.0, 0.0, 0.0);
+  updatePageNumbers();
 
   const int viewWidth = getGraphicsViewWidth();
   assert(viewWidth > 0);
@@ -669,6 +684,49 @@ void ThumbnailSequence::Impl::updateSceneItemsPos() {
   }
 
   commitSceneRect();
+}
+
+int ThumbnailSequence::Impl::rowHeightForPageScroll(const int direction) const {
+  if (m_itemsInOrder.empty() || m_graphicsScene.views().isEmpty()) {
+    return 0;
+  }
+
+  const QGraphicsView* view = m_graphicsScene.views().first();
+  const int edgeY = direction < 0 ? 0 : std::max(0, view->viewport()->height() - 1);
+  const double sceneEdgeY = view->mapToScene(QPoint(0, edgeY)).y();
+
+  double nearestDistance = std::numeric_limits<double>::max();
+  double nearestRowHeight = 0.0;
+  auto row = m_itemsInOrder.begin();
+  while (row != m_itemsInOrder.end()) {
+    const double rowTop = row->composite->pos().y();
+    double rowHeight = 0.0;
+    auto nextRow = row;
+    while (nextRow != m_itemsInOrder.end() && qFuzzyCompare(nextRow->composite->pos().y(), rowTop)) {
+      rowHeight = std::max(rowHeight, nextRow->composite->boundingRect().height() + SPACING);
+      ++nextRow;
+    }
+
+    const double rowBottom = rowTop + rowHeight;
+    const double distance = sceneEdgeY < rowTop ? rowTop - sceneEdgeY
+                                                : std::max(0.0, sceneEdgeY - rowBottom);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestRowHeight = rowHeight;
+    }
+    row = nextRow;
+  }
+
+  const double viewportRowHeight
+      = view->transform().mapRect(QRectF(0.0, 0.0, 1.0, nearestRowHeight)).height();
+  return qCeil(viewportRowHeight);
+}
+
+void ThumbnailSequence::Impl::updatePageNumbers() {
+  int pageNumber = 1;
+  for (const Item& item : m_itemsInOrder) {
+    item.composite->setPageNumber(pageNumber++);
+  }
 }
 
 void ThumbnailSequence::Impl::invalidateThumbnailImpl(const ItemsById::iterator idIt) {
@@ -1009,6 +1067,7 @@ void ThumbnailSequence::Impl::insert(const PageInfo& newPage, BeforeOrAfter befo
     ordIt->composite->updateSceneRect(m_sceneRect);
   }
 
+  updatePageNumbers();
   commitSceneRect();
 }  // ThumbnailSequence::Impl::insert
 
@@ -1039,6 +1098,7 @@ void ThumbnailSequence::Impl::removePages(const std::set<PageId>& pagesToRemove)
     }
   }
 
+  updatePageNumbers();
   commitSceneRect();
 }
 
@@ -1365,24 +1425,7 @@ std::unique_ptr<QGraphicsItem> ThumbnailSequence::Impl::getThumbnail(const PageI
 
 std::unique_ptr<ThumbnailSequence::LabelGroup> ThumbnailSequence::Impl::getLabelGroup(const PageInfo& pageInfo) {
   const PageId& pageId = pageInfo.id();
-  const QFileInfo fileInfo(pageId.imageId().filePath());
-  const QString fileName(fileInfo.completeBaseName());
-
-  QString text;
-  if (fileName.size() <= 15) {
-    text = fileName;
-  } else {
-    text = "..." + fileName.right(15);
-  }
-  if (pageInfo.imageId().isMultiPageFile()) {
-    text = ThumbnailSequence::tr("%1 (page %2)").arg(text).arg(pageId.imageId().page());
-  }
-  // Add L/R suffix for split pages
-  if (pageId.subPage() == PageId::LEFT_PAGE) {
-    text += "L";
-  } else if (pageId.subPage() == PageId::RIGHT_PAGE) {
-    text += "R";
-  }
+  const QString text(QStringLiteral("1"));
 
   auto normalTextItem = std::make_unique<QGraphicsSimpleTextItem>();
   normalTextItem->setText(text);
@@ -1589,6 +1632,33 @@ void ThumbnailSequence::LabelGroup::updateAppearence(bool selected, bool selecti
   }
 }
 
+void ThumbnailSequence::LabelGroup::setPageNumber(const int pageNumber) {
+  if (m_pageNumber == pageNumber) {
+    return;
+  }
+  m_pageNumber = pageNumber;
+
+  const QString text = QString::number(pageNumber);
+  m_normalLabel->setText(text);
+  m_boldLabel->setText(text);
+
+  QRectF normalTextBox(m_normalLabel->boundingRect());
+  QRectF boldTextBox(m_boldLabel->boundingRect());
+  normalTextBox.moveCenter(boldTextBox.center());
+  normalTextBox.moveRight(boldTextBox.right());
+  m_normalLabel->setPos(normalTextBox.topLeft());
+  m_boldLabel->setPos(boldTextBox.topLeft());
+
+  if (m_pixmap && m_pixmapSelected) {
+    const int labelPixmapSpacing = 5;
+    QRectF pixmapBox(m_pixmap->boundingRect());
+    pixmapBox.moveTop(boldTextBox.top());
+    pixmapBox.moveLeft(boldTextBox.right() + labelPixmapSpacing);
+    m_pixmap->setPos(pixmapBox.topLeft());
+    m_pixmapSelected->setPos(pixmapBox.topLeft());
+  }
+}
+
 /*==================== ThumbnailSequence::CompositeItem =====================*/
 
 ThumbnailSequence::CompositeItem::CompositeItem(ThumbnailSequence::Impl& owner,
@@ -1630,6 +1700,14 @@ void ThumbnailSequence::CompositeItem::updateSceneRect(QRectF& sceneRect) {
 
 void ThumbnailSequence::CompositeItem::updateAppearence(bool selected, bool selectionLeader) {
   m_labelGroup->updateAppearence(selected, selectionLeader);
+}
+
+void ThumbnailSequence::CompositeItem::setPageNumber(const int pageNumber) {
+  m_labelGroup->setPageNumber(pageNumber);
+  const QSizeF thumbSize(m_thumb->boundingRect().size());
+  const QSizeF labelSize(m_labelGroup->boundingRect().size());
+  m_labelGroup->setPos(m_thumb->pos().x() + 0.5 * (thumbSize.width() - labelSize.width()),
+                       m_thumb->boundingRect().height() + 2);
 }
 
 QRectF ThumbnailSequence::CompositeItem::boundingRect() const {

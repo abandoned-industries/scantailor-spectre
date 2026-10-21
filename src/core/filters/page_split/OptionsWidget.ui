@@ -145,16 +145,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="selectionIndicatorLabel">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item>
        <layout class="QHBoxLayout">
         <item>
          <spacer>
@@ -172,7 +162,7 @@
         <item>
          <widget class="QPushButton" name="changeBtn">
           <property name="text">
-           <string>Change ...</string>
+           <string>Apply to…</string>
           </property>
          </widget>
         </item>

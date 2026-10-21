@@ -1,0 +1,62 @@
+[
+  {
+    "file": "qtimageformats-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtimageformats.clang_64/6.8.3-0-202503201723qtimageformats-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "d745cbb0dac1f5d6901b43800b68c12889d1f89a",
+    "sha256": "aa22d0b0bb861f4ad54c7ee59e5f7728567c2a845b4d53b2a1d6550a6047c7a0"
+  },
+  {
+    "file": "qtpositioning-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtpositioning.clang_64/6.8.3-0-202503201723qtpositioning-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "895c7b2c118a09994256938e6f9fd117a70f1f4a",
+    "sha256": "f3804682a1b1d5c52a8309e519a2b7ad201d0750a18c3d8cfdc3f9300ed05f33"
+  },
+  {
+    "file": "qtserialport-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtserialport.clang_64/6.8.3-0-202503201723qtserialport-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "9533d531a6f028b8df01b7ac34d317839255ad49",
+    "sha256": "9fe96afd94c87cf952bbf4bfdfb2f13fc66afef8ae70d4b9f96ad5c740715c8f"
+  },
+  {
+    "file": "qtwebchannel-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtwebchannel.clang_64/6.8.3-0-202503201723qtwebchannel-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "093f4e6cc58d923cab345c702cf61d8cd85b14e7",
+    "sha256": "71b339c6668ff69ed771f62ac669561d3cf00704bb5ab78b2e82ba034c013b67"
+  },
+  {
+    "file": "qtbase-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.clang_64/6.8.3-0-202503201723qtbase-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "a1fa62a9926faf80bc4b0ad51c60f8ca77b70d93",
+    "sha256": "c4dfc40f1be702eaa08e08cf87a749c44c55e5eb09e46a7933f18ab4b7ca7ac7"
+  },
+  {
+    "file": "qtdeclarative-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.clang_64/6.8.3-0-202503201723qtdeclarative-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "7b10ec3252b29e4905304079ead6fb0409ff494d",
+    "sha256": "9b499244b4feafc9d5ff7cdb2ed8baf8ddbb7e71f6cd828c57707e37c8327beb"
+  },
+  {
+    "file": "qtsvg-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.clang_64/6.8.3-0-202503201723qtsvg-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "54717f5ea2103c8820e524f14a071e64e3a6992f",
+    "sha256": "14f0e28662ba3d2d6b297916746e5b45197cf5cca408de7c5249ce628aecdd02"
+  },
+  {
+    "file": "qttools-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.clang_64/6.8.3-0-202503201723qttools-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "f5dba30b5a7a4e1f32bd6fea0e8409a1ca105173",
+    "sha256": "ee98096c12c8a4026a550182fdd37d8546ec780c1a60a1a5b5d60d216e53a445"
+  },
+  {
+    "file": "qttranslations-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/desktop/qt6_683/qt6_683/qt.qt6.683.clang_64/6.8.3-0-202503201723qttranslations-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "fced1bec6e92131fb7849f54b2c25c3681c3bc08",
+    "sha256": "8d68157133a0c7c1ca6bfb83de2141c7956cba8d51978571a8166bd642830376"
+  },
+  {
+    "file": "qtwebengine-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "url": "https://download.qt.io/online/qtsdkrepository/mac_x64/extensions/qtwebengine/683/clang_64/extensions.qtwebengine.683.clang_64/6.8.3-0-202503201424qtwebengine-MacOS-MacOS_14-Clang-MacOS-MacOS_14-X86_64-ARM64.7z",
+    "sha1": "1c80678289c82072c9ffe6a84621e74e119f4080",
+    "sha256": "83102c280417e6f669e3d1a3afd4693cee9b5f213d09e671894be20ad335c02d"
+  }
+]

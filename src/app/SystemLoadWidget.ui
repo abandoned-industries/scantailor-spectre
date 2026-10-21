@@ -6,132 +6,103 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>234</width>
-    <height>40</height>
+    <width>480</width>
+    <height>48</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
+    <number>4</number>
+   </property>
+   <property name="leftMargin">
     <number>0</number>
    </property>
-   <item>
-    <widget class="QLabel" name="label">
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QLabel" name="systemLoadLabel">
      <property name="text">
       <string>System load</string>
      </property>
     </widget>
    </item>
    <item>
-    <spacer name="horizontalSpacer">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+    <layout class="QHBoxLayout" name="sliderLayout">
+     <property name="spacing">
+      <number>4</number>
      </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Fixed</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>6</width>
-       <height>1</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
-    <widget class="QToolButton" name="minusBtn">
-     <property name="styleSheet">
-      <string notr="true">#minusBtn {
-	border: none;
-	background-color: transparent;
-}
-
-#minusBtn:disabled {
-	border: none;
-	background-color: transparent;
-}
-
-#minusBtn:default {
-	border: none;
-	background-color: transparent;
-}
-
-#minusBtn:hover {
-	border: none;
-	background-color: transparent;
-}
-
-#minusBtn:pressed {
-	border: none;
-	background-color: transparent;
-}</string>
-     </property>
-     <property name="text">
-      <string>...</string>
-     </property>
-     <property name="icon">
-      <iconset resource="../resources/resources.qrc">
-       <normaloff>:/icons/minus.svg</normaloff>:/icons/minus.svg</iconset>
-     </property>
-     <property name="autoRaise">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QSlider" name="slider">
-     <property name="tracking">
-      <bool>false</bool>
-     </property>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="tickPosition">
-      <enum>QSlider::NoTicks</enum>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QToolButton" name="plusBtn">
-     <property name="styleSheet">
-      <string notr="true">#plusBtn {
-	border: none;
-	background-color: transparent;
-}
-
-#plusBtn:disabled {
-	border: none;
-	background-color: transparent;
-}
-
-#plusBtn:default {
-	border: none;
-	background-color: transparent;
-}
-
-#plusBtn:hover {
-	border: none;
-	background-color: transparent;
-}
-
-#plusBtn:pressed {
-	border: none;
-	background-color: transparent;
-}</string>
-     </property>
-     <property name="text">
-      <string>...</string>
-     </property>
-     <property name="icon">
-      <iconset resource="../resources/resources.qrc">
-       <normaloff>:/icons/plus.svg</normaloff>:/icons/plus.svg</iconset>
-     </property>
-     <property name="autoRaise">
-      <bool>true</bool>
-     </property>
-    </widget>
+     <item>
+      <widget class="QLabel" name="minimalLabel">
+       <property name="text">
+        <string>Minimal</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="minusBtn">
+       <property name="text">
+        <string>...</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../resources/resources.qrc">
+         <normaloff>:/icons/minus.svg</normaloff>:/icons/minus.svg</iconset>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="slider">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>1</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="tracking">
+        <bool>false</bool>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="tickPosition">
+        <enum>QSlider::NoTicks</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="plusBtn">
+       <property name="text">
+        <string>...</string>
+       </property>
+       <property name="icon">
+        <iconset resource="../resources/resources.qrc">
+         <normaloff>:/icons/plus.svg</normaloff>:/icons/plus.svg</iconset>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="maximalLabel">
+       <property name="text">
+        <string>Maximal</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

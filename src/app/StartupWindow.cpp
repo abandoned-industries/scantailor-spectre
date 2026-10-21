@@ -70,8 +70,7 @@ StartupWindow::StartupWindow(QWidget* parent) : QWidget(parent) {
   connect(aboutAction, &QAction::triggered, this, &StartupWindow::showAboutDialog);
 #endif
 
-  // Set a reasonable size
-  resize(500, 400);
+  resize(720, 520);
 }
 
 StartupWindow::~StartupWindow() = default;

@@ -103,16 +103,6 @@
        </layout>
       </item>
       <item>
-       <widget class="QLabel" name="selectionIndicatorLabel">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <spacer name="horizontalSpacer_9">
@@ -130,7 +120,7 @@
         <item>
          <widget class="QPushButton" name="applyDeskewBtn">
           <property name="text">
-           <string>Apply To ...</string>
+           <string>Apply to…</string>
           </property>
          </widget>
         </item>

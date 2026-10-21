@@ -61,7 +61,7 @@
       <item>
        <widget class="QPushButton" name="changeOutputDpiBtn">
         <property name="text">
-         <string>Change ...</string>
+         <string>Change…</string>
         </property>
        </widget>
       </item>
@@ -376,11 +376,20 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QGroupBox" name="zoteroGroup">
-     <property name="title">
-      <string>Zotero</string>
-     </property>
+       <widget class="QWidget" name="zoteroGroup" native="true">
      <layout class="QVBoxLayout" name="zoteroVLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
       <item>
        <widget class="QLabel" name="zoteroPluginWarningLabel">
         <property name="visible">
@@ -420,7 +429,7 @@
       <item>
        <widget class="QPushButton" name="exportToPdfBtn">
         <property name="text">
-         <string>Export PDF...</string>
+         <string>Export PDF…</string>
         </property>
         <property name="icon">
          <iconset theme="document-save-as"/>

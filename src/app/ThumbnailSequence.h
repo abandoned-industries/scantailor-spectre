@@ -4,6 +4,7 @@
 #ifndef SCANTAILOR_APP_THUMBNAILSEQUENCE_H_
 #define SCANTAILOR_APP_THUMBNAILSEQUENCE_H_
 
+#include <algorithm>
 #include <QObject>
 #include <memory>
 #include <set>
@@ -25,6 +26,22 @@ class ThumbnailFactory;
 class QSizeF;
 class QRectF;
 class QPoint;
+
+namespace ThumbnailScroll {
+
+inline int pageTarget(const int current,
+                      const int minimum,
+                      const int maximum,
+                      const int viewportHeight,
+                      const int rowHeight,
+                      const int fallbackPageStep,
+                      const int direction) {
+  const int step = rowHeight > 0 ? std::max(0, viewportHeight - rowHeight)
+                                 : std::max(0, fallbackPageStep);
+  return std::clamp(current + (direction < 0 ? -step : step), minimum, maximum);
+}
+
+}  // namespace ThumbnailScroll
 
 class ThumbnailSequence : public QObject {
   Q_OBJECT
@@ -95,6 +112,9 @@ class ThumbnailSequence : public QObject {
    * \note This function doesn't update thumbnails appearance.
    */
   void updateSceneItemsPos();
+
+  /** Returns the laid-out row height nearest the viewport edge in direction. */
+  int rowHeightForPageScroll(int direction) const;
 
   /**
    * \brief Updates appearance and possibly position of a thumbnail.

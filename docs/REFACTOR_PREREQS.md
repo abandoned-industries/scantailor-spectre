@@ -1,8 +1,8 @@
 # Refactor Prerequisites: Render-Driver Divergence Diff and Defect Verification
 
 **Date:** 2026-08-26 (prepared alongside `docs/REFACTOR_PROPOSAL.md`).
-**Tree:** `<repo root>`, branch `main`, at the state audited by
-`docs/ARCHITECTURE_AUDIT.md` (source tree identical to baseline commit `bb3db78c`). All line
+**Tree:** the historical source state audited by `docs/ARCHITECTURE_AUDIT.md`.
+This document records that audit, not a fresh assessment of the release candidate. All line
 numbers below are from the current files, re-verified by direct reads, not copied from the audit.
 **Method:** read-only. Both OutputGenerator render drivers were read line-by-line in full; every
 Part 2 claim was traced through the actual call chain. Git archaeology (`git log -L`, `-S`) was

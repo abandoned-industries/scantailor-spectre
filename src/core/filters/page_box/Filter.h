@@ -39,6 +39,7 @@ class Filter : public AbstractFilter {
 
   QString getName() const override;
   PageView getView() const override;
+  bool isPageComplete(const PageId& pageId) const override;
   int selectedPageOrder() const override;
   void selectPageOrder(int option) override;
   std::vector<PageOrderOption> pageOrderOptions() const override;

@@ -48,6 +48,11 @@ PageView Filter::getView() const {
   return PAGE_VIEW;
 }
 
+bool Filter::isPageComplete(const PageId& pageId) const {
+  const std::unique_ptr<Params> params(m_settings->getPageParams(pageId));
+  return params && !params->pageRect().isEmpty();
+}
+
 int Filter::selectedPageOrder() const {
   return m_selectedPageOrder;
 }

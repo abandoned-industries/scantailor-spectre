@@ -45,6 +45,8 @@ class Filter : public AbstractFilter {
 
   PageView getView() const override;
 
+  bool isPageComplete(const PageId& pageId) const override;
+
   void selected() override;
 
   int selectedPageOrder() const override;

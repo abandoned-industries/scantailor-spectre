@@ -12,19 +12,6 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="selectionIndicatorLabel">
-     <property name="styleSheet">
-      <string>font-weight: 500; color: #666;</string>
-     </property>
-     <property name="text">
-      <string/>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="pageBoxGroup">
      <property name="title">
       <string>Page Box</string>
@@ -146,7 +133,7 @@
    <item>
     <widget class="QPushButton" name="applyToBtn">
      <property name="text">
-      <string>Apply to ...</string>
+      <string>Apply to…</string>
      </property>
     </widget>
    </item>

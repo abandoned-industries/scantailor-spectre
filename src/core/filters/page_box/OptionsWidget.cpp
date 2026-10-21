@@ -43,7 +43,6 @@ void OptionsWidget::preUpdateUI(const PageInfo& pageInfo) {
 
   updatePageModeIndication(m_pageDetectionMode);
   updatePageDetectOptionsDisplay();
-  updateSelectionIndicator();
 }
 
 void OptionsWidget::postUpdateUI(const QRectF& pageRect, AutoManualMode pageDetectionMode, bool fineTuneCorners) {
@@ -149,12 +148,8 @@ void OptionsWidget::applySelection(const std::set<PageId>& pages) {
     }
   }
 
-  if (pages.size() > 1) {
-    emit invalidateAllThumbnails();
-  } else {
-    for (const PageId& pageId : pages) {
-      emit invalidateThumbnail(pageId);
-    }
+  for (const PageId& pageId : pages) {
+    emit invalidateThumbnail(pageId);
   }
   emit reloadRequested();
 }
@@ -199,13 +194,4 @@ void OptionsWidget::setupUiConnections() {
   CONNECT(applyToBtn, SIGNAL(clicked()), this, SLOT(showApplyToDialog()));
 }
 
-void OptionsWidget::updateSelectionIndicator() {
-  const std::set<PageId> selectedPages = m_pageSelectionAccessor.selectedPages();
-  if (selectedPages.size() > 1) {
-    selectionIndicatorLabel->setText(tr("%1 pages selected").arg(selectedPages.size()));
-    selectionIndicatorLabel->setVisible(true);
-  } else {
-    selectionIndicatorLabel->setVisible(false);
-  }
-}
 }  // namespace page_box

@@ -17,6 +17,7 @@ class AbstractRelinker;
 class QString;
 class QDomDocument;
 class QDomElement;
+class PageId;
 
 /**
  * Filters represent processing stages, like "Deskew", "Margins" and "Output".
@@ -28,6 +29,8 @@ class AbstractFilter : public std::enable_shared_from_this<AbstractFilter> {
   virtual QString getName() const = 0;
 
   virtual PageView getView() const = 0;
+
+  virtual bool isPageComplete(const PageId&) const { return true; }
 
   virtual void selected() {}
 

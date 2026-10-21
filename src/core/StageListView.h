@@ -14,17 +14,17 @@ class StageSequence;
 class StageListView : public QTableView {
   Q_OBJECT
  public:
+  enum class StageStatus { Untouched, Partial, Done };
+
   explicit StageListView(QWidget* parent);
 
   ~StageListView() override;
 
   void setStages(const std::shared_ptr<StageSequence>& stages);
 
+  void setStageStatus(int row, StageStatus status);
+
   QSize sizeHint() const override { return m_sizeHint; }
-
- signals:
-
-  void launchBatchProcessing();
 
  public slots:
 
@@ -49,10 +49,6 @@ class StageListView : public QTableView {
 
   class RightColDelegate;
 
-  void removeLaunchButton(int row);
-
-  void placeLaunchButton(int row);
-
   void initiateBatchAnimationFrameRendering();
 
   void createBatchAnimationSequence(int squareSide);
@@ -65,7 +61,6 @@ class StageListView : public QTableView {
   Model* m_model;
   LeftColDelegate* m_firstColDelegate;
   RightColDelegate* m_secondColDelegate;
-  QWidget* m_launchBtn;
   std::vector<QPixmap> m_batchAnimationPixmaps;
   int m_curBatchAnimationFrame;
   int m_timerId;

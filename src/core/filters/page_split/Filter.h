@@ -47,6 +47,8 @@ class Filter : public AbstractFilter {
 
   PageView getView() const override;
 
+  bool isPageComplete(const PageId& pageId) const override;
+
   void performRelinking(const AbstractRelinker& relinker) override;
 
   void preUpdateUI(FilterUiInterface* ui, const PageInfo& pageInfo) override;
