@@ -383,13 +383,16 @@ ScanTailor Spectre can round-trip a scan with Zotero: pick a PDF in your Zotero 
 
 ### Installing the Zotero Plugin
 
-The round trip is driven by **ScanTailor Spectre Loop**, a small companion plugin for Zotero. The plugin ships inside ScanTailor Spectre, so it remains available after you move the app to Applications and eject the disk image. Choose **Help → Install Zotero Plugin…** in ScanTailor Spectre to reveal `st-spectre-loop.xpi` in Finder. A second copy is also included next to the app on the disk image.
+The round trip requires the ScanTailor Spectre app and **ScanTailor Spectre Loop**, its companion Zotero plugin. Plugin **0.1.3** targets **Zotero 9.x and 10.0.x** on macOS.
 
-To install it:
+1. Download and install ScanTailor Spectre from the [application release](https://github.com/abandoned-industries/scantailor-spectre/releases/tag/v2.0b7).
+2. Download the updated [`st-spectre-loop-0.1.3.xpi`](https://github.com/abandoned-industries/scantailor-spectre/releases/download/v2.0b7/st-spectre-loop-0.1.3.xpi). An XPI is a Zotero plugin installation file; do not unzip it.
+3. In Zotero, open **Tools → Plugins**, click the gear button, choose **Install Add-on From File…**, and select that XPI.
+4. Restart Zotero.
 
-- In Zotero, open **Tools → Plugins**
-- Click the gear menu and choose **Install Plugin From File…**
-- In ScanTailor Spectre, choose **Help → Install Zotero Plugin…**, then select the revealed `st-spectre-loop.xpi`
+The app's **Help → Install Zotero Plugin…** command reveals its bundled XPI. The original 2.0b7 DMG and ZIP still contain plugin **0.1.2**, which declares Zotero 9-only compatibility. Use the separate **0.1.3** download above on Zotero 9 or 10. The application downloads have not been replaced.
+
+Plugin 0.1.3 changes compatibility and update metadata only. Its runtime files are identical to 0.1.2; the same runtime received activation and endpoint-registration checks on Zotero 10.0.6. A complete scan/export/return workflow has not been repeated for this metadata update.
 
 Zotero must be running when you export — the cleaned PDF is handed back through Zotero itself.
 

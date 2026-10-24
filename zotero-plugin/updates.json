@@ -1,0 +1,19 @@
+{
+  "addons": {
+    "st-spectre-loop@kazys.local": {
+      "updates": [
+        {
+          "version": "0.1.3",
+          "update_link": "https://github.com/abandoned-industries/scantailor-spectre/releases/download/v2.0b7/st-spectre-loop-0.1.3.xpi",
+          "update_hash": "sha256:769d65a9f1a1a4916d7313186d25bf468d5be77993a21ef9d0b2a31d1b94523b",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "9.0",
+              "strict_max_version": "10.0.*"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
